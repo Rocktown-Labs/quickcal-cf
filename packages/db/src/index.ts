@@ -7,3 +7,8 @@ export function createDb(env: DatabaseConfig) {
 }
 
 export type Database = ReturnType<typeof createDb>;
+
+export * from "./schema";
+export * from "./queries/uploads";
+export * from "./queries/users";
+export * from "./ics";

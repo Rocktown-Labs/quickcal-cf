@@ -17,9 +17,10 @@
     "varlock": "catalog:"
   },
   "dependencies": {
-    "zod": "catalog:",
-    "drizzle-orm": "catalog:",
     "@libsql/client": "0.18.0",
-    "libsql": "0.5.29"
+    "drizzle-orm": "catalog:",
+    "ics": "^3.12.0",
+    "libsql": "0.5.29",
+    "zod": "catalog:"
   }
 }
