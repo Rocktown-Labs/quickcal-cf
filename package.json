@@ -1,0 +1,45 @@
+{
+  "name": "quickcal-cf",
+  "private": true,
+  "type": "module",
+  "workspaces": {
+    "packages": [
+      "apps/*",
+      "packages/*"
+    ],
+    "catalog": {
+      "zod": "^4.5.4",
+      "@types/node": "^26.4.1",
+      "varlock": "1.18.0",
+      "@cloudflare/workers-types": "^5.20260906.1",
+      "better-auth": "1.7.5",
+      "evlog": "^2.28.1",
+      "tailwindcss": "^4.3.3",
+      "@better-auth/expo": "1.7.5",
+      "drizzle-orm": "1.0.0-rc.4"
+    }
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "dev:native": "turbo run dev -F native --",
+    "db:generate": "turbo run db:generate -F @quickcal-cf/db --",
+    "deploy": "turbo run deploy -F @quickcal-cf/infra --",
+    "destroy": "turbo run destroy -F @quickcal-cf/infra --",
+    "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./apps/native/ && varlock codegen --path ./packages/db/",
+    "postinstall": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./apps/native/ && varlock codegen --path ./packages/db/"
+  },
+  "packageManager": "bun@1.3.3",
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "@types/node": "catalog:",
+    "@quickcal-cf/config": "workspace:*",
+    "varlock": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "turbo": "^2.10.12"
+  }
+}

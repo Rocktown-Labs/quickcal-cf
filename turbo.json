@@ -1,0 +1,67 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        "dist/**",
+        ".astro/**"
+      ]
+    },
+    "lint": {
+      "dependsOn": [
+        "^lint"
+      ]
+    },
+    "check-types": {
+      "dependsOn": [
+        "^check-types"
+      ]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "db:generate": {
+      "cache": false,
+      "interactive": true
+    },
+    "deploy": {
+      "cache": false,
+      "interactive": true
+    },
+    "destroy": {
+      "cache": false,
+      "interactive": true
+    }
+  },
+  "globalEnv": [
+    "AXIOM_API_KEY",
+    "AXIOM_DATASET",
+    "AXIOM_EDGE_URL",
+    "BETTER_AUTH_SECRET",
+    "BETTER_AUTH_URL",
+    "CI",
+    "CORS_ORIGIN",
+    "EXPO_PUBLIC_SERVER_URL",
+    "NODE_ENV",
+    "PUBLIC_SERVER_URL",
+    "VERCEL",
+    "VERCEL_ENV",
+    "VERCEL_PROJECT_PRODUCTION_URL",
+    "VERCEL_URL",
+    "_VARLOCK_ENV_KEY"
+  ],
+  "globalDependencies": [
+    ".env*",
+    "apps/*/.env*",
+    "packages/*/.env*"
+  ]
+}

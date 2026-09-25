@@ -1,0 +1,28 @@
+{
+  "name": "server",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsdown",
+    "check-types": "tsc --noEmit",
+    "compile": "bun build --compile --no-compile-autoload-dotenv --minify --sourcemap --bytecode ./src/index.ts --outfile server",
+    "env:generate": "varlock codegen"
+  },
+  "dependencies": {
+    "zod": "catalog:",
+    "@quickcal-cf/auth": "workspace:*",
+    "@quickcal-cf/db": "workspace:*",
+    "varlock": "catalog:",
+    "hono": "^4.13.7",
+    "better-auth": "catalog:",
+    "evlog": "catalog:"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "tsdown": "^0.23.0",
+    "@quickcal-cf/config": "workspace:*",
+    "@types/node": "catalog:",
+    "@cloudflare/workers-types": "catalog:",
+    "@quickcal-cf/infra": "workspace:*"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@quickcal-cf/db",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "check-types": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:deploy": "drizzle-kit migrate"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3",
+    "@quickcal-cf/config": "workspace:*",
+    "drizzle-kit": "1.0.0-rc.4",
+    "varlock": "catalog:"
+  },
+  "dependencies": {
+    "zod": "catalog:",
+    "drizzle-orm": "catalog:",
+    "@libsql/client": "0.18.0",
+    "libsql": "0.5.29"
+  }
+}

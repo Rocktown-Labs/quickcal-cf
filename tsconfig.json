@@ -1,0 +1,3 @@
+{
+  "extends": "@quickcal-cf/config/tsconfig.base.json",
+}
