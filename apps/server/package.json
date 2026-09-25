@@ -9,9 +9,11 @@
     "env:generate": "varlock codegen"
   },
   "dependencies": {
+    "@ai-sdk/google": "^4.0.80",
     "@hono/zod-openapi": "^1.6.3",
     "@quickcal-cf/auth": "workspace:*",
     "@quickcal-cf/db": "workspace:*",
+    "ai": "^7.0.114",
     "better-auth": "catalog:",
     "evlog": "catalog:",
     "hono": "^4.13.7",

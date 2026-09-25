@@ -6,7 +6,10 @@ import {
   createUploadRecord,
   getUploadById,
   getUploadEventCount,
+  getUserUploadByWorkflowRunId,
   getUserUploads,
+  updateUploadRecord,
+  type UploadStatus,
 } from "@quickcal-cf/db";
 import { ENV } from "../env.server";
 import { getDb } from "../services";
@@ -105,8 +108,12 @@ const createUpload = createRoute({
   },
   responses: {
     [HttpStatusCodes.ACCEPTED]: jsonContent(
-      z.object({ uploadId: z.string(), status: uploadStatusEnum }),
-      "Upload stored, processing will start",
+      z.object({
+        uploadId: z.string(),
+        runId: z.string(),
+        status: uploadStatusEnum,
+      }),
+      "Upload stored, workflow started",
     ),
     [HttpStatusCodes.FORBIDDEN]: jsonContent(
       createMessageObjectSchema("Premium required"),
@@ -150,23 +157,89 @@ app.openapi(createUpload, async (c) => {
     httpMetadata: { contentType: file.type },
   });
 
+  const upload = await createUploadRecord(db, {
+    fileName: file.name,
+    fileType: file.type,
+    storageKey,
+    userId,
+    status: "pending",
+  }).catch(async (error) => {
+    await ENV.FILES.delete(storageKey).catch(() => undefined);
+    throw error;
+  });
+
   try {
-    const upload = await createUploadRecord(db, {
-      fileName: file.name,
-      fileType: file.type,
-      storageKey,
-      userId,
-      status: "pending",
+    const instance = await ENV.CALENDAR_WORKFLOW.create({
+      params: {
+        uploadId: upload.id,
+        storageKey,
+        fileName: file.name,
+        fileType: file.type,
+        userId,
+      },
     });
+
+    await updateUploadRecord(db, upload.id, {
+      workflowRunId: instance.id,
+      status: "processing",
+      failureReason: null,
+    });
+
     return c.json(
-      { uploadId: upload.id, status: upload.status },
+      { uploadId: upload.id, runId: instance.id, status: "processing" as const },
       HttpStatusCodes.ACCEPTED,
     );
   } catch (error) {
-    await ENV.FILES.delete(storageKey).catch(() => undefined);
+    await updateUploadRecord(db, upload.id, {
+      status: "failed",
+      failureReason:
+        error instanceof Error ? error.message : "Failed to start processing workflow.",
+    });
     throw error;
   }
 });
+
+type StatusRow = {
+  id: string;
+  status: UploadStatus;
+  failureReason: string | null;
+  shareToken: string | null;
+};
+
+async function buildStatusResponse(
+  db: ReturnType<typeof getDb>,
+  upload: StatusRow,
+) {
+  const eventCount =
+    upload.status === "completed" ? await getUploadEventCount(db, upload.id) : 0;
+
+  return {
+    uploadId: upload.id,
+    status: upload.status,
+    eventCount,
+    failureReason: upload.failureReason,
+    result:
+      upload.status === "completed"
+        ? {
+            uploadId: upload.id,
+            eventCount,
+            status: upload.status,
+            ...(upload.shareToken ? { shareToken: upload.shareToken } : {}),
+            ...(upload.shareToken
+              ? { downloadPath: `/api/share/${upload.shareToken}/ics` }
+              : {}),
+          }
+        : null,
+  };
+}
+
+const statusResponses = {
+  [HttpStatusCodes.OK]: jsonContent(statusResultSchema, "Current processing status"),
+  [HttpStatusCodes.NOT_FOUND]: jsonContent(
+    createMessageObjectSchema("Not found"),
+    "Upload not found",
+  ),
+};
 
 const getUploadStatus = createRoute({
   method: "get",
@@ -176,13 +249,7 @@ const getUploadStatus = createRoute({
   request: {
     params: z.object({ id: z.string().uuid() }),
   },
-  responses: {
-    [HttpStatusCodes.OK]: jsonContent(statusResultSchema, "Current processing status"),
-    [HttpStatusCodes.NOT_FOUND]: jsonContent(
-      createMessageObjectSchema("Not found"),
-      "Upload not found",
-    ),
-  },
+  responses: statusResponses,
 });
 
 app.openapi(getUploadStatus, async (c) => {
@@ -195,30 +262,62 @@ app.openapi(getUploadStatus, async (c) => {
     return c.json({ message: "Upload not found" }, HttpStatusCodes.NOT_FOUND);
   }
 
-  const eventCount =
-    upload.status === "completed" ? await getUploadEventCount(db, upload.id) : 0;
+  return c.json(await buildStatusResponse(db, upload), HttpStatusCodes.OK);
+});
 
-  return c.json(
-    {
-      uploadId: upload.id,
-      status: upload.status,
-      eventCount,
-      failureReason: upload.failureReason,
-      result:
-        upload.status === "completed"
-          ? {
-              uploadId: upload.id,
-              eventCount,
-              status: upload.status,
-              ...(upload.shareToken ? { shareToken: upload.shareToken } : {}),
-              ...(upload.shareToken
-                ? { downloadPath: `/api/share/${upload.shareToken}/ics` }
-                : {}),
-            }
-          : null,
-    },
-    HttpStatusCodes.OK,
-  );
+const TERMINAL_STATUSES: ReadonlySet<UploadStatus> = new Set([
+  "completed",
+  "failed",
+  "no_events",
+]);
+
+const getUploadStatusByRun = createRoute({
+  method: "get",
+  path: "/by-run/{runId}/status",
+  tags: ["Uploads"],
+  summary: "Poll processing status by workflow run id",
+  request: {
+    params: z.object({ runId: z.string().min(1) }),
+  },
+  responses: statusResponses,
+});
+
+app.openapi(getUploadStatusByRun, async (c) => {
+  const { runId } = c.req.valid("param");
+  const userId = c.get("userId");
+  const db = getDb();
+
+  const upload = await getUserUploadByWorkflowRunId(db, userId, runId);
+  if (!upload) {
+    return c.json({ message: "Upload not found" }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  if (!TERMINAL_STATUSES.has(upload.status)) {
+    try {
+      const instance = await ENV.CALENDAR_WORKFLOW.get(runId);
+      const state = await instance.status();
+      if (state.status === "errored" || state.status === "terminated") {
+        const failureReason =
+          upload.failureReason ?? "Workflow failed during processing.";
+        await updateUploadRecord(db, upload.id, {
+          status: "failed",
+          failureReason,
+        });
+        return c.json(
+          await buildStatusResponse(db, {
+            ...upload,
+            status: "failed",
+            failureReason,
+          }),
+          HttpStatusCodes.OK,
+        );
+      }
+    } catch {
+      // Workflow handle unavailable — fall back to the stored DB status.
+    }
+  }
+
+  return c.json(await buildStatusResponse(db, upload), HttpStatusCodes.OK);
 });
 
 export default app;

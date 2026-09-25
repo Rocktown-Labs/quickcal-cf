@@ -62,6 +62,8 @@ app.get("/", (c) => {
 	return c.text("OK");
 });
 
+export { CalendarProcessingWorkflow } from "./workflows/calendar-processing";
+
 app.notFound(notFound);
 app.onError(onError);
 
