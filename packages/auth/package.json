@@ -13,11 +13,13 @@
     "@quickcal-cf/config": "workspace:*"
   },
   "dependencies": {
-    "zod": "catalog:",
+    "@better-auth/drizzle-adapter": "1.7.5",
+    "@better-auth/expo": "catalog:",
+    "@better-auth/stripe": "^1.7.6",
     "@quickcal-cf/db": "workspace:*",
     "better-auth": "catalog:",
-    "@better-auth/drizzle-adapter": "1.7.5",
     "drizzle-orm": "catalog:",
-    "@better-auth/expo": "catalog:"
+    "stripe": "^22.6.2",
+    "zod": "catalog:"
   }
 }

@@ -9,6 +9,7 @@ export const user = sqliteTable("user", {
     .default(false)
     .notNull(),
   image: text("image"),
+  stripeCustomerId: text("stripe_customer_id"),
   phoneNumber: text("phone_number"),
   isOnboarded: integer("is_onboarded", { mode: "boolean" })
     .default(false)

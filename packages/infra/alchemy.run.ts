@@ -57,6 +57,9 @@ export const server = Cloudflare.Worker("quickcalai-server", {
     CORS_ORIGIN: Config.String("CORS_ORIGIN"),
     BETTER_AUTH_SECRET: Config.Redacted("BETTER_AUTH_SECRET"),
     BETTER_AUTH_URL: Cloudflare.Worker.URL,
+    STRIPE_SECRET_KEY: Config.Redacted("STRIPE_SECRET_KEY"),
+    STRIPE_WEBHOOK_SECRET: Config.Redacted("STRIPE_WEBHOOK_SECRET"),
+    STRIPE_PREMIUM_PRICE_ID: Config.String("STRIPE_PREMIUM_PRICE_ID"),
     ...observabilityBindings,
   },
   dev: {
