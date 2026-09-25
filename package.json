@@ -24,6 +24,8 @@
     "build": "turbo run build",
     "check-types": "turbo run check-types",
     "dev:native": "turbo run dev -F native --",
+    "test": "bun test ./packages/db ./apps/server",
+    "test:all": "turbo run test",
     "db:generate": "turbo run db:generate -F @quickcal-cf/db --",
     "deploy": "turbo run deploy -F @quickcal-cf/infra --",
     "destroy": "turbo run destroy -F @quickcal-cf/infra --",
