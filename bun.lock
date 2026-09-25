@@ -11,6 +11,7 @@
         "@cloudflare/workers-types": "catalog:",
         "@quickcal-cf/config": "workspace:*",
         "@types/node": "catalog:",
+        "bun-types": "^1.4.2",
         "turbo": "^2.10.12",
         "typescript": "^6.0.3",
         "varlock": "catalog:",
@@ -86,6 +87,7 @@
         "@quickcal-cf/config": "workspace:*",
         "@quickcal-cf/infra": "workspace:*",
         "@types/node": "catalog:",
+        "bun-types": "^1.4.2",
         "tsdown": "^0.23.0",
         "typescript": "^6.0.3",
       },
@@ -142,6 +144,7 @@
       },
       "devDependencies": {
         "@quickcal-cf/config": "workspace:*",
+        "bun-types": "^1.4.2",
         "drizzle-kit": "1.0.0-rc.4",
         "typescript": "^6.0.3",
         "varlock": "catalog:",
@@ -1278,6 +1281,8 @@
     "bser": ["bser@2.1.1", "", { "dependencies": { "node-int64": "^0.4.0" } }, "sha512-gQxTNE/GAfIIrmHLUE3oJyp5FO6HRBfhjnw4/wMmA63ZGDJnWBmgY/lyQBpnDUkGmAhbSe39tx2d/iTOAfglwQ=="],
 
     "buffer-from": ["buffer-from@1.1.2", "", {}, "sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ=="],
+
+    "bun-types": ["bun-types@1.4.2", "", { "dependencies": { "@types/node": "*" } }, "sha512-bxV1FgK7yBIzjRe5zBozIM4Bem11ZJcCXSrjWRG3YWLt8yFDePu4cLjpebO8OvPeIE9trbyPF4fuj3Cia4Fj3w=="],
 
     "bytes": ["bytes@3.1.2", "", {}, "sha512-/Nf7TyzTx6S3yRJObOAV7956r8cr2+Oj8AC5dt8wSP3BQAoeX58NoHyCU8P8zGkNXStjTSi6fzO6F0pBdcYbEg=="],
 

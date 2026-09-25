@@ -23,11 +23,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "typescript": "^6.0.3",
-    "tsdown": "^0.23.0",
-    "@quickcal-cf/config": "workspace:*",
-    "@types/node": "catalog:",
     "@cloudflare/workers-types": "catalog:",
-    "@quickcal-cf/infra": "workspace:*"
+    "@quickcal-cf/config": "workspace:*",
+    "@quickcal-cf/infra": "workspace:*",
+    "@types/node": "catalog:",
+    "bun-types": "^1.4.2",
+    "tsdown": "^0.23.0",
+    "typescript": "^6.0.3"
   }
 }

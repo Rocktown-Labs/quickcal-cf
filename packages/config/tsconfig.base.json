@@ -20,7 +20,8 @@
     "types": [
         "node"
 ,
-      "@cloudflare/workers-types"
+      "@cloudflare/workers-types",
+      "bun-types"
     ]
   }
 }
