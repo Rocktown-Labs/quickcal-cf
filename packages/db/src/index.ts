@@ -11,4 +11,6 @@ export type Database = ReturnType<typeof createDb>;
 export * from "./schema";
 export * from "./queries/uploads";
 export * from "./queries/users";
+export * from "./queries/apikeys";
+export * from "./queries/billing";
 export * from "./ics";

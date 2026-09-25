@@ -11,6 +11,10 @@ export const db = Cloudflare.D1.Database("database", {
   migrations: "../../packages/db/src/migrations",
 });
 
+export const files = Cloudflare.R2.Bucket("files", {
+  name: "quickcalai-files",
+});
+
 export const observability = Effect.gen(function* () {
   const { stage } = yield* Alchemy.Stack;
   const datasetName = `quickcal-cf-${stage}-logs`;
@@ -54,6 +58,7 @@ export const server = Cloudflare.Worker("quickcalai-server", {
   },
   env: {
     DB: db,
+    FILES: files,
     CORS_ORIGIN: Config.String("CORS_ORIGIN"),
     BETTER_AUTH_SECRET: Config.Redacted("BETTER_AUTH_SECRET"),
     BETTER_AUTH_URL: Cloudflare.Worker.URL,

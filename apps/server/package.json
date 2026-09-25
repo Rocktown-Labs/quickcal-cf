@@ -9,13 +9,15 @@
     "env:generate": "varlock codegen"
   },
   "dependencies": {
-    "zod": "catalog:",
+    "@hono/zod-openapi": "^1.6.3",
     "@quickcal-cf/auth": "workspace:*",
     "@quickcal-cf/db": "workspace:*",
-    "varlock": "catalog:",
-    "hono": "^4.13.7",
     "better-auth": "catalog:",
-    "evlog": "catalog:"
+    "evlog": "catalog:",
+    "hono": "^4.13.7",
+    "stoker": "^2.0.1",
+    "varlock": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "typescript": "^6.0.3",

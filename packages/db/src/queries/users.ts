@@ -1,4 +1,4 @@
-import { desc, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import type { Database } from "../index";
 import { events, uploads } from "../schema";
 
@@ -59,4 +59,25 @@ export async function getUploadEvents(db: Database, uploadId: string) {
 
 export async function deleteUpload(db: Database, uploadId: string) {
   return db.delete(uploads).where(eq(uploads.id, uploadId));
+}
+
+export async function getDashboardStats(db: Database, userId: string) {
+  const [total] = await db
+    .select({ n: count() })
+    .from(uploads)
+    .where(eq(uploads.userId, userId));
+  const [completed] = await db
+    .select({ n: count() })
+    .from(uploads)
+    .where(and(eq(uploads.userId, userId), eq(uploads.status, "completed")));
+  const [eventsRow] = await db
+    .select({ n: count() })
+    .from(events)
+    .where(eq(events.userId, userId));
+
+  return {
+    totalUploads: total?.n ?? 0,
+    completedUploads: completed?.n ?? 0,
+    totalEvents: eventsRow?.n ?? 0,
+  };
 }
