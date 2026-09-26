@@ -18,7 +18,8 @@ export const calendarWorkflow = Cloudflare.Workflows.Workflow("calendar-workflow
   className: "CalendarProcessingWorkflow",
 });
 
-export const server = Cloudflare.Worker("quickcalai-server", {
+export const server = Cloudflare.Worker("server", {
+  name: "quickcal-server",
   main: "../../apps/server/src/index.ts",
   compatibility: {
     flags: ["nodejs_compat"],
@@ -51,7 +52,8 @@ export default Alchemy.Stack(
   },
   Effect.gen(function* () {
     const serverWorker = yield* server;
-    const webWorker = yield* Cloudflare.Website.Astro("quickcalai-web", {
+    const webWorker = yield* Cloudflare.Website.Astro("web", {
+      name: "quickcal-web",
       rootDir: "../../apps/web",
       env: {
         SESSION: Cloudflare.KV.Namespace("session"),
