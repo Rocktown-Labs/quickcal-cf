@@ -1,0 +1,103 @@
+---
+import Layout from "./Layout.astro";
+import ThemeSwitcher from "../components/ThemeSwitcher.astro";
+
+interface Props {
+  title: string;
+  active: "dashboard" | "files" | "settings";
+}
+
+const { title, active } = Astro.props;
+
+const items = [
+  { name: "Home", href: "/dashboard", id: "dashboard", icon: "📤" },
+  { name: "Files", href: "/files", id: "files", icon: "📄" },
+  { name: "Settings", href: "/settings", id: "settings", icon: "⚙️" },
+];
+---
+
+<Layout title={title}>
+  <div class="min-h-screen flex w-full">
+    <!-- Desktop Sidebar -->
+    <div class="hidden md:block">
+      <div class="flex flex-col h-screen sticky top-0 w-60 bg-background border-r border-border">
+        <div class="p-6 border-b border-border">
+          <a href="/" class="flex items-center">
+            <span class="font-bold text-xl">QuickCalAI</span>
+          </a>
+        </div>
+        <nav class="flex-1 p-6">
+          <ul class="space-y-2">
+            {items.map((item) => (
+              <li>
+                <a
+                  href={item.href}
+                  class:list={[
+                    "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 hover:bg-accent hover:text-accent-foreground",
+                    active === item.id && "bg-primary text-primary-foreground hover:bg-primary/90",
+                  ]}
+                >
+                  <span class="text-xl">{item.icon}</span>
+                  <span class="font-medium">{item.name}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div class="p-6 border-t border-border">
+          <div class="flex items-center justify-center space-x-4">
+            <ThemeSwitcher />
+            <span class="text-sm text-muted-foreground truncate" data-user-email></span>
+            <button data-signout class="text-sm text-muted-foreground hover:text-foreground">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-auto pb-16 md:pb-0">
+      <slot />
+    </main>
+
+    <!-- Mobile Navigation -->
+    <div class="fixed bottom-0 left-0 right-0 bg-background border-t border-border z-50 md:hidden">
+      <nav class="flex items-center justify-around px-2 py-2">
+        {items.map((item) => (
+          <a
+            href={item.href}
+            class:list={[
+              "flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-200 min-w-0 flex-1",
+              active === item.id ? "text-primary" : "text-muted-foreground hover:text-foreground hover:bg-accent",
+            ]}
+          >
+            <span class:list={["text-xl mb-1", active === item.id && "scale-110"]}>{item.icon}</span>
+            <span class="text-xs font-medium truncate">{item.name}</span>
+          </a>
+        ))}
+      </nav>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { authClient } from "../lib/auth-client";
+
+  (async () => {
+    try {
+      const { data: session } = await authClient.getSession();
+      if (!session?.user) { window.location.href = "/login"; return; }
+      for (const el of document.querySelectorAll("[data-user-email]")) {
+        el.textContent = session.user.email ?? "";
+      }
+    } catch {
+      window.location.href = "/login";
+    }
+  })();
+
+  for (const btn of document.querySelectorAll("[data-signout]")) {
+    btn.addEventListener("click", async () => {
+      await authClient.signOut();
+      window.location.href = "/";
+    });
+  }
+</script>

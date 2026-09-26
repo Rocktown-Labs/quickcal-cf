@@ -1,251 +1,294 @@
 ---
 import Layout from "../layouts/Layout.astro";
+import Navbar from "../components/Navbar.astro";
+import Logo from "../components/Logo.astro";
 ---
 
-<Layout title="QuickCalAI — Image to calendar in seconds">
-  <!-- Hero -->
-  <section id="hero" class="relative flex min-h-[90vh] items-center">
-    <div class="mx-auto w-full max-w-7xl px-4 pt-28 pb-20 sm:px-6 lg:px-8">
-      <div class="grid items-center gap-16 lg:grid-cols-2">
-        <div class="space-y-8">
-          <div>
-            <span class="inline-flex items-center gap-2 rounded-full border border-[#c23326]/20 bg-[#c23326]/10 px-3.5 py-1 text-xs font-medium tracking-wide uppercase text-[#c23326]">
-              <span class="h-1.5 w-1.5 rounded-full bg-[#c23326]"></span>
-              AI-Powered Scheduling
-            </span>
+<Layout>
+  <div class="pb-16 md:pb-0">
+    <Navbar />
+
+    <!-- Hero -->
+    <section id="hero" class="relative min-h-[90vh] flex items-center">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-28 pb-20 w-full">
+        <div class="grid lg:grid-cols-2 gap-16 items-center">
+          <div class="space-y-8">
+            <div class="animate-fade-in">
+              <span class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-medium tracking-wide uppercase bg-primary/10 text-primary border border-primary/20">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                AI-Powered Scheduling
+              </span>
+            </div>
+            <div class="animate-slide-up">
+              <h1 class="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-[4.25rem] leading-[1.08] tracking-tight">
+                Image to calendar
+                <br />
+                in <span class="text-primary">seconds</span>
+              </h1>
+            </div>
+            <p class="text-lg text-muted-foreground max-w-md leading-relaxed animate-slide-up delay-100">
+              Upload a photo of any schedule. Our AI extracts every event and generates
+              calendar files you can import anywhere.
+            </p>
+            <div class="flex flex-col sm:flex-row gap-3 animate-slide-up delay-200">
+              <a href="/signup" class="bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg px-6 h-11 text-sm font-semibold inline-flex items-center justify-center group">
+                Get started free
+                <span class="ml-2 transition-transform group-hover:translate-x-0.5">→</span>
+              </a>
+              <a href="#how-it-works" class="rounded-lg px-6 h-11 text-sm font-semibold border border-border hover:bg-secondary inline-flex items-center justify-center">
+                How it works
+              </a>
+            </div>
+            <div class="flex items-center gap-5 text-sm text-muted-foreground animate-fade-in delay-300">
+              <div class="flex items-center gap-1.5">
+                <span class="text-primary">✓</span>
+                No credit card required
+              </div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-primary">✓</span>
+                Setup in 30 seconds
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 class="text-4xl leading-[1.08] tracking-tight sm:text-5xl md:text-6xl lg:text-[4.25rem]">
-              Image to calendar<br />in <span class="text-[#c23326]">seconds</span>
-            </h1>
-          </div>
-          <p class="max-w-md text-lg leading-relaxed text-neutral-400">
-            Upload a photo of any schedule. Our AI extracts every event and generates
-            calendar files you can import anywhere.
-          </p>
-          <div class="flex flex-col gap-3 sm:flex-row">
-            <a href="/signup" class="rounded-lg bg-[#c23326] px-6 py-3 text-sm font-semibold text-white hover:bg-[#d43d2f] text-center">
-              Get started free →
-            </a>
-            <a href="#how-it-works" class="rounded-lg border border-neutral-800 px-6 py-3 text-sm font-semibold hover:bg-neutral-900 text-center">
-              How it works
-            </a>
-          </div>
-          <div class="flex items-center gap-5 text-sm text-neutral-400">
-            <div class="flex items-center gap-1.5"><span class="text-[#c23326]">✓</span> No credit card required</div>
-            <div class="flex items-center gap-1.5"><span class="text-[#c23326]">✓</span> Setup in 30 seconds</div>
+          <div class="relative animate-slide-up delay-200">
+            <div class="relative rounded-xl overflow-hidden border border-border/50 shadow-2xl shadow-black/20">
+              <img
+                src="/quickcalai-hero-image.png"
+                alt="QuickCalAI Interface - AI-powered calendar extraction from images and PDFs"
+                width="800"
+                height="600"
+                class="w-full h-auto"
+                loading="eager"
+              />
+            </div>
           </div>
         </div>
-        <div class="relative">
-          <div class="relative overflow-hidden rounded-xl border border-neutral-800/50 shadow-2xl shadow-black/20 bg-neutral-900">
-            <div class="p-8">
-              <div class="mb-4 flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-[#c23326] text-lg">🖼</div>
-                <div class="flex-1">
-                  <div class="text-sm font-semibold">football-schedule.pdf</div>
-                  <div class="text-xs text-neutral-500">Processing with AI…</div>
+      </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="py-14 border-y border-border/50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
+          {[
+            ["10,000+", "Events Extracted"],
+            ["500+", "Happy Users"],
+            ["99.2%", "Accuracy Rate"],
+            ["<3s", "Avg. Processing"],
+          ].map(([value, label]) => (
+            <div class="text-center space-y-1">
+              <div class="text-2xl md:text-3xl font-bold tracking-tight">{value}</div>
+              <div class="text-xs text-muted-foreground font-medium uppercase tracking-wider">{label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- How it works -->
+    <section id="how-it-works" class="py-24">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16 max-w-xl mx-auto">
+          <p class="text-xs font-semibold tracking-widest uppercase text-primary mb-3">How it works</p>
+          <h2 class="font-serif text-3xl md:text-4xl tracking-tight">Three steps to a perfect calendar</h2>
+        </div>
+        <div class="grid md:grid-cols-3 gap-12 md:gap-8 relative max-w-4xl mx-auto">
+          <div class="hidden md:block absolute top-8 left-[25%] right-[25%] h-px section-divider" aria-hidden="true"></div>
+          {[
+            ["01", "📤", "Upload your image", "Snap a photo or upload a screenshot of any schedule — class timetables, event flyers, meeting agendas, sports calendars."],
+            ["02", "✨", "AI extracts events", "Our AI instantly identifies every date, time, location, and event name. Review and edit the results in a clean table view."],
+            ["03", "📥", "Export & sync", "Download your .ics file, or have it delivered straight to your inbox or phone via email and SMS. One click to your calendar."],
+          ].map(([number, icon, title, description]) => (
+            <div class="relative text-center">
+              <div class="inline-flex flex-col items-center mb-6">
+                <span class="text-[10px] font-bold tracking-widest text-muted-foreground/40 uppercase mb-2">Step {number}</span>
+                <div class="w-14 h-14 rounded-xl bg-card border border-border flex items-center justify-center text-2xl">{icon}</div>
+              </div>
+              <h3 class="text-base font-semibold mb-2">{title}</h3>
+              <p class="text-sm text-muted-foreground leading-relaxed max-w-[260px] mx-auto">{description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Features -->
+    <section id="features" class="py-24">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16 max-w-xl mx-auto">
+          <p class="text-xs font-semibold tracking-widest uppercase text-primary mb-3">Features</p>
+          <h2 class="font-serif text-3xl md:text-4xl tracking-tight">Everything you need for effortless scheduling</h2>
+        </div>
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-border/50 rounded-xl overflow-hidden border border-border/50">
+          {[
+            ["📤", "Smart Upload", "Drag and drop any image — screenshots, photos of whiteboards, PDFs, even handwritten notes with dates."],
+            ["⚡", "AI Extraction", "Our AI identifies dates, times, locations, and event names, then turns them into a ready-to-use calendar."],
+            ["📅", "Editable Results", "Review extracted events in a clean table. Edit titles, adjust times, or remove entries before exporting."],
+            ["📥", "Instant Export", "Generate .ics files compatible with Google Calendar, Apple Calendar, Outlook, and every major calendar app."],
+            ["🌍", "Email & SMS Delivery", "Have your calendar files sent directly to your inbox or phone. Share schedules with your team effortlessly."],
+            ["🛡", "Private & Secure", "Your images are processed securely and never stored longer than needed. Your schedule data stays yours."],
+          ].map(([icon, title, description]) => (
+            <div class="p-8 bg-background hover:bg-card transition-colors duration-200">
+              <div class="text-xl text-primary mb-4">{icon}</div>
+              <h3 class="text-sm font-semibold mb-2">{title}</h3>
+              <p class="text-sm text-muted-foreground leading-relaxed">{description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Pricing -->
+    <section id="pricing" class="py-24">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16 max-w-xl mx-auto">
+          <p class="text-xs font-semibold tracking-widest uppercase text-primary mb-3">Pricing</p>
+          <h2 class="font-serif text-3xl md:text-4xl tracking-tight mb-3">Simple, transparent pricing</h2>
+          <p class="text-sm text-muted-foreground">Choose the plan that fits your needs. Upgrade or cancel anytime.</p>
+        </div>
+        <div class="grid md:grid-cols-3 gap-5 max-w-4xl mx-auto items-start">
+          {[
+            { name: "Free", price: "$0", period: "", description: "Get started with manual tools", featured: false, features: ["Manual calendar automation", "Manual file creation", "Files delivered via downloads"] },
+            { name: "Premium", price: "$12.99", period: "/mo", description: "AI-powered calendar automation", featured: true, features: ["Everything in Free", "Unlimited AI extractions", "Files delivered via email", "Files delivered via SMS", "Calendar integration"] },
+            { name: "Annual", price: "$5.99", period: "/mo", description: "$71.88 billed annually · Save 54%", featured: false, features: ["Everything in Premium", "2 months free", "Premium integrations", "White-label options"] },
+          ].map((plan) => (
+            <div class={`relative rounded-xl border p-6 transition-all duration-200 ${plan.featured ? "border-primary/40 shadow-lg shadow-primary/5 bg-card" : "border-border/50 bg-card/50 hover:border-border"}`}>
+              {plan.featured && <div class="absolute top-0 left-0 right-0 h-0.5 bg-primary"></div>}
+              <div class="text-center pb-2">
+                {plan.featured && <span class="inline-block mx-auto mb-2 px-2.5 py-0.5 text-[10px] font-bold tracking-widest uppercase rounded bg-primary/10 text-primary">Popular</span>}
+                <div class="text-lg font-semibold">{plan.name}</div>
+                <div class="mt-3 mb-1">
+                  <span class="text-3xl font-bold tracking-tight">{plan.price}</span>
+                  {plan.period && <span class="text-muted-foreground text-sm">{plan.period}</span>}
+                </div>
+                <div class="text-xs text-muted-foreground">{plan.description}</div>
+              </div>
+              <ul class="space-y-2.5 mb-6 pt-4">
+                {plan.features.map((feature) => (
+                  <li class="flex items-start gap-2.5">
+                    <span class="text-primary mt-0.5 shrink-0 text-sm">✓</span>
+                    <span class="text-sm text-foreground/70">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+              <a href="/signup" class={`block w-full text-center text-sm rounded-md py-2 ${plan.featured ? "bg-primary text-primary-foreground hover:bg-primary/90" : "border border-input bg-background hover:bg-accent hover:text-accent-foreground"}`}>
+                Get Started
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <div class="section-divider"></div>
+
+    <!-- Testimonials -->
+    <section id="testimonials" class="py-24">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-16 max-w-xl mx-auto">
+          <p class="text-xs font-semibold tracking-widest uppercase text-primary mb-3">Testimonials</p>
+          <h2 class="font-serif text-3xl md:text-4xl tracking-tight">Loved by professionals everywhere</h2>
+        </div>
+        <div class="grid md:grid-cols-3 gap-5 max-w-4xl mx-auto">
+          {[
+            { name: "Sarah Chen", role: "Product Manager", initials: "SC", content: "QuickCalAI has revolutionized how I handle meeting schedules. What used to take 15 minutes now takes 15 seconds!" },
+            { name: "Marcus Rodriguez", role: "Entrepreneur", initials: "MR", content: "The accuracy is incredible. It catches dates and times I would have missed manually. Game changer for my business." },
+            { name: "Emily Watson", role: "Executive Assistant", initials: "EW", content: "I process dozens of scheduling requests daily. This tool has made me 10x more efficient. Absolutely essential." },
+          ].map((t) => (
+            <div class="rounded-xl border border-border/50 bg-card/50 p-6">
+              <div class="flex gap-0.5 mb-4">
+                {[0,1,2,3,4].map(() => <span class="text-primary text-sm">★</span>)}
+              </div>
+              <p class="text-sm text-foreground/70 mb-5 leading-relaxed">“{t.content}”</p>
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span class="text-[10px] font-bold text-primary">{t.initials}</span>
+                </div>
+                <div>
+                  <p class="text-sm font-medium">{t.name}</p>
+                  <p class="text-xs text-muted-foreground">{t.role}</p>
                 </div>
               </div>
-              <div class="mb-4 flex items-center justify-center gap-2 rounded-xl bg-[#c23326] p-3 text-sm font-bold shadow-[0_4px_20px_rgba(194,51,38,0.3)]">
-                ⚡ AI Processing in Progress
-              </div>
-              <div class="rounded-xl border border-[#22c55e]/30 bg-[#22c55e]/10 p-4">
-                <div class="text-lg font-bold text-[#22c55e]">Processing Complete!</div>
-                <div class="text-neutral-200">12 events ready to download</div>
-              </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Stats -->
-  <section class="border-y border-neutral-800/50 py-14">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-12">
-        {[
-          ["10,000+", "Events Extracted"],
-          ["500+", "Happy Users"],
-          ["99.2%", "Accuracy Rate"],
-          ["<3s", "Avg. Processing"],
-        ].map(([value, label]) => (
-          <div class="text-center">
-            <div class="text-2xl font-bold tracking-tight md:text-3xl">{value}</div>
-            <div class="text-xs font-medium uppercase tracking-wider text-neutral-500">{label}</div>
-          </div>
-        ))}
+    <!-- CTA -->
+    <section class="py-24 relative">
+      <div class="absolute inset-0 cta-bg"></div>
+      <div class="relative z-10 max-w-2xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+        <h2 class="font-serif text-3xl md:text-4xl tracking-tight text-white mb-3">
+          Ready to transform your scheduling?
+        </h2>
+        <p class="text-base text-white/50 mb-8 max-w-md mx-auto">
+          Join hundreds of professionals who&apos;ve already streamlined their calendar management.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-3 justify-center">
+          <a href="/signup" class="bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-6 text-sm font-semibold rounded-md inline-flex items-center justify-center group">
+            Get started free
+            <span class="ml-2 transition-transform group-hover:translate-x-0.5">→</span>
+          </a>
+          <a href="#pricing" class="h-11 px-6 text-sm font-semibold border border-white/20 text-white hover:bg-white/5 bg-transparent rounded-md inline-flex items-center justify-center">
+            View pricing
+          </a>
+        </div>
+        <p class="text-white/30 text-xs mt-5">
+          Free to start · No credit card required · Cancel anytime
+        </p>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- How it works -->
-  <section id="how-it-works" class="py-24">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="mx-auto mb-16 max-w-xl text-center">
-        <p class="mb-3 text-xs font-semibold tracking-widest uppercase text-[#c23326]">How it works</p>
-        <h2 class="text-3xl tracking-tight md:text-4xl">Three steps to a perfect calendar</h2>
-      </div>
-      <div class="relative mx-auto grid max-w-4xl gap-12 md:grid-cols-3 md:gap-8">
-        {[
-          ["01", "📤", "Upload your image", "Snap a photo or upload a screenshot of any schedule — class timetables, event flyers, meeting agendas, sports calendars."],
-          ["02", "✨", "AI extracts events", "Our AI instantly identifies every date, time, location, and event name. Review and edit the results in a clean table view."],
-          ["03", "📥", "Export & sync", "Download your .ics file, or have it delivered straight to your inbox or phone via email and SMS. One click to your calendar."],
-        ].map(([number, icon, title, description]) => (
-          <div class="relative text-center">
-            <div class="mb-6 inline-flex flex-col items-center">
-              <span class="mb-2 text-[10px] font-bold tracking-widest uppercase text-neutral-600">Step {number}</span>
-              <div class="flex h-14 w-14 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-2xl">{icon}</div>
+    <!-- Footer -->
+    <footer class="border-t border-border/50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 py-16">
+          <div class="col-span-2 md:col-span-1">
+            <div class="flex items-center gap-2 mb-4">
+              <Logo size={20} className="text-primary" />
+              <span class="text-sm font-semibold tracking-tight">QuickCalAI</span>
             </div>
-            <h3 class="mb-2 text-base font-semibold">{title}</h3>
-            <p class="mx-auto max-w-[260px] text-sm leading-relaxed text-neutral-400">{description}</p>
+            <p class="text-sm text-muted-foreground leading-relaxed max-w-xs">
+              AI-powered calendar extraction that saves you time and eliminates scheduling errors.
+            </p>
           </div>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <!-- Features -->
-  <section id="features" class="py-24">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="mx-auto mb-16 max-w-xl text-center">
-        <p class="mb-3 text-xs font-semibold tracking-widest uppercase text-[#c23326]">Features</p>
-        <h2 class="text-3xl tracking-tight md:text-4xl">Everything you need for effortless scheduling</h2>
-      </div>
-      <div class="grid gap-px overflow-hidden rounded-xl border border-neutral-800/50 bg-neutral-800/50 md:grid-cols-2 lg:grid-cols-3">
-        {[
-          ["📤", "Smart Upload", "Drag and drop any image — screenshots, photos of whiteboards, PDFs, even handwritten notes with dates."],
-          ["⚡", "AI Extraction", "Our AI identifies dates, times, locations, and event names, then turns them into a ready-to-use calendar."],
-          ["📅", "Editable Results", "Review extracted events in a clean table. Edit titles, adjust times, or remove entries before exporting."],
-          ["📥", "Instant Export", "Generate .ics files compatible with Google Calendar, Apple Calendar, Outlook, and every major calendar app."],
-          ["🌍", "Email & SMS Delivery", "Have your calendar files sent directly to your inbox or phone. Share schedules with your team effortlessly."],
-          ["🛡", "Private & Secure", "Your images are processed securely and never stored longer than needed. Your schedule data stays yours."],
-        ].map(([icon, title, description]) => (
-          <div class="bg-neutral-950 p-8 transition-colors duration-200 hover:bg-neutral-900">
-            <div class="mb-4 text-xl">{icon}</div>
-            <h3 class="mb-2 text-sm font-semibold">{title}</h3>
-            <p class="text-sm leading-relaxed text-neutral-400">{description}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <!-- Pricing -->
-  <section id="pricing" class="py-24">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="mx-auto mb-16 max-w-xl text-center">
-        <p class="mb-3 text-xs font-semibold tracking-widest uppercase text-[#c23326]">Pricing</p>
-        <h2 class="mb-3 text-3xl tracking-tight md:text-4xl">Simple, transparent pricing</h2>
-        <p class="text-sm text-neutral-400">Choose the plan that fits your needs. Upgrade or cancel anytime.</p>
-      </div>
-      <div class="mx-auto grid max-w-4xl items-start gap-5 md:grid-cols-3">
-        {[
-          { name: "Free", price: "$0", period: "", description: "Get started with manual tools", featured: false, features: ["Manual calendar automation", "Manual file creation", "Files delivered via downloads"] },
-          { name: "Premium", price: "$12.99", period: "/mo", description: "AI-powered calendar automation", featured: true, features: ["Everything in Free", "Unlimited AI extractions", "Files delivered via email", "Files delivered via SMS", "Calendar integration"] },
-          { name: "Annual", price: "$5.99", period: "/mo", description: "$71.88 billed annually · Save 54%", featured: false, features: ["Everything in Premium", "2 months free", "Premium integrations", "White-label options"] },
-        ].map((plan) => (
-          <div class={`relative rounded-xl border p-6 transition-all duration-200 ${plan.featured ? "border-[#c23326]/40 bg-neutral-900 shadow-lg shadow-[#c23326]/5" : "border-neutral-800/50 bg-neutral-900/50 hover:border-neutral-700"}`}>
-            {plan.featured && <div class="absolute top-0 left-0 right-0 h-0.5 bg-[#c23326]"></div>}
-            <div class="pb-2 text-center">
-              {plan.featured && <span class="mx-auto mb-2 inline-block rounded bg-[#c23326]/10 px-2.5 py-0.5 text-[10px] font-bold tracking-widest uppercase text-[#c23326]">Popular</span>}
-              <div class="text-lg font-semibold">{plan.name}</div>
-              <div class="mt-3 mb-1">
-                <span class="text-3xl font-bold tracking-tight">{plan.price}</span>
-                {plan.period && <span class="text-sm text-neutral-400">{plan.period}</span>}
-              </div>
-              <div class="text-xs text-neutral-400">{plan.description}</div>
-            </div>
-            <ul class="mb-6 space-y-2.5 pt-4">
-              {plan.features.map((feature) => (
-                <li class="flex items-start gap-2.5">
-                  <span class="mt-0.5 shrink-0 text-[#c23326]">✓</span>
-                  <span class="text-sm text-neutral-300">{feature}</span>
-                </li>
-              ))}
+          <div>
+            <h4 class="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-4">Product</h4>
+            <ul class="space-y-2.5">
+              <li><a href="#features" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Features</a></li>
+              <li><a href="#pricing" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Pricing</a></li>
+              <li><a href="/dashboard" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Dashboard</a></li>
             </ul>
-            <a href="/signup" class={`block w-full rounded-lg py-2 text-center text-sm font-semibold ${plan.featured ? "bg-[#c23326] text-white hover:bg-[#d43d2f]" : "border border-neutral-700 hover:bg-neutral-800"}`}>
-              Get Started
-            </a>
           </div>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <!-- Testimonials -->
-  <section class="py-24">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="mx-auto mb-16 max-w-xl text-center">
-        <p class="mb-3 text-xs font-semibold tracking-widest uppercase text-[#c23326]">Loved by busy people</p>
-        <h2 class="text-3xl tracking-tight md:text-4xl">Schedules, sorted in seconds</h2>
-      </div>
-      <div class="mx-auto grid max-w-4xl gap-5 md:grid-cols-3">
-        {[
-          ["Turned a 40-game season PDF into my calendar before my coffee cooled.", "Youth sports parent"],
-          ["I photograph the whiteboard after every standup. No more missed deadlines.", "Team lead"],
-          ["Class timetables used to take an hour to type in. Now it's a drag and drop.", "Grad student"],
-        ].map(([quote, role]) => (
-          <figure class="rounded-xl border border-neutral-800/50 bg-neutral-900/50 p-6">
-            <blockquote class="text-sm leading-relaxed text-neutral-300">“{quote}”</blockquote>
-            <figcaption class="mt-4 text-xs font-semibold uppercase tracking-wider text-neutral-500">— {role}</figcaption>
-          </figure>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <!-- CTA -->
-  <section class="py-24">
-    <div class="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
-      <h2 class="text-3xl tracking-tight md:text-4xl">Stop retyping schedules.</h2>
-      <p class="mx-auto mt-4 max-w-md text-neutral-400">Upload your first image and get a calendar file back in seconds. Free to start.</p>
-      <a href="/signup" class="mt-8 inline-block rounded-lg bg-[#c23326] px-8 py-3 text-sm font-semibold text-white hover:bg-[#d43d2f]">
-        Get started free
-      </a>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer class="border-t border-neutral-800/50">
-    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-      <div class="grid grid-cols-2 gap-8 py-16 md:grid-cols-4">
-        <div class="col-span-2 md:col-span-1">
-          <div class="mb-4 flex items-center gap-2">
-            <span class="text-lg">📅</span>
-            <span class="text-sm font-semibold tracking-tight">QuickCalAI</span>
+          <div>
+            <h4 class="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-4">Company</h4>
+            <ul class="space-y-2.5">
+              <li><a href="#hero" class="text-sm text-foreground/60 hover:text-foreground transition-colors">About</a></li>
+              <li><a href="https://github.com/Rocktown-Labs/quickcalai" target="_blank" rel="noopener noreferrer" class="text-sm text-foreground/60 hover:text-foreground transition-colors">GitHub</a></li>
+              <li><a href="mailto:support@quickcalai.com" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Contact</a></li>
+            </ul>
           </div>
-          <p class="max-w-xs text-sm leading-relaxed text-neutral-400">AI-powered calendar extraction that saves you time and eliminates scheduling errors.</p>
+          <div>
+            <h4 class="text-xs font-semibold tracking-widest uppercase text-muted-foreground mb-4">Support</h4>
+            <ul class="space-y-2.5">
+              <li><a href="/help" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Help &amp; Support</a></li>
+              <li><a href="/privacy" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Privacy</a></li>
+              <li><a href="/terms" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Terms</a></li>
+            </ul>
+          </div>
         </div>
-        <div>
-          <h4 class="mb-4 text-xs font-semibold tracking-widest uppercase text-neutral-400">Product</h4>
-          <ul class="space-y-2.5">
-            <li><a href="#features" class="text-sm text-neutral-300/60 hover:text-white">Features</a></li>
-            <li><a href="#pricing" class="text-sm text-neutral-300/60 hover:text-white">Pricing</a></li>
-            <li><a href="/dashboard" class="text-sm text-neutral-300/60 hover:text-white">Dashboard</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="mb-4 text-xs font-semibold tracking-widest uppercase text-neutral-400">Company</h4>
-          <ul class="space-y-2.5">
-            <li><a href="#hero" class="text-sm text-neutral-300/60 hover:text-white">About</a></li>
-            <li><a href="https://github.com/Rocktown-Labs/quickcalai" target="_blank" rel="noopener noreferrer" class="text-sm text-neutral-300/60 hover:text-white">GitHub</a></li>
-            <li><a href="mailto:support@quickcalai.com" class="text-sm text-neutral-300/60 hover:text-white">Contact</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="mb-4 text-xs font-semibold tracking-widest uppercase text-neutral-400">Support</h4>
-          <ul class="space-y-2.5">
-            <li><a href="/help" class="text-sm text-neutral-300/60 hover:text-white">Help &amp; Support</a></li>
-            <li><a href="/privacy" class="text-sm text-neutral-300/60 hover:text-white">Privacy</a></li>
-            <li><a href="/terms" class="text-sm text-neutral-300/60 hover:text-white">Terms</a></li>
-          </ul>
+        <div class="border-t border-border/50 py-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p class="text-xs text-muted-foreground">© {new Date().getFullYear()} QuickCalAI. All rights reserved.</p>
+          <p class="text-xs text-muted-foreground/60">Built by Rocktown Labs</p>
         </div>
       </div>
-      <div class="flex flex-col items-center justify-between gap-4 border-t border-neutral-800/50 py-6 sm:flex-row">
-        <p class="text-xs text-neutral-400">© {new Date().getFullYear()} QuickCalAI. All rights reserved.</p>
-        <p class="text-xs text-neutral-600">Built by Rocktown Labs</p>
-      </div>
-    </div>
-  </footer>
+    </footer>
+  </div>
 </Layout>

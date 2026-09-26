@@ -1,35 +1,35 @@
 ---
-import Layout from "../layouts/Layout.astro";
+import DashLayout from "../layouts/DashLayout.astro";
 import Uploader from "../components/Uploader.astro";
 ---
 
-<Layout title="Dashboard — QuickCalAI">
+<DashLayout title="Dashboard — QuickCalAI" active="dashboard">
   <div class="p-8">
-    <div class="container mx-auto space-y-8 max-w-5xl">
+    <div class="container mx-auto space-y-8">
       <div>
         <h1 class="text-3xl font-bold mb-2">Welcome back, <span id="welcome-name">…</span>!</h1>
-        <p class="text-neutral-400">Ready to extract calendar events from your images?</p>
+        <p class="text-muted-foreground">Ready to extract calendar events from your images?</p>
       </div>
 
       <div id="stats-error" class="hidden rounded-xl border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-200">
-        We're having trouble loading your recent stats, but you can still upload new files below.
+        We&apos;re having trouble loading your recent stats, but you can still upload new files below.
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-        <div class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
-          <div class="text-sm text-neutral-400 mb-1">Total Uploads</div>
+        <div class="rounded-xl border bg-card text-card-foreground shadow p-4">
+          <div class="text-sm text-muted-foreground mb-1">Total Uploads</div>
           <div class="text-2xl font-bold" id="stat-uploads">–</div>
-          <p class="text-xs text-neutral-500"><span id="stat-completed">0</span> successfully processed</p>
+          <p class="text-xs text-muted-foreground"><span id="stat-completed">0</span> successfully processed</p>
         </div>
-        <div class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
-          <div class="text-sm text-neutral-400 mb-1">Events Extracted</div>
+        <div class="rounded-xl border bg-card text-card-foreground shadow p-4">
+          <div class="text-sm text-muted-foreground mb-1">Events Extracted</div>
           <div class="text-2xl font-bold" id="stat-events">–</div>
-          <p class="text-xs text-neutral-500">Calendar events created</p>
+          <p class="text-xs text-muted-foreground">Calendar events created</p>
         </div>
-        <div class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4 hidden md:block">
-          <div class="text-sm text-neutral-400 mb-1">Success Rate</div>
+        <div class="rounded-xl border bg-card text-card-foreground shadow p-4 hidden md:block">
+          <div class="text-sm text-muted-foreground mb-1">Success Rate</div>
           <div class="text-2xl font-bold" id="stat-rate">–</div>
-          <p class="text-xs text-neutral-500">Processing success rate</p>
+          <p class="text-xs text-muted-foreground">Processing success rate</p>
         </div>
       </div>
 
@@ -38,70 +38,69 @@ import Uploader from "../components/Uploader.astro";
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+        <div class="rounded-xl border bg-card text-card-foreground shadow p-6">
           <h3 class="font-semibold mb-1">View Media Gallery</h3>
-          <p class="text-neutral-400 text-sm mb-4">Browse all your uploaded images and extracted calendar events</p>
-          <a href="/files" class="block w-full text-center rounded-lg bg-[#c23326] hover:bg-[#d43d2f] py-2.5 text-sm font-bold">View Media</a>
+          <p class="text-muted-foreground text-sm mb-4">Browse all your uploaded images and extracted calendar events</p>
+          <a href="/files" class="block w-full text-center rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 py-2.5 text-sm font-bold">View Media</a>
         </div>
-        <div class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+        <div class="rounded-xl border bg-card text-card-foreground shadow p-6">
           <h3 class="font-semibold mb-1">Settings &amp; Billing</h3>
-          <p class="text-neutral-400 text-sm mb-4">Manage contact info, API keys, and your subscription</p>
-          <a href="/settings" class="block w-full text-center rounded-lg border border-neutral-700 hover:bg-neutral-800 py-2.5 text-sm font-bold">Open Settings</a>
+          <p class="text-muted-foreground text-sm mb-4">Manage contact info, API keys, and your subscription</p>
+          <a href="/settings" class="block w-full text-center rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground py-2.5 text-sm font-bold">Open Settings</a>
         </div>
       </div>
 
       <div id="recent-wrap" class="hidden">
         <div class="mb-6">
           <h2 class="font-bold text-2xl mb-2">Recent Activity</h2>
-          <p class="text-neutral-400">Your latest uploads and processing results</p>
+          <p class="text-muted-foreground">Your latest uploads and processing results</p>
         </div>
         <div class="space-y-4" id="recent-list"></div>
       </div>
     </div>
   </div>
-</Layout>
+</DashLayout>
 
 <script>
-  import { authClient } from "../lib/auth-client";
   import { api, ApiError } from "../lib/api";
 
   async function init() {
     try {
-      const { data: session } = await authClient.getSession();
-      if (!session?.user) { window.location.href = "/login"; return; }
-      document.getElementById("welcome-name")!.textContent =
-        session.user.name?.split(" ")[0] || session.user.email?.split("@")[0] || "User";
-
-      try {
-        const stats = await api.stats();
-        document.getElementById("stat-uploads")!.textContent = String(stats.totalUploads);
-        document.getElementById("stat-completed")!.textContent = String(stats.completedUploads);
-        document.getElementById("stat-events")!.textContent = String(stats.totalEvents);
-        document.getElementById("stat-rate")!.textContent =
-          stats.totalUploads > 0 ? `${Math.round((stats.completedUploads / stats.totalUploads) * 100)}%` : "0%";
-
-        if (stats.recentUploads.length > 0) {
-          document.getElementById("recent-wrap")!.classList.remove("hidden");
-          document.getElementById("recent-list")!.innerHTML = stats.recentUploads.map((u) => `
-            <div class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4">
-              <div class="flex items-center justify-between gap-3">
-                <div class="flex items-center gap-3 min-w-0">
-                  <span class="text-2xl">🖼</span>
-                  <div class="min-w-0">
-                    <p class="font-medium text-sm truncate">${u.fileName.replace(/</g, "&lt;")}</p>
-                    <p class="text-xs text-neutral-500">${new Date(u.createdAt).toLocaleDateString()} • ${u.status}</p>
-                  </div>
-                </div>
-                <a href="/files" class="shrink-0 rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-bold hover:bg-neutral-800">Open</a>
-              </div>
-            </div>`).join("");
+      const stats = await api.stats();
+      const name = document.getElementById("welcome-name");
+      if (name) {
+        try {
+          const me = await api.me();
+          name.textContent = me.name?.split(" ")[0] || me.email?.split("@")[0] || "User";
+        } catch {
+          name.textContent = "User";
         }
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 401) { window.location.href = "/login"; return; }
-        document.getElementById("stats-error")!.classList.remove("hidden");
       }
-    } catch {
-      window.location.href = "/login";
+      document.getElementById("stat-uploads")!.textContent = String(stats.totalUploads);
+      document.getElementById("stat-completed")!.textContent = String(stats.completedUploads);
+      document.getElementById("stat-events")!.textContent = String(stats.totalEvents);
+      document.getElementById("stat-rate")!.textContent =
+        stats.totalUploads > 0 ? `${Math.round((stats.completedUploads / stats.totalUploads) * 100)}%` : "0%";
+
+      if (stats.recentUploads.length > 0) {
+        document.getElementById("recent-wrap")!.classList.remove("hidden");
+        document.getElementById("recent-list")!.innerHTML = stats.recentUploads.map((u) => `
+          <div class="rounded-xl border bg-card text-card-foreground shadow p-4">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <span class="text-2xl">🖼</span>
+                <div class="min-w-0">
+                  <p class="font-medium text-sm truncate">${u.fileName.replace(/</g, "&lt;")}</p>
+                  <p class="text-xs text-muted-foreground">${new Date(u.createdAt).toLocaleDateString()} • ${u.status}</p>
+                </div>
+              </div>
+              <a href="/files" class="shrink-0 rounded-lg border border-input px-3 py-1.5 text-xs font-bold hover:bg-accent">Open</a>
+            </div>
+          </div>`).join("");
+      }
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) { window.location.href = "/login"; return; }
+      document.getElementById("stats-error")!.classList.remove("hidden");
     }
   }
 

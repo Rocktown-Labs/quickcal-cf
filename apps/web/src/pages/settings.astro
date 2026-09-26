@@ -1,32 +1,32 @@
 ---
-import Layout from "../layouts/Layout.astro";
+import DashLayout from "../layouts/DashLayout.astro";
 ---
 
-<Layout title="Settings — QuickCalAI">
+<DashLayout title="Settings — QuickCalAI" active="settings">
   <div class="mx-auto max-w-3xl px-4 py-8 space-y-8">
     <div>
       <h1 class="text-3xl font-bold mb-2">Settings</h1>
-      <p class="text-neutral-400">Manage contact info, API keys, and your subscription.</p>
+      <p class="text-muted-foreground">Manage contact info, API keys, and your subscription.</p>
     </div>
 
-    <div id="settings-loading" class="text-sm text-neutral-400">Loading…</div>
+    <div id="settings-loading" class="text-sm text-muted-foreground">Loading…</div>
 
     <div id="settings-body" class="hidden space-y-8">
       <!-- Profile -->
-      <section class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+      <section class="rounded-xl border border bg-card text-card-foreground shadow p-6">
         <h2 class="font-bold text-lg mb-4">Profile</h2>
         <div class="grid gap-4">
           <div>
             <label class="text-sm font-medium" for="set-name">Name</label>
-            <input id="set-name" disabled class="mt-1 w-full px-4 bg-neutral-950 border border-neutral-800 rounded-lg h-10 text-neutral-400" />
+            <input id="set-name" disabled class="mt-1 w-full px-4 bg-background border rounded-lg h-10 text-muted-foreground" />
           </div>
           <div>
             <label class="text-sm font-medium" for="set-email">Email</label>
-            <input id="set-email" disabled class="mt-1 w-full px-4 bg-neutral-950 border border-neutral-800 rounded-lg h-10 text-neutral-400" />
+            <input id="set-email" disabled class="mt-1 w-full px-4 bg-background border rounded-lg h-10 text-muted-foreground" />
           </div>
           <div>
             <label class="text-sm font-medium" for="set-phone">Phone Number</label>
-            <input id="set-phone" type="tel" placeholder="+1 (555) 123-4567" class="mt-1 w-full px-4 bg-neutral-800 border border-neutral-700 rounded-lg h-10 focus:outline-none focus:border-[#c23326]" />
+            <input id="set-phone" type="tel" placeholder="+1 (555) 123-4567" class="mt-1 w-full px-4 bg-neutral-800 border border-input rounded-lg h-10 focus:outline-none focus:border-[#c23326]" />
             <p class="mt-1 text-xs text-neutral-500">Used to prefill SMS delivery. International format, e.g. +15551234567.</p>
           </div>
           <div>
@@ -37,23 +37,23 @@ import Layout from "../layouts/Layout.astro";
       </section>
 
       <!-- Subscription -->
-      <section id="subscription" class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+      <section id="subscription" class="rounded-xl border border bg-card text-card-foreground shadow p-6">
         <h2 class="font-bold text-lg mb-2">Subscription</h2>
-        <p id="sub-status" class="text-sm text-neutral-400 mb-4">Checking…</p>
+        <p id="sub-status" class="text-sm text-muted-foreground mb-4">Checking…</p>
         <div class="flex flex-wrap gap-3">
           <button id="btn-upgrade" class="hidden bg-[#c23326] hover:bg-[#d43d2f] rounded-lg px-5 py-2.5 text-sm font-bold">Upgrade to Premium</button>
-          <button id="btn-portal" class="hidden border border-neutral-700 hover:bg-neutral-800 rounded-lg px-5 py-2.5 text-sm font-bold">Manage Billing</button>
+          <button id="btn-portal" class="hidden border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-5 py-2.5 text-sm font-bold">Manage Billing</button>
           <button id="btn-cancel" class="hidden border border-red-800 text-red-400 hover:bg-red-950 rounded-lg px-5 py-2.5 text-sm font-bold">Cancel Subscription</button>
         </div>
         <p id="sub-error" class="hidden mt-3 text-sm text-red-400"></p>
       </section>
 
       <!-- API keys -->
-      <section class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+      <section class="rounded-xl border border bg-card text-card-foreground shadow p-6">
         <h2 class="font-bold text-lg mb-2">API Keys</h2>
-        <p class="text-sm text-neutral-400 mb-4">Let AI agents and scripts act on your behalf with <code class="text-neutral-200">Authorization: Bearer qc_…</code>. Keys are shown once.</p>
+        <p class="text-sm text-muted-foreground mb-4">Let AI agents and scripts act on your behalf with <code class="text-neutral-200">Authorization: Bearer qc_…</code>. Keys are shown once.</p>
         <div class="flex gap-2 mb-4">
-          <input id="key-name" placeholder="e.g. claude-agent" class="flex-1 px-4 bg-neutral-800 border border-neutral-700 rounded-lg h-10 text-sm focus:outline-none focus:border-[#c23326]" />
+          <input id="key-name" placeholder="e.g. claude-agent" class="flex-1 px-4 bg-neutral-800 border border-input rounded-lg h-10 text-sm focus:outline-none focus:border-[#c23326]" />
           <button id="btn-create-key" class="bg-[#c23326] hover:bg-[#d43d2f] rounded-lg px-5 text-sm font-bold">Create</button>
         </div>
         <div id="new-key" class="hidden mb-4 rounded-lg border border-[#22c55e]/30 bg-[#22c55e]/10 p-4">
@@ -64,7 +64,7 @@ import Layout from "../layouts/Layout.astro";
       </section>
     </div>
   </div>
-</Layout>
+</DashLayout>
 
 <script>
   import { authClient } from "../lib/auth-client";
@@ -151,7 +151,7 @@ import Layout from "../layouts/Layout.astro";
         list.innerHTML = keys.length === 0
           ? '<p class="text-sm text-neutral-500">No API keys yet.</p>'
           : keys.map((k) => `
-            <div class="flex items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950 px-4 py-3">
+            <div class="flex items-center justify-between gap-3 rounded-lg border bg-background px-4 py-3">
               <div class="min-w-0">
                 <p class="text-sm font-semibold truncate">${k.name.replace(/</g, "&lt;")}</p>
                 <p class="text-xs text-neutral-500 font-mono">${k.keyPrefix}… ${k.lastUsedAt ? `· last used ${new Date(k.lastUsedAt).toLocaleDateString()}` : "· never used"}</p>

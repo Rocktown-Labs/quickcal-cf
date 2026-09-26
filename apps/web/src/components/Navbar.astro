@@ -1,0 +1,122 @@
+---
+import Logo from "./Logo.astro";
+import ThemeSwitcher from "./ThemeSwitcher.astro";
+---
+
+<header>
+  <!-- Desktop Navbar -->
+  <nav id="landing-nav" class="fixed top-0 w-full z-50 transition-all duration-300 bg-transparent">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex justify-between items-center h-16">
+        <a href="/" class="flex items-center gap-2.5">
+          <Logo size={22} className="text-primary" />
+          <span class="text-sm font-semibold tracking-tight">QuickCalAI</span>
+        </a>
+        <div class="hidden md:flex items-center gap-8">
+          <a href="#features" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
+          <a href="#pricing" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+          <a href="#testimonials" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Reviews</a>
+          <div class="w-px h-4 bg-border"></div>
+          <ThemeSwitcher />
+          <span data-auth-out class="hidden items-center gap-2">
+            <a href="/login" class="text-sm text-muted-foreground hover:text-foreground px-3 py-1.5">Sign in</a>
+            <a href="/signup" class="bg-primary text-primary-foreground hover:bg-primary/90 text-sm rounded-md px-3 py-1.5">Get Started</a>
+          </span>
+          <a data-auth-in href="/dashboard" class="hidden border border-input bg-background hover:bg-accent hover:text-accent-foreground text-sm rounded-md px-3 py-1.5">Dashboard</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-background/90 backdrop-blur-xl border-t border-border/50 z-50">
+    <div class="flex items-center justify-around h-16 px-2">
+      <a href="#" data-nav="hero" class="nav-item flex flex-col items-center justify-center gap-1 transition-colors rounded-lg px-3 py-1.5 text-primary">
+        <span class="text-xl">🏠</span><span class="text-[10px] font-medium">Home</span>
+      </a>
+      <a href="#features" data-nav="features" class="nav-item flex flex-col items-center justify-center gap-1 transition-colors rounded-lg px-3 py-1.5 text-muted-foreground">
+        <span class="text-xl">⭐</span><span class="text-[10px] font-medium">Features</span>
+      </a>
+      <a href="#pricing" data-nav="pricing" class="nav-item flex flex-col items-center justify-center gap-1 transition-colors rounded-lg px-3 py-1.5 text-muted-foreground">
+        <span class="text-xl">💳</span><span class="text-[10px] font-medium">Pricing</span>
+      </a>
+      <a href="#testimonials" data-nav="testimonials" class="nav-item flex flex-col items-center justify-center gap-1 transition-colors rounded-lg px-3 py-1.5 text-muted-foreground">
+        <span class="text-xl">💬</span><span class="text-[10px] font-medium">Reviews</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Mobile Top Bar -->
+  <div id="landing-nav-mobile" class="md:hidden fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-transparent">
+    <div class="flex items-center justify-between h-14 px-4">
+      <a href="/" class="flex items-center gap-2">
+        <Logo size={18} className="text-primary" />
+        <span class="text-sm font-semibold tracking-tight">QuickCalAI</span>
+      </a>
+      <div class="flex items-center gap-2">
+        <ThemeSwitcher />
+        <span data-auth-out class="hidden items-center gap-2">
+          <a href="/login" class="text-xs text-muted-foreground px-2 py-1.5">Sign in</a>
+          <a href="/signup" class="text-xs bg-primary text-primary-foreground hover:bg-primary/90 rounded-md px-3 py-1.5">Get Started</a>
+        </span>
+        <a data-auth-in href="/dashboard" class="hidden text-xs border border-input rounded-md px-3 py-1.5">Dashboard</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<script>
+  import { authClient } from "../lib/auth-client";
+
+  const nav = document.getElementById("landing-nav")!;
+  const navMobile = document.getElementById("landing-nav-mobile")!;
+
+  function onScroll() {
+    const scrolled = window.scrollY > 20;
+    for (const el of [nav, navMobile]) {
+      el.classList.toggle("bg-background/80", scrolled);
+      el.classList.toggle("backdrop-blur-xl", scrolled);
+      el.classList.toggle("border-b", scrolled);
+      el.classList.toggle("border-border/50", scrolled);
+      el.classList.toggle("bg-transparent", !scrolled);
+    }
+
+    const ids = ["hero", "features", "pricing", "testimonials"];
+    const pos = window.scrollY + 100;
+    let active = "hero";
+    for (const id of ids) {
+      const el = document.getElementById(id);
+      if (el && el.offsetTop <= pos) active = id;
+    }
+    for (const item of document.querySelectorAll(".nav-item")) {
+      const on = item.getAttribute("data-nav") === active;
+      item.classList.toggle("text-primary", on);
+      item.classList.toggle("text-muted-foreground", !on);
+    }
+  }
+
+  window.addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+
+  document.querySelector('a[data-nav="hero"]')?.addEventListener("click", (e) => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  (async () => {
+    try {
+      const { data: session } = await authClient.getSession();
+      const showIn = !!session?.user;
+      for (const el of document.querySelectorAll("[data-auth-in]")) el.classList.toggle("hidden", !showIn);
+      for (const el of document.querySelectorAll("[data-auth-out]")) {
+        el.classList.toggle("hidden", showIn);
+        if (!showIn) el.classList.add("flex");
+      }
+    } catch {
+      for (const el of document.querySelectorAll("[data-auth-out]")) {
+        el.classList.remove("hidden");
+        el.classList.add("flex");
+      }
+    }
+  })();
+</script>

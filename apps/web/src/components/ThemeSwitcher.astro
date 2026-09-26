@@ -1,0 +1,39 @@
+---
+---
+
+<button
+  id="theme-switcher"
+  title="Toggle theme"
+  class="inline-flex h-9 w-9 items-center justify-center rounded-md p-0 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+>
+  <span id="theme-icon-sun" class="hidden">☀️</span>
+  <span id="theme-icon-moon">🌙</span>
+  <span class="sr-only">Toggle theme</span>
+</button>
+
+<script>
+  const btn = document.getElementById("theme-switcher")!;
+  const sun = document.getElementById("theme-icon-sun")!;
+  const moon = document.getElementById("theme-icon-moon")!;
+
+  function current(): "light" | "dark" {
+    return document.documentElement.classList.contains("light") ? "light" : "dark";
+  }
+
+  function paint() {
+    const light = current() === "light";
+    sun.classList.toggle("hidden", !light);
+    moon.classList.toggle("hidden", light);
+  }
+
+  btn.addEventListener("click", () => {
+    const next = current() === "light" ? "dark" : "light";
+    try {
+      localStorage.setItem("theme", next);
+    } catch { /* ignore */ }
+    document.documentElement.className = next;
+    paint();
+  });
+
+  paint();
+</script>

@@ -1,0 +1,31 @@
+---
+interface Props {
+  size?: number;
+  className?: string;
+}
+
+const { size = 28, className = "" } = Astro.props;
+const height = size * (36 / 32);
+---
+
+<svg
+  viewBox="0 0 32 36"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+  width={size}
+  height={height}
+  class={`shrink-0 ${className}`}
+  aria-hidden="true"
+>
+  <rect x="2" y="5" width="24" height="23" rx="5" stroke="currentColor" stroke-width="2.2" />
+  <path d="M2 10C2 7.24 4.24 5 7 5H21c2.76 0 5 2.24 5 5v1H2v-1Z" fill="currentColor" />
+  <line x1="10" y1="3" x2="10" y2="8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+  <line x1="18" y1="3" x2="18" y2="8" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+  <rect x="8" y="16" width="3" height="2.5" rx="0.75" fill="currentColor" opacity="0.35" />
+  <rect x="13" y="16" width="3" height="2.5" rx="0.75" fill="currentColor" opacity="0.35" />
+  <rect x="18" y="16" width="3" height="2.5" rx="0.75" fill="currentColor" opacity="0.35" />
+  <rect x="8" y="21" width="3" height="2.5" rx="0.75" fill="currentColor" opacity="0.35" />
+  <rect x="13" y="21" width="3" height="2.5" rx="0.75" fill="currentColor" opacity="0.35" />
+  <rect x="18" y="21" width="3" height="2.5" rx="0.75" fill="currentColor" />
+  <line x1="22" y1="26" x2="29" y2="33" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+</svg>
