@@ -14,10 +14,12 @@
     "@hono/zod-openapi": "^1.6.3",
     "@quickcal-cf/auth": "workspace:*",
     "@quickcal-cf/db": "workspace:*",
+    "@sentdm/sentdm": "^0.39.0",
     "ai": "^7.0.114",
     "better-auth": "catalog:",
     "evlog": "catalog:",
     "hono": "^4.13.7",
+    "resend": "^6.30.0",
     "stoker": "^2.0.1",
     "varlock": "catalog:",
     "zod": "catalog:"

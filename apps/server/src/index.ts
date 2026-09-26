@@ -8,10 +8,12 @@ import serveEmojiFavicon from "stoker/middlewares/serve-emoji-favicon";
 import { ENV } from "./env.server";
 import { createAuth } from "./services";
 import uploads from "./routes/uploads";
+import delivery from "./routes/delivery";
 import manualEvent from "./routes/manual-event";
 import share from "./routes/share";
 import keys from "./routes/keys";
 import dashboard from "./routes/stats";
+import me from "./routes/me";
 
 const app = new OpenAPIHono({ defaultHook });
 
@@ -35,10 +37,12 @@ app.on(
 );
 
 app.route("/api/uploads", uploads);
+app.route("/api/uploads", delivery);
 app.route("/api", manualEvent);
 app.route("/api/share", share);
 app.route("/api/keys", keys);
 app.route("/api/dashboard", dashboard);
+app.route("/api/user", me);
 
 app.doc("/doc", {
 	openapi: "3.1.0",

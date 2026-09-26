@@ -35,6 +35,8 @@ export const server = Cloudflare.Worker("server", {
     STRIPE_WEBHOOK_SECRET: Config.Redacted("STRIPE_WEBHOOK_SECRET"),
     STRIPE_PREMIUM_PRICE_ID: Config.String("STRIPE_PREMIUM_PRICE_ID"),
     GOOGLE_GENERATIVE_AI_API_KEY: Config.Redacted("GOOGLE_GENERATIVE_AI_API_KEY"),
+    RESEND_API_KEY: Config.Redacted("RESEND_API_KEY"),
+    SENT_DM_API_KEY: Config.Redacted("SENT_DM_API_KEY"),
   },
   dev: {
     port: 3000,

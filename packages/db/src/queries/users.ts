@@ -1,6 +1,6 @@
 import { and, count, desc, eq } from "drizzle-orm";
 import type { Database } from "../index";
-import { events, uploads } from "../schema";
+import { events, uploads, user } from "../schema";
 
 export async function getUserUploads(db: Database, userId: string) {
   return db
@@ -59,6 +59,34 @@ export async function getUploadEvents(db: Database, uploadId: string) {
 
 export async function deleteUpload(db: Database, uploadId: string) {
   return db.delete(uploads).where(eq(uploads.id, uploadId));
+}
+
+export async function getUserProfile(db: Database, userId: string) {  const rows = await db
+    .select({
+      email: user.email,
+      name: user.name,
+      phoneNumber: user.phoneNumber,
+      isOnboarded: user.isOnboarded,
+    })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function updateUserProfile(
+  db: Database,
+  userId: string,
+  updates: {
+    phoneNumber?: string;
+    isOnboarded?: boolean;
+  },
+) {
+  return db
+    .update(user)
+    .set({ ...updates })
+    .where(eq(user.id, userId));
 }
 
 export async function getDashboardStats(db: Database, userId: string) {
