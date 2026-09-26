@@ -1,0 +1,44 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const sections = [
+  {
+    title: "The service",
+    body: `<p>QuickCalAI extracts calendar events from images and PDFs you upload and produces .ics files you can download, share, email, or receive by SMS. AI extraction is a premium feature; manual event creation is free.</p>`,
+  },
+  {
+    title: "Acceptable use",
+    body: `<p>Upload only documents you have the right to process. Do not use the service to spam, harass, or distribute other people's private information. We may suspend accounts that abuse email or SMS delivery.</p>`,
+  },
+  {
+    title: "Accuracy",
+    body: `<p>AI extraction can misread documents. Always review dates, times, and locations before relying on a generated calendar. QuickCalAI is not liable for missed appointments or scheduling errors.</p>`,
+  },
+  {
+    title: "Billing",
+    body: `<p>Premium is billed monthly or annually through Stripe and renews until canceled. You can cancel anytime from Settings → Subscription; access continues until the end of the billing period. Refunds are handled case by case — contact support.</p>`,
+  },
+  {
+    title: "Termination",
+    body: `<p>You can stop using the service and delete your data at any time. We may suspend or terminate accounts for abuse, non-payment, or illegal activity.</p>`,
+  },
+  {
+    title: "Contact",
+    body: `<p>Questions about these terms? Email <a class="underline underline-offset-4" href="mailto:support@quickcalai.com">support@quickcalai.com</a>.</p>`,
+  },
+];
+---
+
+<Layout title="Terms of Service — QuickCalAI">
+  <div class="mx-auto max-w-3xl px-4 py-12">
+    <p class="text-xs font-semibold tracking-widest uppercase text-[#c23326] mb-2">Terms of service</p>
+    <h1 class="text-3xl md:text-4xl font-bold mb-3">The fine print, plainly</h1>
+    <p class="text-xs text-neutral-500 mb-10">Effective September 14, 2026</p>
+    {sections.map((s) => (
+      <section class="mb-8">
+        <h2 class="text-xl font-bold mb-3">{s.title}</h2>
+        <div class="text-neutral-300 text-sm leading-relaxed space-y-2" set:html={s.body} />
+      </section>
+    ))}
+  </div>
+</Layout>

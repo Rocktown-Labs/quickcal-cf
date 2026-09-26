@@ -1,0 +1,40 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const sections = [
+  {
+    title: "What we collect",
+    body: `<p><strong>Account data:</strong> name, email address, and optionally a phone number, stored so you can sign in and receive deliveries.</p><p><strong>Uploads and events:</strong> the schedule files you upload and the events extracted from them, stored so you can download, share, and manage them.</p><p><strong>Billing data:</strong> subscription status via Stripe. We never see or store your card details.</p>`,
+  },
+  {
+    title: "How we use it",
+    body: `<p>Your data is used to operate QuickCalAI: processing uploads with AI models, generating calendar files, sending email and SMS deliveries you request, managing subscriptions, and providing support. We do not sell your data or use your schedules for advertising.</p>`,
+  },
+  {
+    title: "Where it's stored",
+    body: `<p>Data is stored on Cloudflare's network (D1 database, R2 object storage) in the United States. Uploaded files and generated calendars are kept until you delete them. AI processing may transmit document content to our model provider (Google) for extraction.</p>`,
+  },
+  {
+    title: "Sharing",
+    body: `<p>We share data only with the processors needed to run the service: authentication, payments (Stripe), email (Resend), and SMS (Sent.dm). Anyone with one of your share links can view that schedule — treat links as public.</p>`,
+  },
+  {
+    title: "Your rights",
+    body: `<p>You can export your data by downloading your .ics files, and you can request access or deletion at any time by emailing <a class="underline underline-offset-4" href="mailto:support@quickcalai.com">support@quickcalai.com</a>. Deleting an upload removes its source file, events, and calendar file.</p>`,
+  },
+];
+---
+
+<Layout title="Privacy Policy — QuickCalAI">
+  <div class="mx-auto max-w-3xl px-4 py-12">
+    <p class="text-xs font-semibold tracking-widest uppercase text-[#c23326] mb-2">Privacy policy</p>
+    <h1 class="text-3xl md:text-4xl font-bold mb-3">Your schedules stay yours</h1>
+    <p class="text-xs text-neutral-500 mb-10">Effective September 14, 2026</p>
+    {sections.map((s) => (
+      <section class="mb-8">
+        <h2 class="text-xl font-bold mb-3">{s.title}</h2>
+        <div class="text-neutral-300 text-sm leading-relaxed space-y-2" set:html={s.body} />
+      </section>
+    ))}
+  </div>
+</Layout>

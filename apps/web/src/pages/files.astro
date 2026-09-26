@@ -1,0 +1,124 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Files — QuickCalAI">
+  <div class="mx-auto max-w-4xl px-4 py-8">
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold mb-2">Your Files</h1>
+      <p class="text-neutral-400">Download, share, and manage your processed calendar files.</p>
+    </div>
+    <div id="files-loading" class="text-sm text-neutral-400">Loading…</div>
+    <div id="files-empty" class="hidden rounded-2xl border border-neutral-800 bg-neutral-900/50 p-10 text-center">
+      <div class="text-5xl mb-4">📂</div>
+      <h2 class="text-xl font-bold mb-2">No files yet</h2>
+      <p class="text-neutral-400 mb-6">Upload your first schedule to get started.</p>
+      <a href="/dashboard" class="inline-block bg-[#c23326] hover:bg-[#d43d2f] font-bold py-3 px-6 rounded-xl">Go to Dashboard</a>
+    </div>
+    <div id="files-list" class="space-y-4"></div>
+  </div>
+</Layout>
+
+<script>
+  import { authClient } from "../lib/auth-client";
+  import { api, ApiError, type UploadSummary } from "../lib/api";
+
+  function statusColor(status: string): string {
+    if (status === "completed") return "bg-green-900 text-green-300";
+    if (status === "processing" || status === "pending") return "bg-blue-900 text-blue-300";
+    if (status === "no_events") return "bg-amber-900 text-amber-300";
+    if (status === "failed") return "bg-red-900 text-red-300";
+    return "bg-neutral-800 text-neutral-300";
+  }
+
+  function card(u: UploadSummary): string {
+    const safe = u.fileName.replace(/</g, "&lt;");
+    const date = new Date(u.createdAt).toLocaleDateString();
+    const completed = u.status === "completed" && u.shareToken;
+    return `<div class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-4" data-card="${u.id}">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-3 min-w-0">
+          <span class="text-3xl">🖼</span>
+          <div class="min-w-0">
+            <p class="font-medium text-sm truncate">${safe}</p>
+            <p class="text-xs text-neutral-500">${date} · ${u.fileType}</p>
+          </div>
+        </div>
+        <span class="text-xs font-bold px-2.5 py-1 rounded-full ${statusColor(u.status)}">${u.status}</span>
+      </div>
+      ${completed ? `<div class="mt-3 flex flex-wrap gap-2">
+        <button data-act="download" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold bg-[#c23326] hover:bg-[#d43d2f] rounded-lg px-3 py-2">Download .ics</button>
+        <button data-act="copy" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-neutral-700 hover:bg-neutral-800 rounded-lg px-3 py-2">Copy link</button>
+        <button data-act="email" data-id="${u.id}" class="text-xs font-bold border border-neutral-700 hover:bg-neutral-800 rounded-lg px-3 py-2">Email</button>
+        <button data-act="sms" data-id="${u.id}" class="text-xs font-bold border border-neutral-700 hover:bg-neutral-800 rounded-lg px-3 py-2">SMS</button>
+        <button data-act="delete" data-id="${u.id}" class="text-xs font-bold text-red-400 hover:text-red-300 border border-red-900 rounded-lg px-3 py-2">Delete</button>
+      </div>` : ""}
+    </div>`;
+  }
+
+  async function init() {
+    try {
+      const { data: session } = await authClient.getSession();
+      if (!session?.user) { window.location.href = "/login"; return; }
+
+      const { uploads } = await api.listUploads(50);
+      document.getElementById("files-loading")!.classList.add("hidden");
+      if (uploads.length === 0) {
+        document.getElementById("files-empty")!.classList.remove("hidden");
+        return;
+      }
+      const list = document.getElementById("files-list")!;
+      list.innerHTML = uploads.map(card).join("");
+
+      list.addEventListener("click", async (e) => {
+        const btn = (e.target as HTMLElement).closest("[data-act]") as HTMLElement | null;
+        if (!btn) return;
+        const id = btn.getAttribute("data-id")!;
+        const act = btn.getAttribute("data-act")!;
+        const token = btn.getAttribute("data-token") ?? undefined;
+
+        if (act === "download" && token) {
+          window.location.href = `${api.serverUrl()}/api/share/${token}/ics`;
+        } else if (act === "copy" && token) {
+          try {
+            await navigator.clipboard.writeText(`${window.location.origin}/s/${token}`);
+            btn.textContent = "Copied!";
+            setTimeout(() => { btn.textContent = "Copy link"; }, 2000);
+          } catch { /* clipboard unavailable */ }
+        } else if (act === "email") {
+          const email = prompt("Send the .ics file to which email address?");
+          if (!email) return;
+          try {
+            const res = await api.emailUpload(id, email.trim());
+            alert(res.message);
+          } catch (err) {
+            alert(err instanceof Error ? err.message : "Failed to send email.");
+          }
+        } else if (act === "sms") {
+          const phone = prompt("Send the download link to which phone number? (e.g. +15551234567)");
+          if (!phone) return;
+          try {
+            const res = await api.smsUpload(id, phone.trim());
+            alert(res.message);
+          } catch (err) {
+            alert(err instanceof Error ? err.message : "Failed to send SMS.");
+          }
+        } else if (act === "delete") {
+          if (!confirm("Delete this upload and its events?")) return;
+          try {
+            await api.deleteUpload(id);
+            document.querySelector(`[data-card="${id}"]`)?.remove();
+          } catch (err) {
+            alert(err instanceof Error ? err.message : "Delete failed.");
+          }
+        }
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) { window.location.href = "/login"; return; }
+      document.getElementById("files-loading")!.textContent =
+        err instanceof Error ? err.message : "Failed to load files.";
+    }
+  }
+
+  init();
+</script>

@@ -1,0 +1,196 @@
+---
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Settings — QuickCalAI">
+  <div class="mx-auto max-w-3xl px-4 py-8 space-y-8">
+    <div>
+      <h1 class="text-3xl font-bold mb-2">Settings</h1>
+      <p class="text-neutral-400">Manage contact info, API keys, and your subscription.</p>
+    </div>
+
+    <div id="settings-loading" class="text-sm text-neutral-400">Loading…</div>
+
+    <div id="settings-body" class="hidden space-y-8">
+      <!-- Profile -->
+      <section class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+        <h2 class="font-bold text-lg mb-4">Profile</h2>
+        <div class="grid gap-4">
+          <div>
+            <label class="text-sm font-medium" for="set-name">Name</label>
+            <input id="set-name" disabled class="mt-1 w-full px-4 bg-neutral-950 border border-neutral-800 rounded-lg h-10 text-neutral-400" />
+          </div>
+          <div>
+            <label class="text-sm font-medium" for="set-email">Email</label>
+            <input id="set-email" disabled class="mt-1 w-full px-4 bg-neutral-950 border border-neutral-800 rounded-lg h-10 text-neutral-400" />
+          </div>
+          <div>
+            <label class="text-sm font-medium" for="set-phone">Phone Number</label>
+            <input id="set-phone" type="tel" placeholder="+1 (555) 123-4567" class="mt-1 w-full px-4 bg-neutral-800 border border-neutral-700 rounded-lg h-10 focus:outline-none focus:border-[#c23326]" />
+            <p class="mt-1 text-xs text-neutral-500">Used to prefill SMS delivery. International format, e.g. +15551234567.</p>
+          </div>
+          <div>
+            <button id="save-profile" class="bg-[#c23326] hover:bg-[#d43d2f] rounded-lg px-5 py-2.5 text-sm font-bold">Save</button>
+            <span id="profile-status" class="ml-3 text-sm"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Subscription -->
+      <section id="subscription" class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+        <h2 class="font-bold text-lg mb-2">Subscription</h2>
+        <p id="sub-status" class="text-sm text-neutral-400 mb-4">Checking…</p>
+        <div class="flex flex-wrap gap-3">
+          <button id="btn-upgrade" class="hidden bg-[#c23326] hover:bg-[#d43d2f] rounded-lg px-5 py-2.5 text-sm font-bold">Upgrade to Premium</button>
+          <button id="btn-portal" class="hidden border border-neutral-700 hover:bg-neutral-800 rounded-lg px-5 py-2.5 text-sm font-bold">Manage Billing</button>
+          <button id="btn-cancel" class="hidden border border-red-800 text-red-400 hover:bg-red-950 rounded-lg px-5 py-2.5 text-sm font-bold">Cancel Subscription</button>
+        </div>
+        <p id="sub-error" class="hidden mt-3 text-sm text-red-400"></p>
+      </section>
+
+      <!-- API keys -->
+      <section class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-6">
+        <h2 class="font-bold text-lg mb-2">API Keys</h2>
+        <p class="text-sm text-neutral-400 mb-4">Let AI agents and scripts act on your behalf with <code class="text-neutral-200">Authorization: Bearer qc_…</code>. Keys are shown once.</p>
+        <div class="flex gap-2 mb-4">
+          <input id="key-name" placeholder="e.g. claude-agent" class="flex-1 px-4 bg-neutral-800 border border-neutral-700 rounded-lg h-10 text-sm focus:outline-none focus:border-[#c23326]" />
+          <button id="btn-create-key" class="bg-[#c23326] hover:bg-[#d43d2f] rounded-lg px-5 text-sm font-bold">Create</button>
+        </div>
+        <div id="new-key" class="hidden mb-4 rounded-lg border border-[#22c55e]/30 bg-[#22c55e]/10 p-4">
+          <p class="text-sm font-bold text-[#22c55e] mb-1">Copy this key now — it won't be shown again:</p>
+          <code id="new-key-value" class="block break-all text-sm select-all"></code>
+        </div>
+        <div id="keys-list" class="space-y-2"></div>
+      </section>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { authClient } from "../lib/auth-client";
+  import { api, ApiError } from "../lib/api";
+
+  function showError(message: string) {
+    const el = document.getElementById("sub-error")!;
+    el.textContent = message;
+    el.classList.remove("hidden");
+  }
+
+  async function init() {
+    try {
+      const { data: session } = await authClient.getSession();
+      if (!session?.user) { window.location.href = "/login"; return; }
+
+      const me = await api.me();
+      (document.getElementById("set-name") as HTMLInputElement).value = me.name || "";
+      (document.getElementById("set-email") as HTMLInputElement).value = me.email || "";
+      (document.getElementById("set-phone") as HTMLInputElement).value = me.phoneNumber || "";
+
+      document.getElementById("save-profile")!.addEventListener("click", async () => {
+        const status = document.getElementById("profile-status")!;
+        try {
+          const phone = (document.getElementById("set-phone") as HTMLInputElement).value.trim();
+          await api.updateMe({ phoneNumber: phone, isOnboarded: true });
+          status.textContent = "Saved.";
+          status.className = "ml-3 text-sm text-[#22c55e]";
+        } catch (err) {
+          status.textContent = err instanceof Error ? err.message : "Save failed.";
+          status.className = "ml-3 text-sm text-red-400";
+        }
+      });
+
+      // Subscription
+      const subStatus = document.getElementById("sub-status")!;
+      const btnUpgrade = document.getElementById("btn-upgrade")!;
+      const btnPortal = document.getElementById("btn-portal")!;
+      const btnCancel = document.getElementById("btn-cancel")!;
+      if (me.isPremium) {
+        subStatus.innerHTML = '<span class="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold">PREMIUM</span> <span class="ml-2">AI uploads, email & SMS delivery enabled.</span>';
+        btnPortal.classList.remove("hidden");
+        btnCancel.classList.remove("hidden");
+      } else {
+        subStatus.textContent = "Free plan — AI uploads and delivery require Premium ($12.99/mo).";
+        btnUpgrade.classList.remove("hidden");
+      }
+
+      const here = window.location.origin;
+      btnUpgrade.addEventListener("click", async () => {
+        try {
+          await authClient.subscription.upgrade({
+            plan: "premium",
+            successUrl: `${here}/settings?upgraded=1`,
+            cancelUrl: `${here}/settings?canceled=1`,
+          });
+        } catch (err) {
+          showError(err instanceof Error ? err.message : "Upgrade failed.");
+        }
+      });
+      btnPortal.addEventListener("click", async () => {
+        try {
+          await authClient.subscription.billingPortal({ returnUrl: `${here}/settings` });
+        } catch (err) {
+          showError(err instanceof Error ? err.message : "Could not open billing portal.");
+        }
+      });
+      btnCancel.addEventListener("click", async () => {
+        if (!confirm("Cancel your premium subscription?")) return;
+        try {
+          await authClient.subscription.cancel({ returnUrl: `${here}/settings` });
+        } catch (err) {
+          showError(err instanceof Error ? err.message : "Cancel failed.");
+        }
+      });
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("upgraded")) subStatus.textContent = "Subscription active — welcome to Premium!";
+      if (params.get("canceled")) subStatus.textContent = "Checkout canceled — no changes made.";
+
+      // API keys
+      async function refreshKeys() {
+        const { keys } = await api.listKeys();
+        const list = document.getElementById("keys-list")!;
+        list.innerHTML = keys.length === 0
+          ? '<p class="text-sm text-neutral-500">No API keys yet.</p>'
+          : keys.map((k) => `
+            <div class="flex items-center justify-between gap-3 rounded-lg border border-neutral-800 bg-neutral-950 px-4 py-3">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold truncate">${k.name.replace(/</g, "&lt;")}</p>
+                <p class="text-xs text-neutral-500 font-mono">${k.keyPrefix}… ${k.lastUsedAt ? `· last used ${new Date(k.lastUsedAt).toLocaleDateString()}` : "· never used"}</p>
+              </div>
+              <button data-revoke="${k.id}" class="shrink-0 text-xs font-bold text-red-400 hover:text-red-300 border border-red-900 rounded-lg px-3 py-1.5">Revoke</button>
+            </div>`).join("");
+        for (const btn of list.querySelectorAll("[data-revoke]")) {
+          btn.addEventListener("click", async () => {
+            if (!confirm("Revoke this API key?")) return;
+            await api.deleteKey(btn.getAttribute("data-revoke")!);
+            void refreshKeys();
+          });
+        }
+      }
+
+      document.getElementById("btn-create-key")!.addEventListener("click", async () => {
+        const nameInput = document.getElementById("key-name") as HTMLInputElement;
+        const name = nameInput.value.trim();
+        if (!name) return;
+        try {
+          const created = await api.createKey({ name });
+          document.getElementById("new-key-value")!.textContent = created.key;
+          document.getElementById("new-key")!.classList.remove("hidden");
+          nameInput.value = "";
+          void refreshKeys();
+        } catch (err) {
+          showError(err instanceof Error ? err.message : "Could not create key.");
+        }
+      });
+
+      await refreshKeys();
+      document.getElementById("settings-loading")!.classList.add("hidden");
+      document.getElementById("settings-body")!.classList.remove("hidden");
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) { window.location.href = "/login"; return; }
+      document.getElementById("settings-loading")!.textContent =
+        err instanceof Error ? err.message : "Failed to load settings.";
+    }
+  }
+
+  init();
+</script>

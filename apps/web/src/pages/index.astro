@@ -1,28 +1,251 @@
 ---
 import Layout from "../layouts/Layout.astro";
-
-const TITLE_TEXT = `
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
-
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
- `;
 ---
 
-<Layout title="quickcal-cf">
-  <div class="container mx-auto max-w-3xl px-4 py-2">
-    <pre class="overflow-x-auto font-mono text-sm text-white">{TITLE_TEXT}</pre>
-    <div class="grid gap-6">
+<Layout title="QuickCalAI — Image to calendar in seconds">
+  <!-- Hero -->
+  <section id="hero" class="relative flex min-h-[90vh] items-center">
+    <div class="mx-auto w-full max-w-7xl px-4 pt-28 pb-20 sm:px-6 lg:px-8">
+      <div class="grid items-center gap-16 lg:grid-cols-2">
+        <div class="space-y-8">
+          <div>
+            <span class="inline-flex items-center gap-2 rounded-full border border-[#c23326]/20 bg-[#c23326]/10 px-3.5 py-1 text-xs font-medium tracking-wide uppercase text-[#c23326]">
+              <span class="h-1.5 w-1.5 rounded-full bg-[#c23326]"></span>
+              AI-Powered Scheduling
+            </span>
+          </div>
+          <div>
+            <h1 class="text-4xl leading-[1.08] tracking-tight sm:text-5xl md:text-6xl lg:text-[4.25rem]">
+              Image to calendar<br />in <span class="text-[#c23326]">seconds</span>
+            </h1>
+          </div>
+          <p class="max-w-md text-lg leading-relaxed text-neutral-400">
+            Upload a photo of any schedule. Our AI extracts every event and generates
+            calendar files you can import anywhere.
+          </p>
+          <div class="flex flex-col gap-3 sm:flex-row">
+            <a href="/signup" class="rounded-lg bg-[#c23326] px-6 py-3 text-sm font-semibold text-white hover:bg-[#d43d2f] text-center">
+              Get started free →
+            </a>
+            <a href="#how-it-works" class="rounded-lg border border-neutral-800 px-6 py-3 text-sm font-semibold hover:bg-neutral-900 text-center">
+              How it works
+            </a>
+          </div>
+          <div class="flex items-center gap-5 text-sm text-neutral-400">
+            <div class="flex items-center gap-1.5"><span class="text-[#c23326]">✓</span> No credit card required</div>
+            <div class="flex items-center gap-1.5"><span class="text-[#c23326]">✓</span> Setup in 30 seconds</div>
+          </div>
+        </div>
+        <div class="relative">
+          <div class="relative overflow-hidden rounded-xl border border-neutral-800/50 shadow-2xl shadow-black/20 bg-neutral-900">
+            <div class="p-8">
+              <div class="mb-4 flex items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-[#c23326] text-lg">🖼</div>
+                <div class="flex-1">
+                  <div class="text-sm font-semibold">football-schedule.pdf</div>
+                  <div class="text-xs text-neutral-500">Processing with AI…</div>
+                </div>
+              </div>
+              <div class="mb-4 flex items-center justify-center gap-2 rounded-xl bg-[#c23326] p-3 text-sm font-bold shadow-[0_4px_20px_rgba(194,51,38,0.3)]">
+                ⚡ AI Processing in Progress
+              </div>
+              <div class="rounded-xl border border-[#22c55e]/30 bg-[#22c55e]/10 p-4">
+                <div class="text-lg font-bold text-[#22c55e]">Processing Complete!</div>
+                <div class="text-neutral-200">12 events ready to download</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-</Layout>
+  </section>
 
+  <!-- Stats -->
+  <section class="border-y border-neutral-800/50 py-14">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-12">
+        {[
+          ["10,000+", "Events Extracted"],
+          ["500+", "Happy Users"],
+          ["99.2%", "Accuracy Rate"],
+          ["<3s", "Avg. Processing"],
+        ].map(([value, label]) => (
+          <div class="text-center">
+            <div class="text-2xl font-bold tracking-tight md:text-3xl">{value}</div>
+            <div class="text-xs font-medium uppercase tracking-wider text-neutral-500">{label}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section id="how-it-works" class="py-24">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="mx-auto mb-16 max-w-xl text-center">
+        <p class="mb-3 text-xs font-semibold tracking-widest uppercase text-[#c23326]">How it works</p>
+        <h2 class="text-3xl tracking-tight md:text-4xl">Three steps to a perfect calendar</h2>
+      </div>
+      <div class="relative mx-auto grid max-w-4xl gap-12 md:grid-cols-3 md:gap-8">
+        {[
+          ["01", "📤", "Upload your image", "Snap a photo or upload a screenshot of any schedule — class timetables, event flyers, meeting agendas, sports calendars."],
+          ["02", "✨", "AI extracts events", "Our AI instantly identifies every date, time, location, and event name. Review and edit the results in a clean table view."],
+          ["03", "📥", "Export & sync", "Download your .ics file, or have it delivered straight to your inbox or phone via email and SMS. One click to your calendar."],
+        ].map(([number, icon, title, description]) => (
+          <div class="relative text-center">
+            <div class="mb-6 inline-flex flex-col items-center">
+              <span class="mb-2 text-[10px] font-bold tracking-widest uppercase text-neutral-600">Step {number}</span>
+              <div class="flex h-14 w-14 items-center justify-center rounded-xl border border-neutral-800 bg-neutral-900 text-2xl">{icon}</div>
+            </div>
+            <h3 class="mb-2 text-base font-semibold">{title}</h3>
+            <p class="mx-auto max-w-[260px] text-sm leading-relaxed text-neutral-400">{description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section id="features" class="py-24">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="mx-auto mb-16 max-w-xl text-center">
+        <p class="mb-3 text-xs font-semibold tracking-widest uppercase text-[#c23326]">Features</p>
+        <h2 class="text-3xl tracking-tight md:text-4xl">Everything you need for effortless scheduling</h2>
+      </div>
+      <div class="grid gap-px overflow-hidden rounded-xl border border-neutral-800/50 bg-neutral-800/50 md:grid-cols-2 lg:grid-cols-3">
+        {[
+          ["📤", "Smart Upload", "Drag and drop any image — screenshots, photos of whiteboards, PDFs, even handwritten notes with dates."],
+          ["⚡", "AI Extraction", "Our AI identifies dates, times, locations, and event names, then turns them into a ready-to-use calendar."],
+          ["📅", "Editable Results", "Review extracted events in a clean table. Edit titles, adjust times, or remove entries before exporting."],
+          ["📥", "Instant Export", "Generate .ics files compatible with Google Calendar, Apple Calendar, Outlook, and every major calendar app."],
+          ["🌍", "Email & SMS Delivery", "Have your calendar files sent directly to your inbox or phone. Share schedules with your team effortlessly."],
+          ["🛡", "Private & Secure", "Your images are processed securely and never stored longer than needed. Your schedule data stays yours."],
+        ].map(([icon, title, description]) => (
+          <div class="bg-neutral-950 p-8 transition-colors duration-200 hover:bg-neutral-900">
+            <div class="mb-4 text-xl">{icon}</div>
+            <h3 class="mb-2 text-sm font-semibold">{title}</h3>
+            <p class="text-sm leading-relaxed text-neutral-400">{description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section id="pricing" class="py-24">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="mx-auto mb-16 max-w-xl text-center">
+        <p class="mb-3 text-xs font-semibold tracking-widest uppercase text-[#c23326]">Pricing</p>
+        <h2 class="mb-3 text-3xl tracking-tight md:text-4xl">Simple, transparent pricing</h2>
+        <p class="text-sm text-neutral-400">Choose the plan that fits your needs. Upgrade or cancel anytime.</p>
+      </div>
+      <div class="mx-auto grid max-w-4xl items-start gap-5 md:grid-cols-3">
+        {[
+          { name: "Free", price: "$0", period: "", description: "Get started with manual tools", featured: false, features: ["Manual calendar automation", "Manual file creation", "Files delivered via downloads"] },
+          { name: "Premium", price: "$12.99", period: "/mo", description: "AI-powered calendar automation", featured: true, features: ["Everything in Free", "Unlimited AI extractions", "Files delivered via email", "Files delivered via SMS", "Calendar integration"] },
+          { name: "Annual", price: "$5.99", period: "/mo", description: "$71.88 billed annually · Save 54%", featured: false, features: ["Everything in Premium", "2 months free", "Premium integrations", "White-label options"] },
+        ].map((plan) => (
+          <div class={`relative rounded-xl border p-6 transition-all duration-200 ${plan.featured ? "border-[#c23326]/40 bg-neutral-900 shadow-lg shadow-[#c23326]/5" : "border-neutral-800/50 bg-neutral-900/50 hover:border-neutral-700"}`}>
+            {plan.featured && <div class="absolute top-0 left-0 right-0 h-0.5 bg-[#c23326]"></div>}
+            <div class="pb-2 text-center">
+              {plan.featured && <span class="mx-auto mb-2 inline-block rounded bg-[#c23326]/10 px-2.5 py-0.5 text-[10px] font-bold tracking-widest uppercase text-[#c23326]">Popular</span>}
+              <div class="text-lg font-semibold">{plan.name}</div>
+              <div class="mt-3 mb-1">
+                <span class="text-3xl font-bold tracking-tight">{plan.price}</span>
+                {plan.period && <span class="text-sm text-neutral-400">{plan.period}</span>}
+              </div>
+              <div class="text-xs text-neutral-400">{plan.description}</div>
+            </div>
+            <ul class="mb-6 space-y-2.5 pt-4">
+              {plan.features.map((feature) => (
+                <li class="flex items-start gap-2.5">
+                  <span class="mt-0.5 shrink-0 text-[#c23326]">✓</span>
+                  <span class="text-sm text-neutral-300">{feature}</span>
+                </li>
+              ))}
+            </ul>
+            <a href="/signup" class={`block w-full rounded-lg py-2 text-center text-sm font-semibold ${plan.featured ? "bg-[#c23326] text-white hover:bg-[#d43d2f]" : "border border-neutral-700 hover:bg-neutral-800"}`}>
+              Get Started
+            </a>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- Testimonials -->
+  <section class="py-24">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="mx-auto mb-16 max-w-xl text-center">
+        <p class="mb-3 text-xs font-semibold tracking-widest uppercase text-[#c23326]">Loved by busy people</p>
+        <h2 class="text-3xl tracking-tight md:text-4xl">Schedules, sorted in seconds</h2>
+      </div>
+      <div class="mx-auto grid max-w-4xl gap-5 md:grid-cols-3">
+        {[
+          ["Turned a 40-game season PDF into my calendar before my coffee cooled.", "Youth sports parent"],
+          ["I photograph the whiteboard after every standup. No more missed deadlines.", "Team lead"],
+          ["Class timetables used to take an hour to type in. Now it's a drag and drop.", "Grad student"],
+        ].map(([quote, role]) => (
+          <figure class="rounded-xl border border-neutral-800/50 bg-neutral-900/50 p-6">
+            <blockquote class="text-sm leading-relaxed text-neutral-300">“{quote}”</blockquote>
+            <figcaption class="mt-4 text-xs font-semibold uppercase tracking-wider text-neutral-500">— {role}</figcaption>
+          </figure>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="py-24">
+    <div class="mx-auto max-w-3xl px-4 text-center sm:px-6 lg:px-8">
+      <h2 class="text-3xl tracking-tight md:text-4xl">Stop retyping schedules.</h2>
+      <p class="mx-auto mt-4 max-w-md text-neutral-400">Upload your first image and get a calendar file back in seconds. Free to start.</p>
+      <a href="/signup" class="mt-8 inline-block rounded-lg bg-[#c23326] px-8 py-3 text-sm font-semibold text-white hover:bg-[#d43d2f]">
+        Get started free
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-neutral-800/50">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-2 gap-8 py-16 md:grid-cols-4">
+        <div class="col-span-2 md:col-span-1">
+          <div class="mb-4 flex items-center gap-2">
+            <span class="text-lg">📅</span>
+            <span class="text-sm font-semibold tracking-tight">QuickCalAI</span>
+          </div>
+          <p class="max-w-xs text-sm leading-relaxed text-neutral-400">AI-powered calendar extraction that saves you time and eliminates scheduling errors.</p>
+        </div>
+        <div>
+          <h4 class="mb-4 text-xs font-semibold tracking-widest uppercase text-neutral-400">Product</h4>
+          <ul class="space-y-2.5">
+            <li><a href="#features" class="text-sm text-neutral-300/60 hover:text-white">Features</a></li>
+            <li><a href="#pricing" class="text-sm text-neutral-300/60 hover:text-white">Pricing</a></li>
+            <li><a href="/dashboard" class="text-sm text-neutral-300/60 hover:text-white">Dashboard</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 text-xs font-semibold tracking-widest uppercase text-neutral-400">Company</h4>
+          <ul class="space-y-2.5">
+            <li><a href="#hero" class="text-sm text-neutral-300/60 hover:text-white">About</a></li>
+            <li><a href="https://github.com/Rocktown-Labs/quickcalai" target="_blank" rel="noopener noreferrer" class="text-sm text-neutral-300/60 hover:text-white">GitHub</a></li>
+            <li><a href="mailto:support@quickcalai.com" class="text-sm text-neutral-300/60 hover:text-white">Contact</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="mb-4 text-xs font-semibold tracking-widest uppercase text-neutral-400">Support</h4>
+          <ul class="space-y-2.5">
+            <li><a href="/help" class="text-sm text-neutral-300/60 hover:text-white">Help &amp; Support</a></li>
+            <li><a href="/privacy" class="text-sm text-neutral-300/60 hover:text-white">Privacy</a></li>
+            <li><a href="/terms" class="text-sm text-neutral-300/60 hover:text-white">Terms</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="flex flex-col items-center justify-between gap-4 border-t border-neutral-800/50 py-6 sm:flex-row">
+        <p class="text-xs text-neutral-400">© {new Date().getFullYear()} QuickCalAI. All rights reserved.</p>
+        <p class="text-xs text-neutral-600">Built by Rocktown Labs</p>
+      </div>
+    </div>
+  </footer>
+</Layout>

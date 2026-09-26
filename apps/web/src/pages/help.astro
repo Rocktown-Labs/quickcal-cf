@@ -1,0 +1,59 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const sections = [
+  {
+    title: "How QuickCalAI works",
+    body: `<ol class="list-decimal space-y-2 pl-5"><li>Upload a supported image or PDF containing a calendar, schedule, agenda, or event list.</li><li>QuickCalAI analyzes the document and extracts dates, times, locations, and event names.</li><li>Review the results, then download the generated .ics file or request email or SMS delivery.</li></ol>`,
+  },
+  {
+    title: "What files can I upload?",
+    body: `<p>QuickCalAI supports JPEG, PNG, WebP, and PDF files up to 10 MB. Clear, well-lit files with readable dates and times produce the best results. Handwritten or blurry documents may need extra review.</p>`,
+  },
+  {
+    title: "Can I trust the extracted events?",
+    body: `<p>Use the extraction as a starting point, not as a guarantee. AI can misread ambiguous, low-resolution, or unusual schedules. Always review dates, times, time zones, and locations before importing or relying on the calendar file.</p>`,
+  },
+  {
+    title: "How do email and SMS delivery work?",
+    body: `<p>After processing finishes, choose <strong>Email or SMS</strong>, enter the destination, and select the send button. SMS sends the secure download link to the phone number you provide; it does not attach the calendar file directly to the text message. Phone numbers should use international format, such as +15551234567.</p><p class="mt-2">Email and SMS sharing are premium features. Delivery depends on the destination, carrier, provider, and network.</p>`,
+  },
+  {
+    title: "My upload is stuck or failed",
+    body: `<ul class="list-disc space-y-2 pl-5"><li>Confirm the file is an image or PDF and is smaller than 10 MB.</li><li>Try a clearer crop or a higher-resolution copy of the schedule.</li><li>Refresh the dashboard and check whether the file moved to Completed or Failed.</li><li>If the issue continues, email support with the file type and what you expected to happen.</li></ul>`,
+  },
+  {
+    title: "Managing billing",
+    body: `<p>Open <a class="underline underline-offset-4" href="/settings#subscription">Settings → Subscription</a> to view or manage your plan. If you were charged incorrectly or cannot access billing controls, contact support from the email address on your account.</p>`,
+  },
+  {
+    title: "Still need help?",
+    body: `<p>Email us at <a class="underline underline-offset-4" href="mailto:support@quickcalai.com?subject=QuickCalAI%20support">support@quickcalai.com</a>. We aim to reply with next steps as soon as possible.</p>`,
+  },
+];
+---
+
+<Layout title="Help & Support — QuickCalAI">
+  <div class="mx-auto max-w-3xl px-4 py-12">
+    <p class="text-xs font-semibold tracking-widest uppercase text-[#c23326] mb-2">Help &amp; support</p>
+    <h1 class="text-3xl md:text-4xl font-bold mb-3">Get your schedule on the calendar</h1>
+    <p class="text-neutral-400 mb-2">Find quick answers about uploads, calendar files, sharing, subscriptions, and getting in touch with our team.</p>
+    <p class="text-xs text-neutral-500 mb-10">Last updated September 14, 2026</p>
+    <div class="grid gap-4 sm:grid-cols-2 mb-10">
+      <a href="mailto:support@quickcalai.com?subject=QuickCalAI%20support" class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 hover:border-[#c23326]/60">
+        <p class="font-semibold">Email support</p>
+        <p class="mt-1 text-sm text-neutral-400">support@quickcalai.com</p>
+      </a>
+      <a href="/dashboard" class="rounded-xl border border-neutral-800 bg-neutral-900/50 p-5 hover:border-[#c23326]/60">
+        <p class="font-semibold">Open your dashboard</p>
+        <p class="mt-1 text-sm text-neutral-400">Upload a schedule or manage existing files.</p>
+      </a>
+    </div>
+    {sections.map((s) => (
+      <section class="mb-8">
+        <h2 class="text-xl font-bold mb-3">{s.title}</h2>
+        <div class="text-neutral-300 text-sm leading-relaxed space-y-2" set:html={s.body} />
+      </section>
+    ))}
+  </div>
+</Layout>

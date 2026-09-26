@@ -4,6 +4,7 @@ import jsonContent from "stoker/openapi/helpers/json-content";
 import createMessageObjectSchema from "stoker/openapi/schemas/create-message-object";
 import {
   createUploadRecord,
+  deleteUpload,
   getUploadById,
   getUploadEventCount,
   getUserUploadByWorkflowRunId,
@@ -318,6 +319,44 @@ app.openapi(getUploadStatusByRun, async (c) => {
   }
 
   return c.json(await buildStatusResponse(db, upload), HttpStatusCodes.OK);
+});
+
+const deleteUploadRoute = createRoute({
+  method: "delete",
+  path: "/{id}",
+  tags: ["Uploads"],
+  summary: "Delete an upload and its events",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      createMessageObjectSchema("Deleted"),
+      "Upload deleted",
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema("Not found"),
+      "Upload not found",
+    ),
+  },
+});
+
+app.openapi(deleteUploadRoute, async (c) => {
+  const { id } = c.req.valid("param");
+  const userId = c.get("userId");
+  const db = getDb();
+
+  const upload = await getUploadById(db, id);
+  if (!upload || upload.userId !== userId) {
+    return c.json({ message: "Upload not found" }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  await ENV.FILES.delete(upload.storageKey).catch(() => undefined);
+  if (upload.icsKey) {
+    await ENV.FILES.delete(upload.icsKey).catch(() => undefined);
+  }
+  await deleteUpload(db, id);
+  return c.json({ message: "Upload deleted" }, HttpStatusCodes.OK);
 });
 
 export default app;

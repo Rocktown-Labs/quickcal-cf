@@ -1,0 +1,98 @@
+---
+import Layout from "../../layouts/Layout.astro";
+
+const { token } = Astro.params;
+---
+
+<Layout title="Shared Schedule — QuickCalAI">
+  <div class="min-h-screen">
+    <div class="max-w-2xl mx-auto px-4 py-8 md:py-12">
+      <div class="mb-8">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="text-xl">📅</span>
+          <span class="text-sm font-bold text-[#c23326]">QuickCalAI</span>
+        </div>
+        <h1 id="share-title" class="text-2xl md:text-3xl font-bold mb-2">Loading schedule…</h1>
+        <p id="share-sub" class="text-neutral-400"></p>
+      </div>
+
+      <div id="share-error" class="hidden rounded-2xl border border-neutral-800 bg-neutral-900/50 p-8 text-center">
+        <div class="text-5xl mb-4">🔍</div>
+        <h2 class="text-xl font-bold mb-2">Schedule not found</h2>
+        <p class="text-neutral-400 mb-6">This link is invalid, expired, or the file isn't finished processing yet.</p>
+        <a href="/" class="inline-block bg-[#c23326] hover:bg-[#d43d2f] font-bold py-3 px-6 rounded-xl">Go to QuickCalAI</a>
+      </div>
+
+      <div id="share-body" class="hidden">
+        <div class="flex flex-col gap-3 mb-8">
+          <a id="share-download" href="#" class="flex items-center justify-center gap-2 w-full bg-[#c23326] hover:bg-[#d43d2f] font-bold py-3 px-6 rounded-xl transition-colors">
+            <span>📥</span> Download .ics File
+          </a>
+          <div class="grid grid-cols-2 gap-3">
+            <a id="share-google" href="#" target="_blank" rel="noopener" class="text-center border border-neutral-700 hover:bg-neutral-800 font-bold py-2.5 px-4 rounded-xl text-sm">Add to Google</a>
+            <button id="share-subscribe" class="border border-neutral-700 hover:bg-neutral-800 font-bold py-2.5 px-4 rounded-xl text-sm">Subscribe (Apple)</button>
+          </div>
+        </div>
+        <div id="share-events" class="space-y-3"></div>
+        <div class="mt-10 text-center">
+          <p class="text-sm text-neutral-500">Powered by <a href="/" class="text-[#c23326] hover:underline">QuickCalAI</a></p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <span id="share-token" data-token={token} class="hidden"></span>
+</Layout>
+
+<script>
+  import { api } from "../../lib/api";
+
+  async function init() {
+    const token = document.getElementById("share-token")?.getAttribute("data-token");
+    if (!token) return;
+
+    try {
+      const data = await api.share(token);
+      document.getElementById("share-title")!.textContent =
+        data.fileName.replace(/\.[^/.]+$/, "") || "Shared schedule";
+      document.getElementById("share-sub")!.textContent =
+        `${data.eventCount} event${data.eventCount !== 1 ? "s" : ""} ready to add to your calendar`;
+
+      const icsUrl = `${api.serverUrl()}${data.downloadPath}`;
+      (document.getElementById("share-download") as HTMLAnchorElement).href = icsUrl;
+      (document.getElementById("share-google") as HTMLAnchorElement).href =
+        `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(icsUrl)}`;
+      document.getElementById("share-subscribe")!.addEventListener("click", () => {
+        window.location.href = icsUrl.replace(/^https:\/\//, "webcal://");
+      });
+
+      document.getElementById("share-events")!.innerHTML = data.events.map((event) => {
+        const start = new Date(event.startTime);
+        const month = start.toLocaleDateString("en-US", { month: "short" });
+        const day = start.getDate();
+        const time = start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) +
+          (event.endTime ? ` – ${new Date(event.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : "");
+        const safe = (s: string | null) => (s ?? "").replace(/</g, "&lt;");
+        return `<div class="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 md:p-5">
+          <div class="flex items-start gap-3">
+            <div class="flex flex-col items-center justify-center w-12 h-12 bg-[#c23326]/10 rounded-lg shrink-0">
+              <span class="text-xs font-bold text-[#c23326]">${month}</span>
+              <span class="text-lg font-bold">${day}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="font-semibold mb-1 truncate">${safe(event.title)}</h3>
+              <div class="text-sm text-neutral-400">🕐 ${time}${event.location ? ` · 📍 ${safe(event.location)}` : ""}</div>
+              ${event.description && event.description !== event.title ? `<p class="text-sm text-neutral-500 mt-2 line-clamp-2">${safe(event.description)}</p>` : ""}
+            </div>
+          </div>
+        </div>`;
+      }).join("");
+
+      document.getElementById("share-body")!.classList.remove("hidden");
+    } catch {
+      document.getElementById("share-title")!.textContent = "Schedule not found";
+      document.getElementById("share-error")!.classList.remove("hidden");
+    }
+  }
+
+  init();
+</script>
