@@ -3,7 +3,7 @@ import type { Database } from "../index";
 import { uploads, events, type UploadStatus } from "../schema";
 
 export function generateShareToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
