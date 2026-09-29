@@ -9,21 +9,13 @@ export function generateApiKey(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
-  const encoded = btoa(bin)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/, "");
+  const encoded = btoa(bin).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/, "");
   return `${API_KEY_PREFIX}${encoded}`;
 }
 
 export async function hashApiKey(key: string): Promise<string> {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(key),
-  );
-  return [...new Uint8Array(digest)]
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export async function createApiKeyRecord(
@@ -75,10 +67,7 @@ export async function verifyApiKey(db: Database, key: string) {
   for (const candidate of candidates) {
     if (candidate.keyHash !== hash) continue;
     if (candidate.expiresAt && candidate.expiresAt < now) return null;
-    await db
-      .update(apiKeys)
-      .set({ lastUsedAt: now })
-      .where(eq(apiKeys.id, candidate.id));
+    await db.update(apiKeys).set({ lastUsedAt: now }).where(eq(apiKeys.id, candidate.id));
     return candidate;
   }
 
@@ -100,11 +89,7 @@ export async function listApiKeys(db: Database, userId: string) {
     .orderBy(desc(apiKeys.createdAt));
 }
 
-export async function deleteApiKey(
-  db: Database,
-  userId: string,
-  keyId: string,
-) {
+export async function deleteApiKey(db: Database, userId: string, keyId: string) {
   return db
     .delete(apiKeys)
     .where(and(eq(apiKeys.id, keyId), eq(apiKeys.userId, userId)))

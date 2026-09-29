@@ -15,11 +15,7 @@ export type PlanInput = {
 };
 
 export async function getPlans(db: Database) {
-  return db
-    .select()
-    .from(plan)
-    .where(eq(plan.active, true))
-    .orderBy(desc(plan.createdAt));
+  return db.select().from(plan).where(eq(plan.active, true)).orderBy(desc(plan.createdAt));
 }
 
 export async function upsertPlan(db: Database, input: PlanInput) {

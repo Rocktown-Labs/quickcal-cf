@@ -39,11 +39,7 @@ const errorResponses = {
   ),
 };
 
-async function loadCompletedUpload(
-  db: ReturnType<typeof getDb>,
-  userId: string,
-  uploadId: string,
-) {
+async function loadCompletedUpload(db: ReturnType<typeof getDb>, userId: string, uploadId: string) {
   const upload = await getUploadById(db, uploadId);
   if (!upload || upload.userId !== userId) return null;
   if (upload.status !== "completed" || !upload.icsKey || !upload.shareToken) return null;
@@ -55,9 +51,10 @@ function publicIcsUrl(shareToken: string): string {
 }
 
 function publicShareUrl(shareToken: string): string {
+  // CORS_ORIGIN is the deployed web origin, so share links always point at
+  // the real web app (works for prod, previews, and the custom domain).
   const webOrigin =
-    (ENV as unknown as Record<string, string | undefined>).PUBLIC_WEB_URL?.trim() ||
-    "https://quickcal-web.rocktown-labs.workers.dev";
+    ENV.CORS_ORIGIN.split(",")[0]?.trim().replace(/\/+$/, "") || ENV.BETTER_AUTH_URL;
   return `${webOrigin}/s/${shareToken}`;
 }
 

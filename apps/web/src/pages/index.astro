@@ -4,27 +4,27 @@ import Navbar from "../components/Navbar.astro";
 import Logo from "../components/Logo.astro";
 
 const stats = [
-  { value: "10,000+", label: "Events extracted" },
-  { value: "500+", label: "Active users" },
-  { value: "99.2%", label: "Extraction accuracy" },
-  { value: "<3s", label: "Average processing" },
+  { value: "4", label: "File formats — JPEG, PNG, WebP, PDF" },
+  { value: "10 MB", label: "Max upload size" },
+  { value: "Gemini 2.5", label: "Extraction engine" },
+  { value: "$0", label: "Manual events, free forever" },
 ] as const;
 
 const steps = [
   {
     number: "01",
     title: "Upload any schedule",
-    body: "Drag in a screenshot, PDF, event flyer, or a photo of a whiteboard. We accept any image or document with dates.",
+    body: "Drag in a screenshot, PDF, event flyer, or a photo of a whiteboard. We accept JPEG, PNG, WebP, and PDF documents with dates.",
   },
   {
     number: "02",
     title: "AI reads every event",
-    body: "Gemini identifies dates, times, locations, and event names. You can review and edit the results before exporting.",
+    body: "Gemini identifies dates, times, and event names across the whole document and turns them into structured calendar events.",
   },
   {
     number: "03",
     title: "Export or share",
-    body: "Download an .ics file, send it by email or SMS, or share a public link. Your calendar stays in sync wherever you need it.",
+    body: "Download an .ics file, send it by email or SMS, or share a link others can open without an account.",
   },
 ] as const;
 
@@ -36,12 +36,12 @@ const features = [
   },
   {
     title: "AI extraction",
-    body: "Every date, time, location, and event name is pulled out and converted into structured calendar data.",
+    body: "Every date, time, and event name is pulled out and converted into structured calendar data.",
     icon: "sparkles",
   },
   {
-    title: "Editable results",
-    body: "Review events in a clean table. Fix titles, adjust times, or remove rows before generating the file.",
+    title: "Free manual events",
+    body: "Create single events by hand and download the .ics for free — no AI, no credit card required.",
     icon: "checklist",
   },
   {
@@ -51,12 +51,12 @@ const features = [
   },
   {
     title: "Email & SMS delivery",
-    body: "Send calendar files straight to your inbox or phone. Share a schedule with a team in seconds.",
+    body: "Send calendar files straight to an inbox or phone. Share a schedule with a team in seconds.",
     icon: "send",
   },
   {
     title: "Private by default",
-    body: "Your uploads are processed securely and deleted automatically. We only keep what we need, when we need it.",
+    body: "Files stay private to your account and are never shared unless you create a share link — which you can revoke anytime.",
     icon: "shield",
   },
 ] as const;
@@ -103,24 +103,21 @@ const plans = [
   },
 ] as const;
 
-const testimonials = [
+const useCases = [
   {
-    name: "Sarah Chen",
-    role: "Product Manager",
-    content:
-      "QuickCalAI turned a 12-page conference agenda into a calendar I could actually use. It took under a minute.",
+    initials: "🎓",
+    title: "Students",
+    body: "Turn a semester timetable PDF or a photo of the syllabus whiteboard into a calendar you actually keep.",
   },
   {
-    name: "Marcus Rodriguez",
-    role: "Entrepreneur",
-    content:
-      "I used to miss event times buried in screenshots. Now I just upload and the event is in my calendar.",
+    initials: "🗂",
+    title: "Executive assistants",
+    body: "Process conference agendas and event lists in seconds instead of retyping them line by line.",
   },
   {
-    name: "Emily Watson",
-    role: "Executive Assistant",
-    content:
-      "I process dozens of scheduling requests every week. This has cut the busywork down by at least half.",
+    initials: "🧑‍🍳",
+    title: "Shift workers & teams",
+    body: "Snap the rota pinned to the break-room wall, then share the .ics with the whole team by link, email, or SMS.",
   },
 ] as const;
 
@@ -128,7 +125,7 @@ const faqs = [
   {
     question: "What file types can I upload?",
     answer:
-      "PNG, JPG, HEIC, PDF, and most common image formats work. Screenshots, event flyers, scanned papers, and even photos of whiteboards are supported.",
+      "JPEG, PNG, WebP, and PDF files up to 10 MB. Screenshots, event flyers, scanned papers, and photos of whiteboards work well. Clear, readable dates and times produce the best results.",
   },
   {
     question: "Is there a free plan?",
@@ -138,7 +135,7 @@ const faqs = [
   {
     question: "How accurate is the AI extraction?",
     answer:
-      "QuickCalAI currently extracts events with a 99.2% accuracy rate on structured schedules. You can also review and edit every event before exporting.",
+      "Treat extraction as a starting point, not a guarantee. AI can misread ambiguous or low-resolution schedules, so review dates, times, and titles before importing. You can always delete an upload and try again.",
   },
   {
     question: "Which calendar apps work with the .ics files?",
@@ -148,7 +145,7 @@ const faqs = [
   {
     question: "Is my data private?",
     answer:
-      "Uploads are stored only long enough to process them, then removed automatically. We do not train on your content or share it with third parties.",
+      "Files are stored privately in your account and are never shared unless you create a share link — and you can revoke any link at any time. We don't train on your content or share it with third parties. Delete an upload and its source file, events, and calendar are removed.",
   },
 ] as const;
 
@@ -386,28 +383,23 @@ function iconPath(name: string) {
     <section id="testimonials" class="py-28 border-t border-border/40 bg-secondary/20">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-14 max-w-xl reveal">
-          <p class="eyebrow mb-3">Testimonials</p>
-          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Loved by people who hate busywork</h2>
+          <p class="eyebrow mb-3">Who it's for</p>
+          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Built for people who hate busywork</h2>
         </div>
 
         <div class="grid md:grid-cols-3 gap-6">
-          {testimonials.map((t) => (
+          {useCases.map((t) => (
             <div class="card-minimal rounded-xl p-7 reveal">
               <div class="flex gap-1 mb-5 text-primary">
-                {Array.from({ length: 5 }).map(() => (
-                  <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
-                ))}
+                <span class="text-3xl">{t.initials}</span>
               </div>
-              <p class="text-sm text-foreground/80 leading-relaxed mb-6">“{t.content}”</p>
+              <p class="text-sm text-foreground/80 leading-relaxed mb-6">{t.body}</p>
               <div class="flex items-center gap-3">
                 <div class="w-9 h-9 rounded-full border border-border flex items-center justify-center">
-                  <span class="text-[10px] font-bold text-primary">{t.name.split(" ").map((n) => n[0]).join("")}</span>
+                  <span class="text-[10px] font-bold text-primary">QC</span>
                 </div>
                 <div>
-                  <p class="text-sm font-semibold">{t.name}</p>
-                  <p class="text-xs text-muted-foreground">{t.role}</p>
+                  <p class="text-sm font-semibold">{t.title}</p>
                 </div>
               </div>
             </div>

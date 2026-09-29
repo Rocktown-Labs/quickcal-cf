@@ -1,10 +1,7 @@
 import SentDm from "@sentdm/sentdm";
 import { Resend } from "resend";
 import { ENV } from "../env.server";
-import {
-  NotificationConfigurationError,
-  normalizePhoneNumber,
-} from "./notify-helpers";
+import { NotificationConfigurationError, normalizePhoneNumber, sha256Hex } from "./notify-helpers";
 
 export { NotificationConfigurationError, NotificationInputError } from "./notify-helpers";
 
@@ -35,10 +32,7 @@ function getSentClient() {
 }
 
 function getFromEmail() {
-  return (
-    envRecord().RESEND_FROM_EMAIL?.trim() ||
-    "QuickCalAI <noreply@extractions.quickcalai.com>"
-  );
+  return envRecord().RESEND_FROM_EMAIL?.trim() || "QuickCalAI <noreply@extractions.quickcalai.com>";
 }
 
 function escapeHtml(value: string): string {
@@ -102,7 +96,11 @@ export async function sendCalendarFileEmail(input: {
         icsUrl: input.icsUrl,
       }),
     },
-    { idempotencyKey: `calendar-file/${input.userId}/${input.uploadId}` },
+    {
+      // Include the recipient in the key so sending the same upload to a
+      // different address isn't (incorrectly) deduped by Resend.
+      idempotencyKey: `calendar-file/${await sha256Hex(`${input.userId}:${input.uploadId}:${input.to}`)}`,
+    },
   );
 
   if (error) {

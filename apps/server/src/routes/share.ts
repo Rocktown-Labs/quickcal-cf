@@ -102,8 +102,13 @@ app.openapi(getShareIcs, async (c) => {
     return c.json({ message: "Calendar file not found" }, HttpStatusCodes.NOT_FOUND);
   }
 
+  // Sanitize the user-supplied filename before putting it in a header.
   const baseName =
-    upload.fileName.replace(/\.[^/.]+$/, "") || "calendar-events";
+    upload.fileName
+      .replace(/\.[^/.]+$/, "")
+      .replace(/[^a-zA-Z0-9 _.-]/g, "")
+      .trim()
+      .slice(0, 80) || "calendar-events";
   c.header("Content-Type", "text/calendar; charset=utf-8");
   c.header("Content-Disposition", `attachment; filename="${baseName}.ics"`);
   c.header("Cache-Control", "public, max-age=3600");

@@ -1,0 +1,76 @@
+---
+import Logo from "../components/Logo.astro";
+import Layout from "../layouts/Layout.astro";
+
+const params = Astro.url.searchParams;
+const hasParams = Boolean(params.get("token") && params.get("email"));
+---
+
+<Layout title="Verify Email — QuickCalAI">
+  <div class="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+    <div class="mx-auto mt-10 w-full max-w-md p-6">
+      <div class="mb-6 flex flex-col items-center gap-3 text-center">
+        <a href="/" class="flex items-center gap-2">
+          <Logo size={22} className="text-primary" />
+          <span class="text-sm font-semibold tracking-tight">QuickCalAI</span>
+        </a>
+        <h1 class="font-serif text-3xl tracking-tight">Email verification</h1>
+      </div>
+
+      <div id="pending" class={`rounded-xl border border-border bg-card p-10 text-center ${hasParams ? "" : "hidden"}`}>
+        <div class="text-4xl mb-3 animate-pulse">✉️</div>
+        <h2 class="font-semibold mb-1">Verifying your email…</h2>
+        <p class="text-sm text-muted-foreground">Hang tight, this should only take a moment.</p>
+      </div>
+
+      <div id="missing" class={`rounded-xl border border-amber-800 bg-amber-950/20 p-6 text-center ${hasParams ? "hidden" : ""}`}>
+        <div class="text-4xl mb-3">🔗</div>
+        <h2 class="font-semibold mb-1">This link isn't complete</h2>
+        <p class="text-sm text-muted-foreground mb-4">Verification links come from the email we send you.</p>
+        <a href="/dashboard" class="inline-block rounded-lg bg-primary text-primary-foreground font-bold px-5 py-2.5 text-sm hover:bg-primary/90">Go to dashboard</a>
+      </div>
+
+      <div id="success" class="hidden rounded-xl border border-green-500/30 bg-green-500/10 p-10 text-center">
+        <div class="text-4xl mb-3">✅</div>
+        <h2 class="font-semibold mb-1">Email verified!</h2>
+        <p class="text-sm text-muted-foreground mb-4">Your email address is confirmed. Thanks for securing your account.</p>
+        <a href="/dashboard" class="inline-block rounded-lg bg-primary text-primary-foreground font-bold px-5 py-2.5 text-sm hover:bg-primary/90">Continue to dashboard</a>
+      </div>
+
+      <div id="failed" class="hidden rounded-xl border border-red-800 bg-red-950/20 p-6 text-center">
+        <div class="text-4xl mb-3">⚠️</div>
+        <h2 class="font-semibold mb-1">Couldn't verify your email</h2>
+        <p class="text-sm text-muted-foreground mb-4">This link may have expired or already been used. You can request a new one from your dashboard.</p>
+        <a href="/dashboard" class="inline-block rounded-lg bg-primary text-primary-foreground font-bold px-5 py-2.5 text-sm hover:bg-primary/90">Go to dashboard</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { authClient } from "../lib/auth-client";
+
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("token");
+    const email = params.get("email");
+    if (!token || !email) return;
+
+    try {
+      const { error } = await authClient.verifyEmail({
+        query: { token },
+      });
+      document.getElementById("pending")!.classList.add("hidden");
+      if (error) {
+        document.getElementById("failed")!.classList.remove("hidden");
+      } else {
+        document.getElementById("success")!.classList.remove("hidden");
+      }
+    } catch {
+      document.getElementById("pending")!.classList.add("hidden");
+      document.getElementById("failed")!.classList.remove("hidden");
+    }
+  }
+
+  init();
+</script>

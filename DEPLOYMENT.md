@@ -72,6 +72,21 @@ After custom DNS is configured, these should become `https://quickcalai.com` and
 ### Sent.dm
 - Make sure a sending number is configured in the Sent.dm dashboard before using the SMS feature.
 
+## Security & correctness fixes (applied)
+
+- [x] CSRF protection: `originCheck` middleware verifies `Origin` on all state-changing requests (cookies are `SameSite=None`, so CORS alone didn't stop cross-site form posts). Non-browser clients (native app, agents, Stripe webhooks) send no `Origin` and pass.
+- [x] Rate limiting moved to a `RateLimiter` **Durable Object** (`apps/server/src/do/rate-limiter.ts`) so counters hold across Worker isolates. In-memory limiter remains as a fallback for tests/local.
+- [x] Password reset flow: Better-Auth `sendResetPassword` + Resend email → web `/reset-password` page. Email verification on sign-up (non-blocking) → web `/verify-email` page + dashboard banner with resend.
+- [x] Share link revocation: `POST /api/uploads/{id}/share/revoke` deletes the public `.ics` object and clears the token; UI buttons on web Files page and native Files tab.
+- [x] Upload validation now checks magic bytes (PNG/JPEG/WebP/PDF signatures) instead of trusting `Content-Type`; `Content-Disposition` filenames sanitized.
+- [x] Resend idempotency key includes the recipient (sending one upload to two different addresses no longer silently dedupes).
+- [x] AI extraction capped at 500 events; workflow dedupes events, reuses the share token on retries (no orphaned `.ics` objects), and marks date-only events as all-day.
+- [x] `GET /api/uploads` no longer leaks internal R2 storage keys; limit enforced in SQL.
+- [x] CORS no-match now returns `null` (was reflecting an allowed origin).
+- [x] Email/SMS share links derive from `CORS_ORIGIN` (works across stages; no hardcoded worker URL).
+- [x] Landing page copy made honest: removed fabricated stats/testimonials, the "deleted automatically" claim, the HEIC claim, and the non-existent "editable results" feature.
+- [x] CI now runs unit tests in addition to type checks.
+
 ## Skipped for now
 
 - **Resend webhooks.** `RESEND_WEBHOOK_SECRET` is not being used. Can be added later if you want to track bounces, complaints, opens, or clicks.

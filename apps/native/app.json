@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "quickcal-cf",
+    "name": "QuickCalAI",
     "slug": "quickcal-cf",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.quickcal-cf"
+      "bundleIdentifier": "com.rocktownlabs.quickcalai"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.quickcalcf"
+      "package": "com.rocktownlabs.quickcalai"
     },
     "web": {
       "bundler": "metro",
@@ -39,7 +39,9 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-sharing",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

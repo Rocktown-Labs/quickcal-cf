@@ -9,6 +9,7 @@ import * as authSchema from "@quickcal-cf/db/schema/auth";
 import * as billingSchema from "@quickcal-cf/db/schema/billing";
 import type { Database } from "@quickcal-cf/db";
 import { expo } from "@better-auth/expo";
+import { sendAuthEmail } from "./emails";
 
 export type AuthConfig = {
   BETTER_AUTH_URL: string;
@@ -21,11 +22,23 @@ export type AuthConfig = {
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   ADMIN_USER_IDS?: string;
+  RESEND_API_KEY?: string;
+  RESEND_FROM_EMAIL?: string;
 };
 
-export function createAuth(env: AuthConfig, database: Database, desktopOrigins: readonly string[] = []) {
+function webOriginFrom(env: AuthConfig): string {
+  return env.CORS_ORIGIN.split(",")[0]?.trim().replace(/\/+$/, "") || env.BETTER_AUTH_URL;
+}
+
+export function createAuth(
+  env: AuthConfig,
+  database: Database,
+  desktopOrigins: readonly string[] = [],
+) {
   const adminUserIds = env.ADMIN_USER_IDS
-    ? env.ADMIN_USER_IDS.split(",").map((id) => id.trim()).filter(Boolean)
+    ? env.ADMIN_USER_IDS.split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
     : undefined;
 
   const plugins: BetterAuthPlugin[] = [expo(), admin({ adminUserIds })];
@@ -73,7 +86,9 @@ export function createAuth(env: AuthConfig, database: Database, desktopOrigins: 
                   ...(row.annualDiscountPriceId
                     ? { annualDiscountPriceId: row.annualDiscountPriceId }
                     : {}),
-                  limits: row.limits ? (JSON.parse(row.limits) as Record<string, number>) : undefined,
+                  limits: row.limits
+                    ? (JSON.parse(row.limits) as Record<string, number>)
+                    : undefined,
                 }));
               }
             } catch {
@@ -81,7 +96,9 @@ export function createAuth(env: AuthConfig, database: Database, desktopOrigins: 
             }
 
             if (!fallbackPlans) {
-              throw new Error("No Stripe plans configured. Run the admin sync or set STRIPE_PREMIUM_PRICE_ID.");
+              throw new Error(
+                "No Stripe plans configured. Run the admin sync or set STRIPE_PREMIUM_PRICE_ID.",
+              );
             }
             return fallbackPlans;
           },
@@ -98,6 +115,13 @@ export function createAuth(env: AuthConfig, database: Database, desktopOrigins: 
     typeof googleClientSecret === "string" &&
     googleClientSecret.length > 0;
 
+  const webOrigin = webOriginFrom(env);
+  const emailConfig = {
+    RESEND_API_KEY: env.RESEND_API_KEY,
+    RESEND_FROM_EMAIL: env.RESEND_FROM_EMAIL,
+    WEB_ORIGIN: webOrigin,
+  };
+
   return betterAuth({
     database: drizzleAdapter(database, {
       provider: "sqlite",
@@ -113,7 +137,54 @@ export function createAuth(env: AuthConfig, database: Database, desktopOrigins: 
       "exp://",
       "http://localhost:8081",
     ],
-    emailAndPassword: { enabled: true },
+    emailAndPassword: {
+      enabled: true,
+      minPasswordLength: 8,
+      // Send verification emails, but keep sign-in friction low — an
+      // unverified user can still sign in and is reminded in the app.
+      requireEmailVerification: false,
+      sendResetPassword: async ({ user, token }) => {
+        const url = `${webOrigin}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}`;
+        const sent = await sendAuthEmail(emailConfig, {
+          to: user.email,
+          subject: "Reset your QuickCalAI password",
+          heading: "Reset your password",
+          bodyHtml:
+            "We received a request to reset the password for your QuickCalAI account. If you didn't make this request, you can safely ignore this email.",
+          actionUrl: url,
+          actionLabel: "Choose a new password",
+          fallbackNote: "This link expires in 1 hour. For security, it can only be used once.",
+        });
+        if (!sent) {
+          throw new Error(
+            "Password reset emails are not configured on the server. Contact support.",
+          );
+        }
+      },
+    },
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      expiresIn: 60 * 60 * 24, // 24 hours
+      sendVerificationEmail: async ({ user, token }) => {
+        const url = `${webOrigin}/verify-email?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}`;
+        const sent = await sendAuthEmail(emailConfig, {
+          to: user.email,
+          subject: "Verify your QuickCalAI email",
+          heading: "Confirm your email address",
+          bodyHtml:
+            "Welcome to QuickCalAI! Confirm your email address to finish setting up your account.",
+          actionUrl: url,
+          actionLabel: "Verify my email",
+          fallbackNote: "Didn't sign up for QuickCalAI? You can ignore this email.",
+        });
+        // Degrade gracefully when email isn't configured — sign-up should
+        // still succeed; the app surfaces a "resend" option later.
+        if (!sent) {
+          console.warn("[auth] RESEND_API_KEY not configured — skipping verification email");
+        }
+      },
+    },
     socialProviders: hasGoogleOAuth
       ? {
           google: {

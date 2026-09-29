@@ -65,16 +65,10 @@ export async function updateUploadRecord(
     .update(uploads)
     .set({
       ...(updates.status ? { status: updates.status } : {}),
-      ...(updates.workflowRunId !== undefined
-        ? { workflowRunId: updates.workflowRunId }
-        : {}),
+      ...(updates.workflowRunId !== undefined ? { workflowRunId: updates.workflowRunId } : {}),
       ...(updates.icsKey !== undefined ? { icsKey: updates.icsKey } : {}),
-      ...(updates.shareToken !== undefined
-        ? { shareToken: updates.shareToken }
-        : {}),
-      ...(updates.failureReason !== undefined
-        ? { failureReason: updates.failureReason }
-        : {}),
+      ...(updates.shareToken !== undefined ? { shareToken: updates.shareToken } : {}),
+      ...(updates.failureReason !== undefined ? { failureReason: updates.failureReason } : {}),
       updatedAt: new Date(),
     })
     .where(eq(uploads.id, uploadId));
@@ -105,10 +99,7 @@ export async function getUploadById(db: Database, uploadId: string) {
   return result[0] ?? null;
 }
 
-export async function getUploadByWorkflowRunId(
-  db: Database,
-  workflowRunId: string,
-) {
+export async function getUploadByWorkflowRunId(db: Database, workflowRunId: string) {
   const result = await db
     .select(uploadColumns)
     .from(uploads)
@@ -126,9 +117,7 @@ export async function getUserUploadByWorkflowRunId(
   const result = await db
     .select(uploadColumns)
     .from(uploads)
-    .where(
-      and(eq(uploads.userId, userId), eq(uploads.workflowRunId, workflowRunId)),
-    )
+    .where(and(eq(uploads.userId, userId), eq(uploads.workflowRunId, workflowRunId)))
     .limit(1);
 
   return result[0] ?? null;
@@ -143,11 +132,7 @@ export async function getUploadEventCount(db: Database, uploadId: string) {
   return result[0]?.count ?? 0;
 }
 
-export async function getRecentUploads(
-  db: Database,
-  userId: string,
-  limit = 5,
-) {
+export async function getRecentUploads(db: Database, userId: string, limit = 5) {
   return db
     .select({
       id: uploads.id,

@@ -15,7 +15,13 @@ const extractedEventSchema = z.object({
   description: z.string().trim().min(1).max(1000),
 });
 
-const extractedEventsSchema = z.array(extractedEventSchema);
+// Cap the number of events so a pathological document (or a hallucinating
+// model) can't generate thousands of DB rows and a giant .ics.
+const MAX_EXTRACTED_EVENTS = 500;
+
+const extractedEventsSchema = z
+  .array(extractedEventSchema)
+  .max(MAX_EXTRACTED_EVENTS, `Too many events extracted (max ${MAX_EXTRACTED_EVENTS})`);
 
 function toBase64(data: Uint8Array): string {
   let bin = "";

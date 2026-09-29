@@ -27,6 +27,7 @@
     "dev:web": "turbo run dev -F web",
     "test": "bun test ./packages/db ./apps/server",
     "test:all": "turbo run test",
+    "check": "oxlint apps/server/src apps/web/src packages && oxfmt --check apps/server/src apps/web/src packages",
     "db:generate": "turbo run db:generate -F @quickcal-cf/db --",
     "deploy": "turbo run deploy -F @quickcal-cf/infra --",
     "destroy": "turbo run destroy -F @quickcal-cf/infra --",
@@ -42,6 +43,8 @@
     "@quickcal-cf/config": "workspace:*",
     "@types/node": "catalog:",
     "bun-types": "^1.4.2",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
     "turbo": "^2.10.12",
     "typescript": "^6.0.3",
     "varlock": "catalog:"

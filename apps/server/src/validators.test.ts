@@ -55,9 +55,7 @@ describe("manualEventSchema", () => {
   });
 
   test("rejects bad date, time, and timezone", () => {
-    expect(() =>
-      manualEventSchema.parse({ title: "x", date: "11/05/2026" }),
-    ).toThrow();
+    expect(() => manualEventSchema.parse({ title: "x", date: "11/05/2026" })).toThrow();
     expect(() =>
       manualEventSchema.parse({ title: "x", date: "2026-11-05", time: "25:99" }),
     ).toThrow();
@@ -86,9 +84,7 @@ describe("normalizePhoneNumber", () => {
 describe("createApiKeySchema", () => {
   test("accepts name-only and bounded expiry", () => {
     expect(createApiKeySchema.parse({ name: "agent" }).expiresInDays).toBeUndefined();
-    expect(
-      createApiKeySchema.parse({ name: "agent", expiresInDays: 30 }).expiresInDays,
-    ).toBe(30);
+    expect(createApiKeySchema.parse({ name: "agent", expiresInDays: 30 }).expiresInDays).toBe(30);
   });
 
   test("rejects empty names and out-of-range expiry", () => {

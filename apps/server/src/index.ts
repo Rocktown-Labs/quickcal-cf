@@ -16,29 +16,37 @@ import dashboard from "./routes/stats";
 import me from "./routes/me";
 import admin from "./routes/admin";
 import { rateLimit } from "./middleware/rate-limit";
+import { originCheck } from "./middleware/csrf";
 
 const app = new OpenAPIHono({ defaultHook });
 
 app.use(logger());
 app.use(
-	"/*",
-	cors({
-		origin: (origin) => {
-			const allowed = ENV.CORS_ORIGIN.split(",").map((o) => o.trim()).filter(Boolean);
-			// Allow exact matches or any sub-path of an allowed origin.
-			if (!origin) return allowed[0];
-			const match = allowed.find((o) => origin === o || origin.startsWith(`${o}/`));
-			return match ? origin : allowed[0];
-		},
-		allowMethods: ["GET", "POST", "DELETE", "OPTIONS"],
-		allowHeaders: ["Content-Type", "Authorization"],
-		credentials: true,
-	})
+  "/*",
+  cors({
+    origin: (origin) => {
+      const allowed = ENV.CORS_ORIGIN.split(",")
+        .map((o) => o.trim().replace(/\/+$/, ""))
+        .filter(Boolean);
+      // Allow exact matches or any sub-path of an allowed origin.
+      // No match → null → the browser blocks the cross-origin response.
+      if (!origin) return null;
+      const match = allowed.find((o) => origin === o || origin.startsWith(`${o}/`));
+      return match ? origin : null;
+    },
+    allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  }),
 );
 app.use(serveEmojiFavicon("📅"));
 
-// Rate limits — in-memory per IP/per user. Swap for Cloudflare Rate Limiting
-// or a Durable Object once you scale beyond a single Worker isolate.
+// CSRF defense — verify Origin on state-changing requests (cookies are
+// SameSite=None, so CORS alone doesn't stop cross-site form posts).
+app.use(originCheck);
+
+// Rate limits — backed by the RateLimiter Durable Object so counters hold
+// across isolates. Falls back to in-memory when the binding is missing.
 app.use(rateLimit({ windowMs: 60_000, maxRequests: 120, keyPrefix: "global" }));
 app.use("/api/uploads/*", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "uploads" }));
 app.use("/api/keys/*", rateLimit({ windowMs: 60_000, maxRequests: 20, keyPrefix: "keys" }));
@@ -48,12 +56,7 @@ app.use("/api/manual-event", rateLimit({ windowMs: 60_000, maxRequests: 30, keyP
 app.use("/api/auth/*", rateLimit({ windowMs: 60_000, maxRequests: 20, keyPrefix: "auth" }));
 app.use("/api/admin/*", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "admin" }));
 
-app.on(
-	["POST", "GET"],
-	"/api/auth/*",
-	async (c) =>
-		(await createAuth()).handler(c.req.raw)
-);
+app.on(["POST", "GET"], "/api/auth/*", async (c) => (await createAuth()).handler(c.req.raw));
 
 app.route("/api/uploads", uploads);
 app.route("/api/uploads", delivery);
@@ -65,17 +68,17 @@ app.route("/api/user", me);
 app.route("/api/admin", admin);
 
 app.doc("/doc", {
-	openapi: "3.1.0",
-	info: {
-		title: "QuickCalAI API",
-		version: "1.0.0",
-		description:
-			"Upload schedule documents, extract calendar events, and manage API keys. Agents authenticate with a user API key as `Authorization: Bearer qc_...`.",
-	},
+  openapi: "3.1.0",
+  info: {
+    title: "QuickCalAI API",
+    version: "1.0.0",
+    description:
+      "Upload schedule documents, extract calendar events, and manage API keys. Agents authenticate with a user API key as `Authorization: Bearer qc_...`.",
+  },
 });
 
 app.get("/reference", (c) =>
-	c.html(`<!doctype html>
+  c.html(`<!doctype html>
 <html>
 <head><title>QuickCalAI API Reference</title><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /></head>
 <body><script id="api-reference" data-url="/doc"></script><script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script></body>
@@ -83,10 +86,11 @@ app.get("/reference", (c) =>
 );
 
 app.get("/", (c) => {
-	return c.text("OK");
+  return c.text("OK");
 });
 
 export { CalendarProcessingWorkflow } from "./workflows/calendar-processing";
+export { RateLimiter } from "./do/rate-limiter";
 
 app.notFound(notFound);
 app.onError(onError);

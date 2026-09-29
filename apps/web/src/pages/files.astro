@@ -22,6 +22,7 @@ import DashLayout from "../layouts/DashLayout.astro";
 <script>
   import { authClient } from "../lib/auth-client";
   import { api, ApiError, type UploadSummary } from "../lib/api";
+  import { escapeHtml } from "../lib/html";
 
   function statusColor(status: string): string {
     if (status === "completed") return "bg-green-950 text-green-400";
@@ -32,7 +33,7 @@ import DashLayout from "../layouts/DashLayout.astro";
   }
 
   function card(u: UploadSummary): string {
-    const safe = u.fileName.replace(/</g, "&lt;");
+    const safe = escapeHtml(u.fileName);
     const date = new Date(u.createdAt).toLocaleDateString();
     const completed = u.status === "completed" && u.shareToken;
     return `<div class="rounded-xl border border-border bg-card p-4" data-card="${u.id}">
@@ -41,7 +42,7 @@ import DashLayout from "../layouts/DashLayout.astro";
           <span class="text-3xl">🖼</span>
           <div class="min-w-0">
             <p class="font-medium text-sm truncate">${safe}</p>
-            <p class="text-xs text-muted-foreground">${date} · ${u.fileType}</p>
+            <p class="text-xs text-muted-foreground">${date} · ${escapeHtml(u.fileType)}</p>
           </div>
         </div>
         <span class="text-xs font-bold px-2.5 py-1 rounded-full ${statusColor(u.status)}">${u.status}</span>
@@ -51,6 +52,7 @@ import DashLayout from "../layouts/DashLayout.astro";
         <button data-act="copy" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Copy link</button>
         <button data-act="email" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Email</button>
         <button data-act="sms" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">SMS</button>
+        <button data-act="revoke" data-id="${u.id}" class="text-xs font-bold border border-amber-900 text-amber-400 hover:bg-amber-950 rounded-lg px-3 py-2">Revoke share link</button>
         <button data-act="delete" data-id="${u.id}" class="text-xs font-bold text-red-400 hover:text-red-300 border border-red-900 rounded-lg px-3 py-2">Delete</button>
       </div>` : ""}
     </div>`;
@@ -102,6 +104,14 @@ import DashLayout from "../layouts/DashLayout.astro";
             alert(res.message);
           } catch (err) {
             alert(err instanceof Error ? err.message : "Failed to send SMS.");
+          }
+        } else if (act === "revoke") {
+          if (!confirm("Revoke the public share link? Anyone with the link will lose access immediately.")) return;
+          try {
+            await api.revokeShare(id);
+            document.querySelector(`[data-card="${id}"]`)?.remove();
+          } catch (err) {
+            alert(err instanceof Error ? err.message : "Revoke failed.");
           }
         } else if (act === "delete") {
           if (!confirm("Delete this upload and its events?")) return;

@@ -159,23 +159,42 @@
 /* ─── Animations ─── */
 
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .animate-slide-up {
@@ -190,19 +209,35 @@
   animation: float 5s ease-in-out infinite;
 }
 
-.delay-100 { animation-delay: 100ms; }
-.delay-200 { animation-delay: 200ms; }
-.delay-300 { animation-delay: 300ms; }
-.delay-400 { animation-delay: 400ms; }
-.delay-500 { animation-delay: 500ms; }
-.delay-600 { animation-delay: 600ms; }
-.delay-700 { animation-delay: 700ms; }
+.delay-100 {
+  animation-delay: 100ms;
+}
+.delay-200 {
+  animation-delay: 200ms;
+}
+.delay-300 {
+  animation-delay: 300ms;
+}
+.delay-400 {
+  animation-delay: 400ms;
+}
+.delay-500 {
+  animation-delay: 500ms;
+}
+.delay-600 {
+  animation-delay: 600ms;
+}
+.delay-700 {
+  animation-delay: 700ms;
+}
 
 /* Scroll-triggered reveal */
 .reveal {
   opacity: 0;
   transform: translateY(20px);
-  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition:
+    opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .reveal.in-view {
@@ -210,11 +245,21 @@
   transform: translateY(0);
 }
 
-.reveal-delay-1 { transition-delay: 0ms; }
-.reveal-delay-2 { transition-delay: 80ms; }
-.reveal-delay-3 { transition-delay: 160ms; }
-.reveal-delay-4 { transition-delay: 240ms; }
-.reveal-delay-5 { transition-delay: 320ms; }
+.reveal-delay-1 {
+  transition-delay: 0ms;
+}
+.reveal-delay-2 {
+  transition-delay: 80ms;
+}
+.reveal-delay-3 {
+  transition-delay: 160ms;
+}
+.reveal-delay-4 {
+  transition-delay: 240ms;
+}
+.reveal-delay-5 {
+  transition-delay: 320ms;
+}
 
 /* ─── Cards & surfaces ─── */
 
@@ -231,7 +276,10 @@
 }
 
 .card-hover {
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
 }
 
 .card-hover:hover {
@@ -251,7 +299,9 @@
   border-radius: inherit;
   padding: 1px;
   background: linear-gradient(135deg, oklch(0.58 0.22 25 / 0.35), transparent 50%);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
   pointer-events: none;
@@ -302,7 +352,9 @@
 .card-minimal {
   background: transparent;
   border: 1px solid oklch(0.18 0 0);
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 .light .card-minimal {
   border-color: oklch(0.86 0 0);
@@ -379,14 +431,26 @@ details > summary::-webkit-details-marker {
 .reveal {
   opacity: 0;
   transform: translateY(16px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s ease;
 }
 .reveal.in-view {
   opacity: 1;
   transform: translateY(0);
 }
-.reveal-delay-1 { transition-delay: 0ms; }
-.reveal-delay-2 { transition-delay: 70ms; }
-.reveal-delay-3 { transition-delay: 140ms; }
-.reveal-delay-4 { transition-delay: 210ms; }
-.reveal-delay-5 { transition-delay: 280ms; }
+.reveal-delay-1 {
+  transition-delay: 0ms;
+}
+.reveal-delay-2 {
+  transition-delay: 70ms;
+}
+.reveal-delay-3 {
+  transition-delay: 140ms;
+}
+.reveal-delay-4 {
+  transition-delay: 210ms;
+}
+.reveal-delay-5 {
+  transition-delay: 280ms;
+}

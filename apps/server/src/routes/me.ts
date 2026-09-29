@@ -37,20 +37,11 @@ const getMe = createRoute({
 app.openapi(getMe, async (c) => {
   const userId = c.get("userId");
   const db = getDb();
-  const [profile, premium] = await Promise.all([
-    getUserProfile(db, userId),
-    isPremium(db, userId),
-  ]);
+  const [profile, premium] = await Promise.all([getUserProfile(db, userId), isPremium(db, userId)]);
   if (!profile) {
-    return c.json(
-      { message: "Profile not found" },
-      HttpStatusCodes.NOT_FOUND,
-    );
+    return c.json({ message: "Profile not found" }, HttpStatusCodes.NOT_FOUND);
   }
-  return c.json(
-    { id: userId, ...profile, isPremium: premium },
-    HttpStatusCodes.OK,
-  );
+  return c.json({ id: userId, ...profile, isPremium: premium }, HttpStatusCodes.OK);
 });
 
 const updateMeBody = z.object({
@@ -79,10 +70,7 @@ app.openapi(updateMe, async (c) => {
     ...(body.isOnboarded !== undefined ? { isOnboarded: body.isOnboarded } : {}),
   });
 
-  const [profile, premium] = await Promise.all([
-    getUserProfile(db, userId),
-    isPremium(db, userId),
-  ]);
+  const [profile, premium] = await Promise.all([getUserProfile(db, userId), isPremium(db, userId)]);
   return c.json({ id: userId, ...profile!, isPremium: premium }, HttpStatusCodes.OK);
 });
 

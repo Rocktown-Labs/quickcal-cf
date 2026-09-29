@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  API_KEY_PREFIX,
-  generateApiKey,
-  hashApiKey,
-} from "./queries/apikeys";
+import { API_KEY_PREFIX, generateApiKey, hashApiKey } from "./queries/apikeys";
 import { generateShareToken } from "./queries/uploads";
 
 describe("generateApiKey", () => {
@@ -30,17 +26,13 @@ describe("hashApiKey", () => {
   });
 
   test("differs per key", async () => {
-    expect(await hashApiKey(generateApiKey())).not.toBe(
-      await hashApiKey(generateApiKey()),
-    );
+    expect(await hashApiKey(generateApiKey())).not.toBe(await hashApiKey(generateApiKey()));
   });
 });
 
 describe("generateShareToken", () => {
   test("is short, URL-safe, and unique", () => {
-    const tokens = new Set(
-      Array.from({ length: 100 }, () => generateShareToken()),
-    );
+    const tokens = new Set(Array.from({ length: 100 }, () => generateShareToken()));
     expect(tokens.size).toBe(100);
     for (const t of tokens) {
       expect(t).toMatch(/^[A-Za-z0-9_-]+$/);

@@ -17,22 +17,13 @@ import { getDb } from "../services";
 import { requireAuth, type AuthEnv } from "../lib/auth";
 import { isPremium } from "../lib/premium";
 import { rateLimit } from "../middleware/rate-limit";
-import {
-  MAX_UPLOAD_FILE_SIZE_BYTES,
-  uploadMimeTypes,
-} from "../lib/validators";
+import { MAX_UPLOAD_FILE_SIZE_BYTES, detectMimeType } from "../lib/validators";
 
 const app = new OpenAPIHono<AuthEnv>();
 app.use(requireAuth);
 app.use(rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "uploads:user" }));
 
-const uploadStatusEnum = z.enum([
-  "pending",
-  "processing",
-  "completed",
-  "failed",
-  "no_events",
-]);
+const uploadStatusEnum = z.enum(["pending", "processing", "completed", "failed", "no_events"]);
 
 const uploadSummarySchema = z.object({
   id: z.string(),
@@ -80,10 +71,10 @@ const listUploads = createRoute({
 app.openapi(listUploads, async (c) => {
   const { limit } = c.req.valid("query");
   const userId = c.get("userId");
-  const rows = await getUserUploads(getDb(), userId);
+  const rows = await getUserUploads(getDb(), userId, limit);
   return c.json(
     {
-      uploads: rows.slice(0, limit).map((r) => ({
+      uploads: rows.map((r) => ({
         ...r,
         createdAt: r.createdAt.toISOString(),
       })),
@@ -146,23 +137,31 @@ app.openapi(createUpload, async (c) => {
   if (!(file instanceof File)) {
     return c.json({ message: "No file provided" }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
   }
-  if (!(uploadMimeTypes as readonly string[]).includes(file.type)) {
-    return c.json({ message: "Unsupported file type" }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
-  }
   if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
     return c.json({ message: "File exceeds 10MB limit" }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
+  }
+
+  // Validate the real content — the client-supplied Content-Type is only a
+  // hint, so check magic bytes before anything is stored or sent to the AI.
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const detectedType = detectMimeType(bytes);
+  if (!detectedType) {
+    return c.json(
+      { message: "Unsupported file type — could not read the file contents." },
+      HttpStatusCodes.UNPROCESSABLE_ENTITY,
+    );
   }
 
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "upload";
   const storageKey = `uploads/${userId}/${Date.now()}-${safeName}`;
 
-  await ENV.FILES.put(storageKey, file, {
-    httpMetadata: { contentType: file.type },
+  await ENV.FILES.put(storageKey, bytes, {
+    httpMetadata: { contentType: detectedType },
   });
 
   const upload = await createUploadRecord(db, {
     fileName: file.name,
-    fileType: file.type,
+    fileType: detectedType,
     storageKey,
     userId,
     status: "pending",
@@ -177,7 +176,7 @@ app.openapi(createUpload, async (c) => {
         uploadId: upload.id,
         storageKey,
         fileName: file.name,
-        fileType: file.type,
+        fileType: detectedType,
         userId,
       },
     });
@@ -209,12 +208,8 @@ type StatusRow = {
   shareToken: string | null;
 };
 
-async function buildStatusResponse(
-  db: ReturnType<typeof getDb>,
-  upload: StatusRow,
-) {
-  const eventCount =
-    upload.status === "completed" ? await getUploadEventCount(db, upload.id) : 0;
+async function buildStatusResponse(db: ReturnType<typeof getDb>, upload: StatusRow) {
+  const eventCount = upload.status === "completed" ? await getUploadEventCount(db, upload.id) : 0;
 
   return {
     uploadId: upload.id,
@@ -228,9 +223,7 @@ async function buildStatusResponse(
             eventCount,
             status: upload.status,
             ...(upload.shareToken ? { shareToken: upload.shareToken } : {}),
-            ...(upload.shareToken
-              ? { downloadPath: `/api/share/${upload.shareToken}/ics` }
-              : {}),
+            ...(upload.shareToken ? { downloadPath: `/api/share/${upload.shareToken}/ics` } : {}),
           }
         : null,
   };
@@ -268,11 +261,7 @@ app.openapi(getUploadStatus, async (c) => {
   return c.json(await buildStatusResponse(db, upload), HttpStatusCodes.OK);
 });
 
-const TERMINAL_STATUSES: ReadonlySet<UploadStatus> = new Set([
-  "completed",
-  "failed",
-  "no_events",
-]);
+const TERMINAL_STATUSES: ReadonlySet<UploadStatus> = new Set(["completed", "failed", "no_events"]);
 
 const getUploadStatusByRun = createRoute({
   method: "get",
@@ -300,8 +289,7 @@ app.openapi(getUploadStatusByRun, async (c) => {
       const instance = await ENV.CALENDAR_WORKFLOW.get(runId);
       const state = await instance.status();
       if (state.status === "errored" || state.status === "terminated") {
-        const failureReason =
-          upload.failureReason ?? "Workflow failed during processing.";
+        const failureReason = upload.failureReason ?? "Workflow failed during processing.";
         await updateUploadRecord(db, upload.id, {
           status: "failed",
           failureReason,
@@ -332,10 +320,7 @@ const deleteUploadRoute = createRoute({
     params: z.object({ id: z.string().uuid() }),
   },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      createMessageObjectSchema("Deleted"),
-      "Upload deleted",
-    ),
+    [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema("Deleted"), "Upload deleted"),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema("Not found"),
       "Upload not found",
@@ -359,6 +344,42 @@ app.openapi(deleteUploadRoute, async (c) => {
   }
   await deleteUpload(db, id);
   return c.json({ message: "Upload deleted" }, HttpStatusCodes.OK);
+});
+
+const revokeShareRoute = createRoute({
+  method: "post",
+  path: "/{id}/share/revoke",
+  tags: ["Uploads"],
+  summary: "Revoke the public share link for an upload",
+  description:
+    "Deletes the public .ics share object and clears the share token. Any previously shared links stop working immediately.",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema("Revoked"), "Share link revoked"),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema("Not found"),
+      "Upload not found",
+    ),
+  },
+});
+
+app.openapi(revokeShareRoute, async (c) => {
+  const { id } = c.req.valid("param");
+  const userId = c.get("userId");
+  const db = getDb();
+
+  const upload = await getUploadById(db, id);
+  if (!upload || upload.userId !== userId) {
+    return c.json({ message: "Upload not found" }, HttpStatusCodes.NOT_FOUND);
+  }
+
+  if (upload.icsKey) {
+    await ENV.FILES.delete(upload.icsKey).catch(() => undefined);
+  }
+  await updateUploadRecord(db, upload.id, { icsKey: null, shareToken: null });
+  return c.json({ message: "Share link revoked" }, HttpStatusCodes.OK);
 });
 
 export default app;

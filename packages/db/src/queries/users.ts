@@ -2,24 +2,23 @@ import { and, count, desc, eq } from "drizzle-orm";
 import type { Database } from "../index";
 import { events, uploads, user } from "../schema";
 
-export async function getUserUploads(db: Database, userId: string) {
+// Public-facing columns only — never leak internal storage keys.
+const uploadSummaryColumns = {
+  id: uploads.id,
+  fileName: uploads.fileName,
+  fileType: uploads.fileType,
+  status: uploads.status,
+  shareToken: uploads.shareToken,
+  createdAt: uploads.createdAt,
+} as const;
+
+export async function getUserUploads(db: Database, userId: string, limit = 20) {
   return db
-    .select({
-      id: uploads.id,
-      fileName: uploads.fileName,
-      fileType: uploads.fileType,
-      storageKey: uploads.storageKey,
-      icsKey: uploads.icsKey,
-      shareToken: uploads.shareToken,
-      workflowRunId: uploads.workflowRunId,
-      failureReason: uploads.failureReason,
-      status: uploads.status,
-      createdAt: uploads.createdAt,
-      updatedAt: uploads.updatedAt,
-    })
+    .select(uploadSummaryColumns)
     .from(uploads)
     .where(eq(uploads.userId, userId))
-    .orderBy(desc(uploads.createdAt));
+    .orderBy(desc(uploads.createdAt))
+    .limit(limit);
 }
 
 export async function getUserEvents(db: Database, userId: string) {
@@ -61,7 +60,8 @@ export async function deleteUpload(db: Database, uploadId: string) {
   return db.delete(uploads).where(eq(uploads.id, uploadId));
 }
 
-export async function getUserProfile(db: Database, userId: string) {  const rows = await db
+export async function getUserProfile(db: Database, userId: string) {
+  const rows = await db
     .select({
       email: user.email,
       name: user.name,
@@ -90,18 +90,12 @@ export async function updateUserProfile(
 }
 
 export async function getDashboardStats(db: Database, userId: string) {
-  const [total] = await db
-    .select({ n: count() })
-    .from(uploads)
-    .where(eq(uploads.userId, userId));
+  const [total] = await db.select({ n: count() }).from(uploads).where(eq(uploads.userId, userId));
   const [completed] = await db
     .select({ n: count() })
     .from(uploads)
     .where(and(eq(uploads.userId, userId), eq(uploads.status, "completed")));
-  const [eventsRow] = await db
-    .select({ n: count() })
-    .from(events)
-    .where(eq(events.userId, userId));
+  const [eventsRow] = await db.select({ n: count() }).from(events).where(eq(events.userId, userId));
 
   return {
     totalUploads: total?.n ?? 0,

@@ -148,6 +148,9 @@ export const api = {
   deleteUpload(id: string): Promise<{ message: string }> {
     return request(`/api/uploads/${id}`, { method: "DELETE" });
   },
+  revokeShare(id: string): Promise<{ message: string }> {
+    return request(`/api/uploads/${id}/share/revoke`, { method: "POST" });
+  },
   listUploads(limit = 20): Promise<{ uploads: UploadSummary[] }> {
     return request(`/api/uploads?limit=${limit}`);
   },
@@ -178,9 +181,10 @@ export const api = {
   listKeys(): Promise<{ keys: ApiKeySummary[] }> {
     return request("/api/keys");
   },
-  createKey(body: { name: string; expiresInDays?: number }): Promise<
-    ApiKeySummary & { key: string }
-  > {
+  createKey(body: {
+    name: string;
+    expiresInDays?: number;
+  }): Promise<ApiKeySummary & { key: string }> {
     return request("/api/keys", { method: "POST", json: body });
   },
   deleteKey(id: string): Promise<{ message: string }> {

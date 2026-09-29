@@ -6,5 +6,5 @@ export function getDb(): Database {
   return createDb(ENV);
 }
 export async function createAuth(database?: Database) {
-  return createConfiguredAuth(ENV, database ?? await getDb());
+  return createConfiguredAuth(ENV, database ?? (await getDb()));
 }

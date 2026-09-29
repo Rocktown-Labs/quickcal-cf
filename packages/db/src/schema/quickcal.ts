@@ -1,10 +1,5 @@
 import { sql } from "drizzle-orm";
-import {
-  sqliteTable,
-  text,
-  integer,
-  index,
-} from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
 
 export const uploadStatusValues = [
@@ -64,9 +59,7 @@ export const events = sqliteTable(
     location: text("location"),
     startTime: integer("start_time", { mode: "timestamp_ms" }).notNull(),
     endTime: integer("end_time", { mode: "timestamp_ms" }),
-    isAllDay: integer("is_all_day", { mode: "boolean" })
-      .default(false)
-      .notNull(),
+    isAllDay: integer("is_all_day", { mode: "boolean" }).default(false).notNull(),
 
     uploadId: text("upload_id").references(() => uploads.id, {
       onDelete: "cascade",

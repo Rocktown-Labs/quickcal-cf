@@ -1,120 +1,149 @@
-# quickcal-cf
+# QuickCalAI
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines Astro, Hono, and more.
+QuickCalAI turns schedule documents into calendar files. Upload a screenshot, photo, or PDF containing a
+schedule — a class timetable, conference agenda, shift roster, event flyer — and QuickCalAI uses Google
+Gemini to read every date and time, then generates a standard `.ics` calendar file that imports into
+Google Calendar, Apple Calendar, Outlook, and any other calendar app.
 
-## Features
+Free accounts can create single events by hand. Premium accounts ($12.99/mo or $71.88/yr via Stripe)
+unlock AI extraction from uploads, plus email (Resend) and SMS (Sent.dm) delivery and public share links.
 
-- **TypeScript** - For type safety and improved developer experience
-- **Astro** - The web framework for content-driven websites
-- **React Native** - Build mobile apps using React
-- **Expo** - Tools for React Native development
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Hono** - Lightweight, performant server framework
-- **workers** - Runtime environment
-- **Drizzle** - TypeScript-first ORM
-- **Cloudflare D1** - Database engine
-- **Authentication** - Better-Auth
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Starlight** - Documentation site with Astro
-- **Turborepo** - Optimized monorepo build system
+## How it works
 
-## Getting Started
+```
+image/PDF ──▶ POST /api/uploads ──▶ R2 (source file) ──▶ Cloudflare Workflow
+                                                          │
+                    ┌───────────────────────────────────┘
+                    ▼
+            Gemini "is this a calendar?" (gemini-2.5-pro)
+                    ▼
+            Gemini event extraction (gemini-2.5-flash)
+                    ▼
+            events rows (D1) + .ics file (R2) + share token
+                    ▼
+            poll status ──▶ download / email / SMS / public share link
+```
 
-First, install the dependencies:
+1. The browser uploads the file to the API (`multipart/form-data`, ≤ 10 MB, JPEG/PNG/WebP/PDF).
+2. The API stores the file in R2, records an upload row in D1, and starts a Cloudflare Workflow.
+3. The workflow asks Gemini whether the document is a calendar, then extracts events as a validated
+   JSON array (`date` YYYY-MM-DD, `time` HH:MM, `description`).
+4. It writes an `.ics` to R2, inserts event rows, and marks the upload `completed` with a public
+   share token (or `no_events` / `failed`).
+5. The dashboard polls status and offers download, copy-link, device share, email, and SMS delivery.
+   A public share page (`/s/{token}`) shows the events and serves the `.ics` (also `webcal://`
+   subscribable).
+
+## Architecture
+
+Bun + Turborepo monorepo, deployed entirely to Cloudflare via [Alchemy](https://alchemy.run):
+
+| App | What it is |
+| --- | --- |
+| `apps/web` | Astro site — marketing landing page, login/signup, dashboard, uploader, files, settings, share pages, legal/help, password reset & email verification. Deployed as the `quickcal-web` Worker. |
+| `apps/server` | Hono OpenAPI API + Better-Auth handler + the `CalendarProcessingWorkflow` + a `RateLimiter` Durable Object. Deployed as the `quickcal-server` Worker. Serves `/doc` (OpenAPI) and `/reference` (Scalar). |
+| `apps/native` | Expo/React Native app mirroring the mobile web app 1:1 — sign in/up, dashboard with the AI uploader (premium gate, live processing steps/progress, delivery), files (download/share/copy/email/SMS/revoke/delete), settings (profile, subscription, API keys, theme). Sessions via Better-Auth Expo plugin + SecureStore; data via TanStack Query. |
+
+| Package | What it is |
+| --- | --- |
+| `packages/db` | Drizzle schema (uploads, events, api keys, Better-Auth tables, Stripe billing tables), query helpers, ICS generation, D1 migrations. |
+| `packages/auth` | Better-Auth factory: email/password + Google OAuth, admin + Expo + Stripe subscription plugins. |
+| `packages/infra` | Alchemy IaC — D1 database, R2 bucket, Workflow, both Workers, and deploy-time env wiring (Varlock). |
+
+### Storage & bindings
+
+- **Cloudflare D1** (SQLite, Drizzle ORM) — users, sessions, uploads, events, API keys, subscriptions, plans.
+- **Cloudflare R2** — source documents under `uploads/{userId}/…`, generated calendars under `ics/{shareToken}.ics`. Private; nothing is served except through the API.
+- **Cloudflare Workflows** — durable AI processing pipeline.
+- **Better-Auth** — sessions via cookies (SameSite=None for the split web/API origins) or `Authorization: Bearer qc_…` user API keys for agents/scripts. API keys are stored SHA-256-hashed; plaintext is shown once at creation.
+- **Security** — an Origin-check middleware guards all state-changing routes (CSRF defense for the `SameSite=None` cookies), rate limiting is backed by a `RateLimiter` Durable Object shared across isolates, uploads are validated by magic-byte signatures, and share links can be revoked from the Files screen. Password reset and email verification flow through Resend.
+
+## Getting started
 
 ```bash
-bun install
+bun install          # also runs varlock codegen (postinstall)
+bun run dev          # web on :4321, API on :3000 (via alchemy dev)
 ```
-## Database Setup
 
-This project uses Cloudflare D1 (SQLite) with Drizzle ORM.
+Copy `.env.example` to `apps/server/.env` and fill in values. For the native app, set
+`EXPO_PUBLIC_SERVER_URL` in `apps/native/.env`.
 
-Runtime database access uses the Cloudflare `DB` binding from `packages/infra/alchemy.run.ts`. If a local `DATABASE_URL` is present, it is only for database tooling.
+Generate/refresh typed env accessors after editing any `.env.schema`:
 
-Alchemy provisions the D1 database and applies migrations during `deploy`.
+```bash
+bun run env:generate
+```
 
-1. Generate migration files:
+### Database
+
+Cloudflare D1 with Drizzle. Alchemy provisions the database and applies the migrations in
+`packages/db/src/migrations` during deploy. To generate a new migration:
+
 ```bash
 bun run db:generate
 ```
 
+## Scripts
 
+| Script | Purpose |
+| --- | --- |
+| `bun run dev` | Start web + API in dev mode (Alchemy) |
+| `bun run build` | Build the server bundle (web is built at deploy time by Alchemy) |
+| `bun run check-types` | TypeScript / Astro type check across all packages |
+| `bun run test` | Unit tests (`packages/db`, `apps/server`) |
+| `bun run dev:native` | Expo dev server |
+| `bun run db:generate` | Generate a Drizzle migration |
+| `bun run env:generate` | Regenerate Varlock env accessors |
+| `bun run deploy` / `destroy` | Alchemy deploy/destroy (interactive) |
+| `bun run check` | Oxlint + oxfmt over the server, web, and packages |
 
-Then, run the development server:
-
-```bash
-bun run dev
-```
-
-Open [http://localhost:4321](http://localhost:4321) in your browser to see the web application.
-Use the Expo Go app to run the mobile application.
-The API is running at [http://localhost:3000](http://localhost:3000).
-
-## Environment Configuration
-
-Each app owns its environment schema in `.env.schema`. Varlock generates `src/env.ts` during installation; run `bun run env:generate` after changing a schema. Commit schemas, and keep secrets in ignored env files or your deployment platform.
-
-Import the generated `ENV` accessor in application code. Shared database and auth packages receive configuration or initialized clients from the application. See [Varlock's monorepo guide](https://varlock.dev/guides/monorepos/).
-
-For Cloudflare, Alchemy loads and validates deployment inputs with `varlock/auto-load` in its Node/Bun deployment process. Worker code reads native bindings; web clients use the framework's public env API through `src/env.public.ts` where needed. Alchemy supplies resource URLs and managed database credentials. In-Worker Varlock protections are deferred until an official Alchemy integration is available; see [the non-Wrangler deployment guidance](https://varlock.dev/integrations/cloudflare/#non-wrangler-deploy-tools-alchemy-sst-pulumi).
-
-
-Bun's automatic env loading is disabled in `bunfig.toml`; the framework integration or server bootstrap loads Varlock. Node deployments must include Varlock and its dependencies alongside the app schema.
-
-Run standalone Node/Bun tools that use Varlock from the owning app directory so they load that app's schema and env files. `env:generate` only generates TypeScript files; it does not initialize environment values in a subsequent command.
-
+Lint/format also runs via lefthook on commit (oxlint + oxfmt on staged files).
 
 ## Deployment
 
-### Alchemy
+Deploys are managed with Alchemy from `packages/infra`. GitHub Actions (`.github/workflows/deploy.yml`)
+deploys on push to `main` (stage `prod`) and per-PR preview stages.
 
-- Target: web on Cloudflare + server on Cloudflare + Axiom observability
-- Configure provider accounts: `cd packages/infra && bunx alchemy profile edit`
-- Dev: bun run dev
-- Deploy: bun run deploy
-- Destroy: bun run destroy
+- Production web: https://quickcal-web.rocktown-labs.workers.dev
+- Production API: https://quickcal-server.rocktown-labs.workers.dev
+- Deploy manually: `cd packages/infra && bunx alchemy deploy --stage prod`
 
-`alchemy profile edit` stores the selected Axiom, Cloudflare, Neon, PlanetScale, and/or Prisma provider profiles under `~/.alchemy`; no provider-specific setup command is required by this scaffold.
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for the launch checklist and the current state of each secret
+(Google OAuth and Stripe keys are still placeholders).
 
-Deploys are staged and default to a personal `dev_<username>` stage. For production, run the deploy with an explicit stage from `packages/infra`:
+### Environment / secrets
 
-```bash
-cd packages/infra && bunx alchemy deploy --stage production
-```
+Server (validated by Varlock against `apps/server/.env.schema`; wired in `packages/infra/alchemy.run.ts`):
 
-Alchemy creates a stage-specific Axiom dataset and a least-privilege ingest token. `dev` injects the credentials into the observed apps without writing the token to an env file.
+`BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`,
+`STRIPE_PREMIUM_PRICE_ID` (optional), `STRIPE_PREMIUM_ANNUAL_PRICE_ID` (optional),
+`GOOGLE_GENERATIVE_AI_API_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL` (optional), `SENT_DM_API_KEY`,
+`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_IOS_CLIENT_ID` (optional), `ADMIN_USER_IDS` (optional).
 
-### Production origins
+Web: `PUBLIC_SERVER_URL` (injected by Alchemy). Native: `EXPO_PUBLIC_SERVER_URL`.
 
-- Required after the first deploy: set `CORS_ORIGIN` in `apps/server/.env` to the exact deployed web origin, such as `https://app.example.com`, then deploy the server again.
+After the first production deploy, set `CORS_ORIGIN` to the exact deployed web origin.
 
-## Git Hooks and Formatting
-
-- Run checks: `bun run check`
-
-
-
-## Project Structure
+## Project structure
 
 ```
 quickcal-cf/
 ├── apps/
-│   ├── web/         # Frontend application (Astro)
-│   ├── native/      # Mobile application (React Native, Expo)
-│   ├── docs/        # Documentation site (Astro Starlight)
-│   └── server/      # Backend API (Hono)
+│   ├── web/          # Astro marketing + product site (Workers)
+│   ├── server/       # Hono API + Better-Auth + Workflow (Workers)
+│   └── native/        # Expo app (scaffold)
 ├── packages/
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
+│   ├── auth/          # Better-Auth factory
+│   ├── config/        # Shared tsconfig
+│   ├── db/            # Drizzle schema, queries, ICS, migrations
+│   └── infra/         # Alchemy IaC for all Cloudflare resources
+└── .github/workflows/deploy.yml
 ```
 
-## Available Scripts
+## Status
 
-- `bun run dev`: Start all applications in development mode
-- `bun run build`: Build all applications
-- `bun run check-types`: Check TypeScript types across all apps
-- `bun run dev:native`: Start the React Native/Expo development server
-- `bun run db:generate`: Generate database client/types
-- `bun run check`: Run Oxlint and Oxfmt
-- `cd apps/docs && bun run dev`: Start documentation site
-- `cd apps/docs && bun run build`: Build documentation site
+- Web and API are deployed and functional end-to-end (email auth with verification + password reset,
+  uploads, extraction, share links with revocation, admin Stripe sync). Google OAuth and Stripe
+  checkout are dormant until real keys replace the placeholders. The native app mirrors the mobile
+  web app (auth, uploader, files, settings) and needs a device build pass before store submission.
+  See [DEPLOYMENT.md](./DEPLOYMENT.md) for the launch checklist and the security work already done.

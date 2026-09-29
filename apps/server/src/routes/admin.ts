@@ -69,9 +69,7 @@ async function getOrCreatePrice(
   });
   const match = existing.data.find(
     (p: Stripe.Price) =>
-      p.unit_amount === amount &&
-      p.recurring?.interval === interval &&
-      p.currency === "usd",
+      p.unit_amount === amount && p.recurring?.interval === interval && p.currency === "usd",
   );
   if (match) return match;
 
@@ -90,13 +88,19 @@ router.post("/stripe/sync", async (c) => {
   const raw = await c.req.json();
   const parsed = syncSchema.safeParse(raw);
   if (!parsed.success) {
-    return c.json({ message: "Invalid request", issues: parsed.error.flatten() }, HttpStatusCodes.BAD_REQUEST);
+    return c.json(
+      { message: "Invalid request", issues: parsed.error.flatten() },
+      HttpStatusCodes.BAD_REQUEST,
+    );
   }
 
   const stripeKey = parsed.data.stripeSecretKey ?? ENV.STRIPE_SECRET_KEY;
 
   if (!stripeKey || (!stripeKey.startsWith("sk_test_") && !stripeKey.startsWith("sk_live_"))) {
-    return c.json({ message: "A valid Stripe secret key is required" }, HttpStatusCodes.BAD_REQUEST);
+    return c.json(
+      { message: "A valid Stripe secret key is required" },
+      HttpStatusCodes.BAD_REQUEST,
+    );
   }
 
   const stripe = new Stripe(stripeKey);

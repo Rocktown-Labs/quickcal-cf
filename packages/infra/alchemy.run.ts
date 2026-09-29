@@ -28,6 +28,9 @@ export const server = Cloudflare.Worker("server", {
     DB: db,
     FILES: files,
     CALENDAR_WORKFLOW: calendarWorkflow,
+    RATE_LIMITER: Cloudflare.DurableObject("RATE_LIMITER", {
+      className: "RateLimiter",
+    }),
     CORS_ORIGIN: Config.String("CORS_ORIGIN"),
     BETTER_AUTH_SECRET: Config.Redacted("BETTER_AUTH_SECRET"),
     BETTER_AUTH_URL: Cloudflare.Worker.URL,

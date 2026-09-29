@@ -19,7 +19,7 @@ export function generateICSForAI(events: CalendarEvent[]): string {
     }
 
     // If a specific time is provided, create a timed event with a 1-hour duration.
-    if (event.time && event.time.trim() !== '') {
+    if (event.time && event.time.trim() !== "") {
       const timeParts = event.time.split(":").map(Number);
       const [hour, minute] = timeParts;
 
@@ -65,7 +65,7 @@ export function generateICSForManual(events: CalendarEvent[]): string {
     }
 
     // If a specific time is provided, create a timed event with a 1-hour duration.
-    if (event.time && event.time.trim() !== '') {
+    if (event.time && event.time.trim() !== "") {
       const timeParts = event.time.split(":").map(Number);
       const [hour, minute] = timeParts;
 

@@ -15,6 +15,11 @@ import Uploader from "../components/Uploader.astro";
         We&apos;re having trouble loading your recent stats, but you can still upload new files below.
       </div>
 
+      <div id="verify-banner" class="hidden rounded-xl border border-amber-800 bg-amber-950/20 p-4 text-sm text-amber-200 flex flex-wrap items-center gap-3">
+        <span class="flex-1 min-w-52">Please verify your email address to secure your account and enable password recovery.</span>
+        <button data-resend-verify class="rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold px-4 py-2 text-xs">Resend verification email</button>
+      </div>
+
       <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
         <div class="rounded-xl border border-border bg-card p-4">
           <div class="text-sm text-muted-foreground mb-1">Total Uploads</div>
@@ -62,7 +67,9 @@ import Uploader from "../components/Uploader.astro";
 </DashLayout>
 
 <script>
+  import { authClient } from "../lib/auth-client";
   import { api, ApiError } from "../lib/api";
+  import { escapeHtml } from "../lib/html";
 
   async function init() {
     try {
@@ -90,13 +97,35 @@ import Uploader from "../components/Uploader.astro";
               <div class="flex items-center gap-3 min-w-0">
                 <span class="text-2xl">🖼</span>
                 <div class="min-w-0">
-                  <p class="font-medium text-sm truncate">${u.fileName.replace(/</g, "&lt;")}</p>
+                  <p class="font-medium text-sm truncate">${escapeHtml(u.fileName)}</p>
                   <p class="text-xs text-muted-foreground">${new Date(u.createdAt).toLocaleDateString()} • ${u.status}</p>
                 </div>
               </div>
               <a href="/files" class="shrink-0 rounded-lg border border-input px-3 py-1.5 text-xs font-bold hover:bg-accent">Open</a>
             </div>
           </div>`).join("");
+      }
+
+      // Email verification reminder
+      try {
+        const { data: session } = await authClient.getSession();
+        if (session?.user && !session.user.emailVerified) {
+          const banner = document.getElementById("verify-banner");
+          banner?.classList.remove("hidden");
+          banner?.querySelector("[data-resend-verify]")?.addEventListener("click", async (e) => {
+            const btn = e.currentTarget as HTMLButtonElement;
+            btn.disabled = true;
+            btn.textContent = "Sending…";
+            const { error } = await authClient.sendVerificationEmail({
+              email: session.user.email,
+              callbackURL: "/dashboard",
+            });
+            btn.textContent = error ? "Couldn't send — try again" : "Sent! Check your inbox";
+            btn.disabled = false;
+          });
+        }
+      } catch {
+        // Verification banner is best-effort only.
       }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) { window.location.href = "/login"; return; }

@@ -45,6 +45,7 @@ const { token } = Astro.params;
 
 <script>
   import { api } from "../../lib/api";
+  import { escapeHtml } from "../../lib/html";
 
   async function init() {
     const token = document.getElementById("share-token")?.getAttribute("data-token");
@@ -69,9 +70,10 @@ const { token } = Astro.params;
         const start = new Date(event.startTime);
         const month = start.toLocaleDateString("en-US", { month: "short" });
         const day = start.getDate();
-        const time = start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) +
-          (event.endTime ? ` – ${new Date(event.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : "");
-        const safe = (s: string | null) => (s ?? "").replace(/</g, "&lt;");
+        const time = event.isAllDay
+          ? "All day"
+          : start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) +
+            (event.endTime ? ` – ${new Date(event.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : "");
         return `<div class="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 md:p-5">
           <div class="flex items-start gap-3">
             <div class="flex flex-col items-center justify-center w-12 h-12 bg-[#c23326]/10 rounded-lg shrink-0">
@@ -79,9 +81,9 @@ const { token } = Astro.params;
               <span class="text-lg font-bold">${day}</span>
             </div>
             <div class="flex-1 min-w-0">
-              <h3 class="font-semibold mb-1 truncate">${safe(event.title)}</h3>
-              <div class="text-sm text-neutral-400">🕐 ${time}${event.location ? ` · 📍 ${safe(event.location)}` : ""}</div>
-              ${event.description && event.description !== event.title ? `<p class="text-sm text-neutral-500 mt-2 line-clamp-2">${safe(event.description)}</p>` : ""}
+              <h3 class="font-semibold mb-1 truncate">${escapeHtml(event.title)}</h3>
+              <div class="text-sm text-neutral-400">🕐 ${time}${event.location ? ` · 📍 ${escapeHtml(event.location)}` : ""}</div>
+              ${event.description && event.description !== event.title ? `<p class="text-sm text-neutral-500 mt-2 line-clamp-2">${escapeHtml(event.description)}</p>` : ""}
             </div>
           </div>
         </div>`;

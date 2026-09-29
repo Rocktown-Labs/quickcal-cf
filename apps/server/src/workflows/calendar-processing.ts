@@ -4,14 +4,11 @@ import {
   events,
   generateICSForAI,
   generateShareToken,
+  getUploadById,
   updateUploadRecord,
   type Database,
 } from "@quickcal-cf/db";
-import {
-  extractEventsFromDocument,
-  isDocumentCalendar,
-  type ExtractedEvent,
-} from "../lib/ai";
+import { extractEventsFromDocument, isDocumentCalendar, type ExtractedEvent } from "../lib/ai";
 
 export interface CalendarProcessingInput {
   uploadId: string;
@@ -29,10 +26,7 @@ export interface CalendarProcessingResult {
   shareToken?: string;
 }
 
-export class CalendarProcessingWorkflow extends WorkflowEntrypoint<
-  Env,
-  CalendarProcessingInput
-> {
+export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, CalendarProcessingInput> {
   private db(): Database {
     return createDb(this.env);
   }
@@ -73,8 +67,7 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<
       });
 
       if (!isCalendar) {
-        const failureReason =
-          "The uploaded file did not appear to contain a calendar or schedule.";
+        const failureReason = "The uploaded file did not appear to contain a calendar or schedule.";
         await step.do("mark-no-events", async () => {
           await updateUploadRecord(db, uploadId, {
             status: "no_events",
@@ -86,11 +79,7 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<
 
       const extractedEvents = await step.do("extract-events", async () => {
         const { data, contentType } = await this.getSourceFile(storageKey, fileType);
-        return extractEventsFromDocument(
-          this.env.GOOGLE_GENERATIVE_AI_API_KEY,
-          data,
-          contentType,
-        );
+        return extractEventsFromDocument(this.env.GOOGLE_GENERATIVE_AI_API_KEY, data, contentType);
       });
 
       if (extractedEvents.length === 0) {
@@ -105,14 +94,25 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<
       }
 
       const result = await step.do("persist", async () => {
-        const validEvents = extractedEvents.filter(
-          (e) => e.date && e.date.trim() !== "",
-        );
+        const validEvents = extractedEvents.filter((e) => e.date && e.date.trim() !== "");
 
-        const shareToken = generateShareToken();
-        const icsKey = `ics/${shareToken}.ics`;
+        // Dedupe (date, time, description) — the AI is told not to repeat
+        // itself, but don't trust it.
+        const seen = new Set<string>();
+        const uniqueEvents = validEvents.filter((e) => {
+          const key = `${e.date}|${e.time ?? ""}|${e.description}`.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+
+        // Reuse the token from a previous attempt so a retried persist step
+        // overwrites the same .ics object instead of orphaning one per retry.
+        const existing = await getUploadById(db, uploadId);
+        const shareToken = existing?.shareToken ?? generateShareToken();
+        const icsKey = existing?.icsKey ?? `ics/${shareToken}.ics`;
         const icsContent = generateICSForAI(
-          validEvents.map((e) => ({
+          uniqueEvents.map((e) => ({
             date: e.date,
             time: e.time,
             description: e.description,
@@ -123,7 +123,7 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<
           httpMetadata: { contentType: "text/calendar" },
         });
 
-        await this.insertEvents(db, uploadId, userId, validEvents);
+        await this.insertEvents(db, uploadId, userId, uniqueEvents);
 
         await updateUploadRecord(db, uploadId, {
           status: "completed",
@@ -132,7 +132,7 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<
           failureReason: null,
         });
 
-        return { icsKey, shareToken, eventCount: validEvents.length };
+        return { icsKey, shareToken, eventCount: uniqueEvents.length };
       });
 
       return {
@@ -146,8 +146,7 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<
       await step.do("mark-failed", async () => {
         await updateUploadRecord(db, uploadId, {
           status: "failed",
-          failureReason:
-            error instanceof Error ? error.message : "Unknown workflow failure.",
+          failureReason: error instanceof Error ? error.message : "Unknown workflow failure.",
         });
       });
       return { uploadId, eventCount: 0, status: "failed" };
@@ -166,7 +165,8 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<
         title: event.description,
         description: event.description,
         startTime: new Date(`${event.date}T${event.time || "00:00"}:00Z`),
-        isAllDay: false,
+        // No time extracted → treat as an all-day event.
+        isAllDay: !event.time,
         uploadId,
         userId,
       });

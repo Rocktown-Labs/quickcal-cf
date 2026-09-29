@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  generateICS,
-  generateICSForAI,
-  generateICSForManual,
-} from "./ics";
+import { generateICS, generateICSForAI, generateICSForManual } from "./ics";
 
 describe("generateICSForAI", () => {
   test("creates a timed event with a 1-hour duration", () => {
@@ -18,9 +14,7 @@ describe("generateICSForAI", () => {
   });
 
   test("creates an all-day event when time is empty", () => {
-    const ics = generateICSForAI([
-      { date: "2026-12-25", time: "", description: "Holiday" },
-    ]);
+    const ics = generateICSForAI([{ date: "2026-12-25", time: "", description: "Holiday" }]);
     expect(ics).toContain("DTSTART;VALUE=DATE:20261225");
   });
 
@@ -33,9 +27,9 @@ describe("generateICSForAI", () => {
   });
 
   test("throws on invalid date format", () => {
-    expect(() =>
-      generateICSForAI([{ date: "not-a-date", time: "", description: "x" }]),
-    ).toThrow("Invalid date format");
+    expect(() => generateICSForAI([{ date: "not-a-date", time: "", description: "x" }])).toThrow(
+      "Invalid date format",
+    );
   });
 
   test("throws on invalid time format", () => {

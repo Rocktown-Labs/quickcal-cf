@@ -3,11 +3,7 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import jsonContent from "stoker/openapi/helpers/json-content";
 import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
 import createMessageObjectSchema from "stoker/openapi/schemas/create-message-object";
-import {
-  createApiKeyRecord,
-  deleteApiKey,
-  listApiKeys,
-} from "@quickcal-cf/db";
+import { createApiKeyRecord, deleteApiKey, listApiKeys } from "@quickcal-cf/db";
 import { getDb } from "../services";
 import { requireAuth, type AuthEnv } from "../lib/auth";
 import { createApiKeySchema } from "../lib/validators";
@@ -80,9 +76,7 @@ app.openapi(createKey, async (c) => {
   const { key, record } = await createApiKeyRecord(getDb(), {
     userId: c.get("userId"),
     name,
-    expiresAt: expiresInDays
-      ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
-      : null,
+    expiresAt: expiresInDays ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000) : null,
   });
   return c.json(
     {
@@ -102,10 +96,7 @@ const deleteKey = createRoute({
   summary: "Revoke an API key",
   request: { params: z.object({ id: z.string().uuid() }) },
   responses: {
-    [HttpStatusCodes.OK]: jsonContent(
-      createMessageObjectSchema("Revoked"),
-      "Key revoked",
-    ),
+    [HttpStatusCodes.OK]: jsonContent(createMessageObjectSchema("Revoked"), "Key revoked"),
     [HttpStatusCodes.NOT_FOUND]: jsonContent(
       createMessageObjectSchema("Not found"),
       "Key not found",

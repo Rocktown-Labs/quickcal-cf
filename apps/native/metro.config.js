@@ -10,8 +10,8 @@ const blockList = config.resolver.blockList ?? [];
 const blockListPatterns = Array.isArray(blockList) ? blockList : [blockList];
 
 config.resolver.blockList = [
-	...blockListPatterns,
-	/[/\\]packages[/\\]infra[/\\]\.alchemy(?:[/\\]|$)/,
+  ...blockListPatterns,
+  /[/\\]packages[/\\]infra[/\\]\.alchemy(?:[/\\]|$)/,
 ];
 
 const uniwindConfig = withUniwindConfig(wrapWithReanimatedMetroConfig(config), {

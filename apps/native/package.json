@@ -14,17 +14,28 @@
     "env:generate": "varlock codegen"
   },
   "dependencies": {
+    "@better-auth/expo": "catalog:",
+    "@better-auth/stripe": "^1.7.6",
     "@expo/metro-runtime": "~57.0.15",
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.14",
+    "@react-native-community/datetimepicker": "9.1.0",
+    "@tanstack/react-form": "^1.33.5",
+    "@tanstack/react-query": "^5.104.0",
+    "@varlock/expo-integration": "1.2.1",
+    "better-auth": "catalog:",
     "expo": "~57.0.20",
+    "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.17",
+    "expo-document-picker": "~57.0.3",
+    "expo-file-system": "~57.0.7",
     "expo-font": "~57.0.3",
     "expo-haptics": "~57.0.2",
     "expo-linking": "~57.0.9",
     "expo-network": "~57.0.1",
     "expo-router": "~57.0.19",
     "expo-secure-store": "~57.0.3",
+    "expo-sharing": "~57.0.22",
     "expo-splash-screen": "~57.0.8",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.3",
@@ -45,18 +56,14 @@
     "tailwind-variants": "^3.3.1",
     "tailwindcss": "catalog:",
     "uniwind": "^1.12.0",
-    "zod": "catalog:",
     "varlock": "catalog:",
-    "@varlock/expo-integration": "1.2.1",
-    "better-auth": "catalog:",
-    "@better-auth/expo": "catalog:",
-    "@tanstack/react-form": "^1.33.5"
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@quickcal-cf/config": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "~19.2.18",
-    "typescript": "~6.0.3",
-    "@quickcal-cf/config": "workspace:*",
-    "babel-preset-expo": "~57.0.10"
+    "babel-preset-expo": "~57.0.10",
+    "typescript": "~6.0.3"
   }
 }

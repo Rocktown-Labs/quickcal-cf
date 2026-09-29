@@ -28,6 +28,11 @@ jobs:
 
       - name: Check types
         run: bun run check-types
+        working-directory: .
+
+      - name: Run tests
+        run: bun test ./packages/db ./apps/server
+        working-directory: .
 
       - name: Deploy production
         if: github.ref_name == 'main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')

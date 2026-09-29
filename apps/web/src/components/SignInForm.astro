@@ -1,5 +1,4 @@
 ---
-import { authClient } from "../lib/auth-client";
 import Logo from "./Logo.astro";
 ---
 
@@ -73,10 +72,15 @@ import Logo from "./Logo.astro";
     Continue with Google
   </button>
 
-  <div class="mt-6 text-center">
+  <div class="mt-6 text-center space-y-2">
     <a href="/signup" class="text-primary hover:text-primary/80 text-sm">
       Need an account? Sign Up
     </a>
+    <div>
+      <a href="/forgot-password" class="text-muted-foreground hover:text-foreground text-sm">
+        Forgot your password?
+      </a>
+    </div>
   </div>
 </div>
 
