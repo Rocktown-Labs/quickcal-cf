@@ -32,6 +32,13 @@ function toBase64(data: Uint8Array): string {
   return btoa(bin);
 }
 
+// Gemini 3.8 Flash — stable model ID (released 2026-09-02, no preview suffix).
+// Used for both the "is this a calendar?" gate (was gemini-2.5-pro) and event
+// extraction (was gemini-2.5-flash). Kept as separate constants so either
+// call site can be re-tiered independently.
+const CLASSIFICATION_MODEL = "gemini-3.8-flash";
+const EXTRACTION_MODEL = "gemini-3.8-flash";
+
 export async function isDocumentCalendar(
   apiKey: string,
   fileData: Uint8Array,
@@ -42,7 +49,7 @@ export async function isDocumentCalendar(
     const dataUrl = `data:${fileType};base64,${toBase64(fileData)}`;
 
     const { text } = await generateText({
-      model: google("gemini-2.5-pro"),
+      model: google(CLASSIFICATION_MODEL),
       messages: [
         {
           role: "user",
@@ -65,10 +72,6 @@ export async function isDocumentCalendar(
     return false;
   }
 }
-
-// Gemini 3.8 Flash — stable model ID (released 2026-09-02, no preview suffix).
-// Bumped from gemini-2.5-flash for better extraction quality at lower cost.
-const EXTRACTION_MODEL = "gemini-3.8-flash";
 
 export async function extractEventsFromDocument(
   apiKey: string,
