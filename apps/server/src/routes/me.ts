@@ -5,9 +5,11 @@ import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
 import { getUserProfile, isPremium, updateUserProfile } from "@quickcal-cf/db";
 import { getDb } from "../services";
 import { requireAuth, type AuthEnv } from "../lib/auth";
+import { rateLimit } from "../middleware/rate-limit";
 
 const app = new OpenAPIHono<AuthEnv>();
 app.use(requireAuth);
+app.use(rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "me:user" }));
 
 const profileSchema = z.object({
   id: z.string(),

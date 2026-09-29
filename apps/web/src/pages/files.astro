@@ -9,11 +9,11 @@ import DashLayout from "../layouts/DashLayout.astro";
       <p class="text-muted-foreground">Download, share, and manage your processed calendar files.</p>
     </div>
     <div id="files-loading" class="text-sm text-muted-foreground">Loading…</div>
-    <div id="files-empty" class="hidden rounded-2xl border border bg-card text-card-foreground shadow p-10 text-center">
+    <div id="files-empty" class="hidden rounded-2xl border border-border bg-card p-10 text-center">
       <div class="text-5xl mb-4">📂</div>
       <h2 class="text-xl font-bold mb-2">No files yet</h2>
       <p class="text-muted-foreground mb-6">Upload your first schedule to get started.</p>
-      <a href="/dashboard" class="inline-block bg-[#c23326] hover:bg-[#d43d2f] font-bold py-3 px-6 rounded-xl">Go to Dashboard</a>
+      <a href="/dashboard" class="inline-block bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-xl">Go to Dashboard</a>
     </div>
     <div id="files-list" class="space-y-4"></div>
   </div>
@@ -24,30 +24,30 @@ import DashLayout from "../layouts/DashLayout.astro";
   import { api, ApiError, type UploadSummary } from "../lib/api";
 
   function statusColor(status: string): string {
-    if (status === "completed") return "bg-green-900 text-green-300";
-    if (status === "processing" || status === "pending") return "bg-blue-900 text-blue-300";
-    if (status === "no_events") return "bg-amber-900 text-amber-300";
-    if (status === "failed") return "bg-red-900 text-red-300";
-    return "bg-neutral-800 text-neutral-300";
+    if (status === "completed") return "bg-green-950 text-green-400";
+    if (status === "processing" || status === "pending") return "bg-blue-950 text-blue-400";
+    if (status === "no_events") return "bg-amber-950 text-amber-400";
+    if (status === "failed") return "bg-red-950 text-red-400";
+    return "bg-muted text-muted-foreground";
   }
 
   function card(u: UploadSummary): string {
     const safe = u.fileName.replace(/</g, "&lt;");
     const date = new Date(u.createdAt).toLocaleDateString();
     const completed = u.status === "completed" && u.shareToken;
-    return `<div class="rounded-xl border border bg-card text-card-foreground shadow p-4" data-card="${u.id}">
+    return `<div class="rounded-xl border border-border bg-card p-4" data-card="${u.id}">
       <div class="flex items-center justify-between gap-3 flex-wrap">
         <div class="flex items-center gap-3 min-w-0">
           <span class="text-3xl">🖼</span>
           <div class="min-w-0">
             <p class="font-medium text-sm truncate">${safe}</p>
-            <p class="text-xs text-neutral-500">${date} · ${u.fileType}</p>
+            <p class="text-xs text-muted-foreground">${date} · ${u.fileType}</p>
           </div>
         </div>
         <span class="text-xs font-bold px-2.5 py-1 rounded-full ${statusColor(u.status)}">${u.status}</span>
       </div>
       ${completed ? `<div class="mt-3 flex flex-wrap gap-2">
-        <button data-act="download" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold bg-[#c23326] hover:bg-[#d43d2f] rounded-lg px-3 py-2">Download .ics</button>
+        <button data-act="download" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-3 py-2">Download .ics</button>
         <button data-act="copy" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Copy link</button>
         <button data-act="email" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Email</button>
         <button data-act="sms" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">SMS</button>

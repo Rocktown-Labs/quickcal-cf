@@ -1,5 +1,6 @@
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
+import { z } from "zod";
 
 export interface ExtractedEvent {
   id: number;
@@ -7,6 +8,14 @@ export interface ExtractedEvent {
   time: string;
   description: string;
 }
+
+const extractedEventSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+  time: z.string().regex(/^$|^([01]\d|2[0-3]):[0-5]\d$/, "Time must be in HH:MM format"),
+  description: z.string().trim().min(1).max(1000),
+});
+
+const extractedEventsSchema = z.array(extractedEventSchema);
 
 function toBase64(data: Uint8Array): string {
   let bin = "";
@@ -91,9 +100,13 @@ export async function extractEventsFromDocument(
     return [];
   }
 
-  const parsedData: Omit<ExtractedEvent, "id">[] = JSON.parse(cleanedText);
+  const raw: unknown = JSON.parse(cleanedText);
+  const parsed = extractedEventsSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error(`Invalid AI extraction output: ${parsed.error.message}`);
+  }
 
-  return parsedData.map((item, index) => ({
+  return parsed.data.map((item, index) => ({
     ...item,
     id: Date.now() + index,
   }));

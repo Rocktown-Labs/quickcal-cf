@@ -14,6 +14,10 @@ export const user = sqliteTable("user", {
   isOnboarded: integer("is_onboarded", { mode: "boolean" })
     .default(false)
     .notNull(),
+  role: text("role").default("user").notNull(),
+  banned: integer("banned", { mode: "boolean" }).default(false).notNull(),
+  banReason: text("ban_reason"),
+  banExpires: integer("ban_expires", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" })
     .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
     .notNull(),
@@ -40,6 +44,7 @@ export const session = sqliteTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    impersonatedBy: text("impersonated_by"),
   },
   (table) => [index("session_userId_idx").on(table.userId)],
 );

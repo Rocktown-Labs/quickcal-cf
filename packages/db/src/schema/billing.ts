@@ -35,3 +35,29 @@ export const subscription = sqliteTable(
   },
   (table) => [index("subscription_referenceId_idx").on(table.referenceId)],
 );
+
+// Plans synced from Stripe (or seeded) so the auth config can build
+// subscription options dynamically without redeploying price IDs.
+export const plan = sqliteTable(
+  "plan",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull().unique(),
+    displayName: text("display_name").notNull(),
+    description: text("description"),
+    stripeProductId: text("stripe_product_id"),
+    priceId: text("price_id").notNull(),
+    annualDiscountPriceId: text("annual_discount_price_id"),
+    currency: text("currency").default("usd").notNull(),
+    limits: text("limits"), // JSON string, e.g. {"uploads":1000}
+    active: integer("active", { mode: "boolean" }).default(true).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [index("plan_name_idx").on(table.name)],
+);

@@ -11,9 +11,11 @@ import {
 import { getDb } from "../services";
 import { requireAuth, type AuthEnv } from "../lib/auth";
 import { createApiKeySchema } from "../lib/validators";
+import { rateLimit } from "../middleware/rate-limit";
 
 const app = new OpenAPIHono<AuthEnv>();
 app.use(requireAuth);
+app.use(rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "keys:user" }));
 
 const keySummarySchema = z.object({
   id: z.string(),

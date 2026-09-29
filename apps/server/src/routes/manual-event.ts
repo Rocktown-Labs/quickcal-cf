@@ -6,9 +6,11 @@ import { events, generateICSForManual } from "@quickcal-cf/db";
 import { getDb } from "../services";
 import { requireAuth, type AuthEnv } from "../lib/auth";
 import { manualEventSchema } from "../lib/validators";
+import { rateLimit } from "../middleware/rate-limit";
 
 const app = new OpenAPIHono<AuthEnv>();
 app.use(requireAuth);
+app.use(rateLimit({ windowMs: 60_000, maxRequests: 20, keyPrefix: "manual:user" }));
 
 const createManualEvent = createRoute({
   method: "post",

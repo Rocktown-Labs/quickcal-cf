@@ -274,32 +274,119 @@
   background: linear-gradient(90deg, transparent, oklch(0.85 0 0), transparent);
 }
 
-/* ─── CTA background ─── */
+/* ─── Editorial / minimal landing utilities (no gradients, glows, or floating effects) ─── */
 
-.cta-section {
-  background-color: oklch(0.05 0 0);
+.fine-line {
+  height: 1px;
+  background: oklch(0.22 0 0);
+}
+.light .fine-line {
+  background: oklch(0.85 0 0);
 }
 
-.cta-bg {
-  background: radial-gradient(circle at 30% 50%, oklch(0.58 0.22 25 / 0.28), transparent 45%);
+.rule-red {
+  width: 48px;
+  height: 2px;
+  background: var(--primary);
 }
 
-/* ─── Buttons ─── */
-
-.btn-primary {
-  @apply inline-flex items-center justify-center rounded-lg bg-primary px-6 h-11 text-sm font-semibold text-primary-foreground transition-all duration-200;
+.surface-subtle {
+  background: oklch(0.08 0 0);
+  border: 1px solid oklch(0.18 0 0);
+}
+.light .surface-subtle {
+  background: oklch(0.98 0 0);
+  border-color: oklch(0.88 0 0);
 }
 
-.btn-primary:hover {
+.card-minimal {
+  background: transparent;
+  border: 1px solid oklch(0.18 0 0);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.light .card-minimal {
+  border-color: oklch(0.86 0 0);
+}
+
+.card-minimal:hover {
+  border-color: oklch(0.35 0 0);
+  transform: translateY(-2px);
+}
+.light .card-minimal:hover {
+  border-color: oklch(0.7 0 0);
+}
+
+.card-minimal.featured {
+  border-top: 2px solid var(--primary);
+}
+
+.eyebrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.accent-text {
+  color: var(--primary);
+}
+
+/* Hero image frame */
+.hero-frame {
+  border: 1px solid oklch(0.18 0 0);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.5);
+}
+.light .hero-frame {
+  border-color: oklch(0.85 0 0);
+  box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.12);
+}
+
+/* Minimal buttons */
+.btn-solid {
+  @apply inline-flex items-center justify-center rounded-md bg-primary px-6 h-11 text-sm font-semibold text-primary-foreground transition-all duration-200;
+}
+.btn-solid:hover {
   @apply bg-primary/90;
-  box-shadow: 0 10px 28px -8px oklch(0.58 0.22 25 / 0.45);
   transform: translateY(-1px);
 }
 
-.btn-secondary {
-  @apply inline-flex items-center justify-center rounded-lg border border-border bg-background px-6 h-11 text-sm font-semibold transition-all duration-200;
+.btn-ghost {
+  @apply inline-flex items-center justify-center rounded-md border border-border bg-transparent px-6 h-11 text-sm font-semibold transition-all duration-200;
 }
-
-.btn-secondary:hover {
+.btn-ghost:hover {
   @apply bg-secondary;
 }
+
+.btn-white {
+  @apply inline-flex items-center justify-center rounded-md bg-white text-black px-6 h-11 text-sm font-semibold transition-all duration-200;
+}
+.btn-white:hover {
+  @apply bg-white/90;
+  transform: translateY(-1px);
+}
+
+/* FAQ details reset */
+details > summary {
+  list-style: none;
+}
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Reveal animation (subtle, no floating motion) */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.reveal.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 0ms; }
+.reveal-delay-2 { transition-delay: 70ms; }
+.reveal-delay-3 { transition-delay: 140ms; }
+.reveal-delay-4 { transition-delay: 210ms; }
+.reveal-delay-5 { transition-delay: 280ms; }

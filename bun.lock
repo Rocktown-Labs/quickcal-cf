@@ -81,6 +81,7 @@
         "hono": "^4.13.7",
         "resend": "^6.30.0",
         "stoker": "^2.0.1",
+        "stripe": "^22.6.2",
         "varlock": "catalog:",
         "zod": "catalog:",
       },

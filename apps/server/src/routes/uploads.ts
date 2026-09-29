@@ -16,6 +16,7 @@ import { ENV } from "../env.server";
 import { getDb } from "../services";
 import { requireAuth, type AuthEnv } from "../lib/auth";
 import { isPremium } from "../lib/premium";
+import { rateLimit } from "../middleware/rate-limit";
 import {
   MAX_UPLOAD_FILE_SIZE_BYTES,
   uploadMimeTypes,
@@ -23,6 +24,7 @@ import {
 
 const app = new OpenAPIHono<AuthEnv>();
 app.use(requireAuth);
+app.use(rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "uploads:user" }));
 
 const uploadStatusEnum = z.enum([
   "pending",

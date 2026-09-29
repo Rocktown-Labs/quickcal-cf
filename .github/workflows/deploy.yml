@@ -1,0 +1,75 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, closed]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./packages/infra
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Check types
+        run: bun run check-types
+
+      - name: Deploy production
+        if: github.ref_name == 'main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        run: bunx alchemy deploy --stage prod --yes
+        env:
+          # Cloudflare auth
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+
+          # App config (update these to https://quickcalai.com after custom DNS is configured)
+          CORS_ORIGIN: "https://quickcal-web.rocktown-labs.workers.dev"
+          BETTER_AUTH_URL: "https://quickcal-server.rocktown-labs.workers.dev"
+          RESEND_FROM_EMAIL: "QuickCalAI <noreply@extractions.quickcalai.com>"
+
+          # Secrets (replace placeholders in GitHub after first deploy)
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          ADMIN_USER_IDS: ${{ secrets.ADMIN_USER_IDS }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
+          STRIPE_PREMIUM_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_ANNUAL_PRICE_ID }}
+          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
+          SENT_DM_API_KEY: ${{ secrets.SENT_DM_API_KEY }}
+
+      - name: Deploy preview
+        if: github.event_name == 'pull_request' && github.event.action != 'closed'
+        run: bunx alchemy deploy --stage "pr-${{ github.event.number }}" --yes
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+
+      - name: Destroy preview
+        if: github.event_name == 'pull_request' && github.event.action == 'closed'
+        run: bunx alchemy destroy --stage "pr-${{ github.event.number }}" --yes
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}

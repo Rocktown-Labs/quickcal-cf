@@ -1,0 +1,163 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Logo from "../components/Logo.astro";
+---
+
+<Layout title="Admin — QuickCalAI">
+  <div class="min-h-screen flex flex-col">
+    <header class="border-b border-border/50">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <a href="/" class="flex items-center gap-2.5">
+          <Logo size={20} className="text-primary" />
+          <span class="text-sm font-semibold tracking-tight">QuickCalAI</span>
+        </a>
+        <a href="/dashboard" class="text-sm text-muted-foreground hover:text-foreground">Dashboard</a>
+      </div>
+    </header>
+
+    <main class="flex-1 max-w-2xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12">
+      <div id="unauthorized" class="hidden">
+        <h1 class="font-serif text-3xl tracking-tight mb-3">Admin access required</h1>
+        <p class="text-muted-foreground">You don’t have permission to view this page.</p>
+      </div>
+
+      <div id="admin-body" class="hidden space-y-10">
+        <div>
+          <p class="eyebrow mb-3">Billing</p>
+          <h1 class="font-serif text-3xl tracking-tight">Stripe products</h1>
+          <p class="text-muted-foreground mt-2">
+            Create (or sync) the QuickCalAI Premium product and its monthly and annual prices in Stripe.
+          </p>
+        </div>
+
+        <section class="card-minimal rounded-xl p-6">
+          <h2 class="font-semibold mb-1">Sync Stripe products</h2>
+          <p class="text-sm text-muted-foreground mb-6">
+            If <code class="text-xs">STRIPE_SECRET_KEY</code> is already set on the server, leave the key field blank.
+            Otherwise, paste a test or live secret key below to use it once for this sync.
+          </p>
+
+          <form id="sync-form" class="space-y-4">
+            <div>
+              <label for="stripe-key" class="block text-sm font-medium text-foreground/70 mb-1">Stripe secret key (optional)</label>
+              <input
+                id="stripe-key"
+                type="password"
+                placeholder="sk_test_... or sk_live_..."
+                class="w-full rounded-lg border border-input bg-input px-4 py-2.5 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            <div class="flex items-center gap-3">
+              <button
+                type="submit"
+                id="sync-submit"
+                class="btn-solid"
+                disabled
+              >
+                Sync products
+              </button>
+              <span id="sync-status" class="text-sm"></span>
+            </div>
+          </form>
+
+          <div id="sync-result" class="hidden mt-6 rounded-lg border border-border bg-secondary/30 p-4">
+            <p class="text-sm font-semibold mb-1">Synced successfully</p>
+            <p class="text-xs text-muted-foreground mb-3">The Premium plan is now live in Better-Auth.</p>
+            <code id="sync-result-json" class="block text-xs break-all"></code>
+          </div>
+        </section>
+
+        <section class="card-minimal rounded-xl p-6">
+          <h2 class="font-semibold mb-1">What this creates</h2>
+          <ul class="mt-4 space-y-3 text-sm text-muted-foreground">
+            <li class="flex items-start gap-3">
+              <span class="mt-0.5 shrink-0 w-4 h-4 rounded-full border border-primary/40 flex items-center justify-center">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+              </span>
+              <span>Stripe product: <strong class="text-foreground">QuickCalAI Premium</strong></span>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="mt-0.5 shrink-0 w-4 h-4 rounded-full border border-primary/40 flex items-center justify-center">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+              </span>
+              <span>Monthly price: <strong class="text-foreground">$12.99</strong></span>
+            </li>
+            <li class="flex items-start gap-3">
+              <span class="mt-0.5 shrink-0 w-4 h-4 rounded-full border border-primary/40 flex items-center justify-center">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+              </span>
+              <span>Annual price: <strong class="text-foreground">$71.88/year</strong> (displayed as $5.99/mo)</span>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </main>
+  </div>
+</Layout>
+
+<script>
+  import { authClient } from "../lib/auth-client";
+
+  const adminBody = document.getElementById("admin-body") as HTMLDivElement;
+  const unauthorized = document.getElementById("unauthorized") as HTMLDivElement;
+  const syncForm = document.getElementById("sync-form") as HTMLFormElement;
+  const syncSubmit = document.getElementById("sync-submit") as HTMLButtonElement;
+  const syncStatus = document.getElementById("sync-status") as HTMLSpanElement;
+  const syncResult = document.getElementById("sync-result") as HTMLDivElement;
+  const syncResultJson = document.getElementById("sync-result-json") as HTMLElement;
+
+  (async () => {
+    try {
+      const { data: session } = await authClient.getSession();
+      const roles = (session?.user?.role ?? "").split(",").map((r) => r.trim());
+      if (!roles.includes("admin")) {
+        unauthorized.classList.remove("hidden");
+        return;
+      }
+      adminBody.classList.remove("hidden");
+      syncSubmit.disabled = false;
+    } catch {
+      unauthorized.classList.remove("hidden");
+    }
+  })();
+
+  syncForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    syncStatus.textContent = "";
+    syncResult.classList.add("hidden");
+    syncSubmit.disabled = true;
+    syncSubmit.textContent = "Syncing...";
+
+    const keyInput = document.getElementById("stripe-key") as HTMLInputElement;
+    const body: { stripeSecretKey?: string } = {};
+    const key = keyInput.value.trim();
+    if (key) body.stripeSecretKey = key;
+
+    try {
+      const res = await fetch(`${import.meta.env.PUBLIC_SERVER_URL}/api/admin/stripe/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+      });
+
+      const json = await res.json().catch(() => ({ message: "Invalid response" }));
+      if (!res.ok) {
+        throw new Error(json.message || `Sync failed (${res.status})`);
+      }
+
+      syncResultJson.textContent = JSON.stringify(json, null, 2);
+      syncResult.classList.remove("hidden");
+      syncStatus.className = "text-sm text-green-500";
+      syncStatus.textContent = "Done.";
+      keyInput.value = "";
+    } catch (err) {
+      syncStatus.className = "text-sm text-red-500";
+      syncStatus.textContent = err instanceof Error ? err.message : "Sync failed";
+    } finally {
+      syncSubmit.disabled = false;
+      syncSubmit.textContent = "Sync products";
+    }
+  });
+</script>
