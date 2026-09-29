@@ -149,11 +149,11 @@ import Logo from "../components/Logo.astro";
 
       syncResultJson.textContent = JSON.stringify(json, null, 2);
       syncResult.classList.remove("hidden");
-      syncStatus.className = "text-sm text-green-500";
+      syncStatus.className = "text-sm text-success";
       syncStatus.textContent = "Done.";
       keyInput.value = "";
     } catch (err) {
-      syncStatus.className = "text-sm text-red-500";
+      syncStatus.className = "text-sm text-danger";
       syncStatus.textContent = err instanceof Error ? err.message : "Sync failed";
     } finally {
       syncSubmit.disabled = false;

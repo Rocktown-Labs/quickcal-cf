@@ -16,9 +16,15 @@ const profileSchema = z.object({
   name: z.string(),
   email: z.string(),
   phoneNumber: z.string().nullable(),
+  useCase: z.string().nullable(),
+  calendarApp: z.string().nullable(),
   isOnboarded: z.boolean(),
   isPremium: z.boolean(),
 });
+
+// Onboarding questionnaire answers — sent by the web app's /onboarding flow.
+const useCaseSchema = z.enum(["class", "work", "conference", "events", "other"]);
+const calendarAppSchema = z.enum(["google", "apple", "outlook", "other"]);
 
 const getMe = createRoute({
   method: "get",
@@ -46,6 +52,8 @@ app.openapi(getMe, async (c) => {
 
 const updateMeBody = z.object({
   phoneNumber: z.string().trim().max(32).optional(),
+  useCase: useCaseSchema.optional(),
+  calendarApp: calendarAppSchema.optional(),
   isOnboarded: z.boolean().optional(),
 });
 
@@ -53,7 +61,7 @@ const updateMe = createRoute({
   method: "patch",
   path: "/me",
   tags: ["User"],
-  summary: "Update contact info / onboarding flag",
+  summary: "Update contact info / onboarding answers / onboarding flag",
   request: { body: jsonContentRequired(updateMeBody, "Fields to update") },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(profileSchema, "Updated profile"),
@@ -67,6 +75,8 @@ app.openapi(updateMe, async (c) => {
 
   await updateUserProfile(db, userId, {
     ...(body.phoneNumber !== undefined ? { phoneNumber: body.phoneNumber } : {}),
+    ...(body.useCase !== undefined ? { useCase: body.useCase } : {}),
+    ...(body.calendarApp !== undefined ? { calendarApp: body.calendarApp } : {}),
     ...(body.isOnboarded !== undefined ? { isOnboarded: body.isOnboarded } : {}),
   });
 

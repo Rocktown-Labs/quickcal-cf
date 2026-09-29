@@ -23,21 +23,21 @@ const hasParams = Boolean(params.get("token") && params.get("email"));
         <p class="text-sm text-muted-foreground">Hang tight, this should only take a moment.</p>
       </div>
 
-      <div id="missing" class={`rounded-xl border border-amber-800 bg-amber-950/20 p-6 text-center ${hasParams ? "hidden" : ""}`}>
+      <div id="missing" class={`rounded-xl border border-warning/40 bg-warning/10 p-6 text-center ${hasParams ? "hidden" : ""}`}>
         <div class="text-4xl mb-3">🔗</div>
         <h2 class="font-semibold mb-1">This link isn't complete</h2>
         <p class="text-sm text-muted-foreground mb-4">Verification links come from the email we send you.</p>
         <a href="/dashboard" class="inline-block rounded-lg bg-primary text-primary-foreground font-bold px-5 py-2.5 text-sm hover:bg-primary/90">Go to dashboard</a>
       </div>
 
-      <div id="success" class="hidden rounded-xl border border-green-500/30 bg-green-500/10 p-10 text-center">
+      <div id="success" class="hidden rounded-xl border border-success/30 bg-success/10 p-10 text-center">
         <div class="text-4xl mb-3">✅</div>
         <h2 class="font-semibold mb-1">Email verified!</h2>
         <p class="text-sm text-muted-foreground mb-4">Your email address is confirmed. Thanks for securing your account.</p>
         <a href="/dashboard" class="inline-block rounded-lg bg-primary text-primary-foreground font-bold px-5 py-2.5 text-sm hover:bg-primary/90">Continue to dashboard</a>
       </div>
 
-      <div id="failed" class="hidden rounded-xl border border-red-800 bg-red-950/20 p-6 text-center">
+      <div id="failed" class="hidden rounded-xl border border-danger/40 bg-danger/10 p-6 text-center">
         <div class="text-4xl mb-3">⚠️</div>
         <h2 class="font-semibold mb-1">Couldn't verify your email</h2>
         <p class="text-sm text-muted-foreground mb-4">This link may have expired or already been used. You can request a new one from your dashboard.</p>

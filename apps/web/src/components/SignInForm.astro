@@ -22,7 +22,7 @@ import Logo from "./Logo.astro";
         class="w-full rounded-lg border border-input bg-input px-4 py-2.5 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         placeholder="you@example.com"
       />
-      <p id="email-error" class="text-sm text-red-500 hidden"></p>
+      <p id="email-error" class="text-sm text-danger hidden"></p>
     </div>
 
     <div class="space-y-1">
@@ -35,10 +35,10 @@ import Logo from "./Logo.astro";
         class="w-full rounded-lg border border-input bg-input px-4 py-2.5 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         placeholder="••••••••"
       />
-      <p id="password-error" class="text-sm text-red-500 hidden"></p>
+      <p id="password-error" class="text-sm text-danger hidden"></p>
     </div>
 
-    <p id="form-error" class="text-sm text-red-500 hidden"></p>
+    <p id="form-error" class="text-sm text-danger hidden"></p>
 
     <button
       type="submit"

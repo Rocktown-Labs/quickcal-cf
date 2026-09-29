@@ -8,16 +8,16 @@ import Uploader from "../components/Uploader.astro";
     <div class="container mx-auto space-y-8">
       <div>
         <h1 class="text-3xl font-bold mb-2">Welcome back, <span id="welcome-name">…</span>!</h1>
-        <p class="text-muted-foreground">Ready to extract calendar events from your images?</p>
+        <p id="dash-subtitle" class="text-muted-foreground">Ready to extract calendar events from your images?</p>
       </div>
 
-      <div id="stats-error" class="hidden rounded-xl border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-200">
+      <div id="stats-error" class="hidden rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm text-warning">
         We&apos;re having trouble loading your recent stats, but you can still upload new files below.
       </div>
 
-      <div id="verify-banner" class="hidden rounded-xl border border-amber-800 bg-amber-950/20 p-4 text-sm text-amber-200 flex flex-wrap items-center gap-3">
+      <div id="verify-banner" class="hidden rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning flex flex-wrap items-center gap-3">
         <span class="flex-1 min-w-52">Please verify your email address to secure your account and enable password recovery.</span>
-        <button data-resend-verify class="rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-bold px-4 py-2 text-xs">Resend verification email</button>
+        <button data-resend-verify class="rounded-lg bg-warning hover:bg-warning/90 text-background font-bold px-4 py-2 text-xs">Resend verification email</button>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
@@ -73,16 +73,33 @@ import Uploader from "../components/Uploader.astro";
 
   async function init() {
     try {
+      // Onboarding guard: users who never finished setup are routed to the
+      // onboarding flow. Best-effort — a profile error never blocks the dashboard.
+      let me: Awaited<ReturnType<typeof api.me>> | null = null;
+      try {
+        me = await api.me();
+        if (!me.isOnboarded) { window.location.replace("/onboarding"); return; }
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) throw err;
+      }
+
       const stats = await api.stats();
       const name = document.getElementById("welcome-name");
       if (name) {
-        try {
-          const me = await api.me();
-          name.textContent = me.name?.split(" ")[0] || me.email?.split("@")[0] || "User";
-        } catch {
-          name.textContent = "User";
-        }
+        name.textContent = me
+          ? me.name?.split(" ")[0] || me.email?.split("@")[0] || "User"
+          : "User";
       }
+      // Personalize the subtitle from the onboarding "use case" answer.
+      const SUBTITLES: Record<string, string> = {
+        class: "Turn your class schedule into calendar events with one upload.",
+        work: "Turn your shift roster into calendar events with one upload.",
+        conference: "Turn conference agendas into calendar events with one upload.",
+        events: "Turn event flyers into calendar events with one upload.",
+        other: "Turn any schedule into calendar events with one upload.",
+      };
+      const subtitle = document.getElementById("dash-subtitle");
+      if (subtitle && me?.useCase) subtitle.textContent = SUBTITLES[me.useCase] ?? subtitle.textContent;
       document.getElementById("stat-uploads")!.textContent = String(stats.totalUploads);
       document.getElementById("stat-completed")!.textContent = String(stats.completedUploads);
       document.getElementById("stat-events")!.textContent = String(stats.totalEvents);

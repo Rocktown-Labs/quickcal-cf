@@ -32,6 +32,8 @@
       localStorage.setItem("theme", next);
     } catch { /* ignore */ }
     document.documentElement.className = next;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", next === "light" ? "#fcfcfc" : "#000000");
     paint();
   });
 

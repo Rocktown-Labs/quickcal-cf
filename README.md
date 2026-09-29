@@ -17,7 +17,7 @@ image/PDF ──▶ POST /api/uploads ──▶ R2 (source file) ──▶ Cloud
                     ▼
             Gemini "is this a calendar?" (gemini-2.5-pro)
                     ▼
-            Gemini event extraction (gemini-2.5-flash)
+            Gemini event extraction (gemini-3.8-flash)
                     ▼
             events rows (D1) + .ics file (R2) + share token
                     ▼

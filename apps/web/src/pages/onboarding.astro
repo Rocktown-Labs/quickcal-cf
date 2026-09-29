@@ -1,0 +1,304 @@
+---
+import Logo from "../components/Logo.astro";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout title="Set up QuickCalAI — QuickCalAI">
+  <div class="mx-auto mt-10 w-full max-w-lg p-6">
+    <div id="ob-loading" class="py-24 text-center text-sm text-muted-foreground">Loading…</div>
+
+    <div id="ob-flow" class="hidden">
+      <div class="mb-6 flex flex-col items-center gap-3 text-center">
+        <a href="/" class="flex items-center gap-2">
+          <Logo size={22} className="text-primary" />
+          <span class="text-sm font-semibold tracking-tight">QuickCalAI</span>
+        </a>
+        <h1 class="font-serif text-3xl tracking-tight">Welcome aboard</h1>
+        <p class="text-sm text-muted-foreground">Three quick questions and you're set up.</p>
+      </div>
+
+      <div id="ob-progress" class="mb-8">
+        <div class="mb-2 flex items-center justify-between">
+          <span id="ob-step-label" class="text-xs font-medium uppercase tracking-wider text-muted-foreground">Step 1 of 3</span>
+          <button id="ob-skip" class="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">Skip setup →</button>
+        </div>
+        <div class="flex gap-2" aria-hidden="true">
+          <div data-seg="1" class="h-1.5 flex-1 rounded-full bg-primary transition-all duration-300"></div>
+          <div data-seg="2" class="h-1.5 flex-1 rounded-full bg-muted transition-all duration-300"></div>
+          <div data-seg="3" class="h-1.5 flex-1 rounded-full bg-muted transition-all duration-300"></div>
+        </div>
+      </div>
+
+      <p id="ob-error" class="mb-4 hidden text-sm text-danger"></p>
+
+      <!-- Step 1: primary use case -->
+      <div data-step="1" class="hidden space-y-3">
+        <h2 class="text-lg font-bold">What will you turn into calendars?</h2>
+        <p class="-mt-1 text-sm text-muted-foreground">We'll tailor your dashboard to match.</p>
+        <div id="ob-usecase-grid" class="grid gap-2" role="radiogroup" aria-label="What will you turn into calendars?">
+          <button type="button" role="radio" data-usecase="class" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+            <span class="text-2xl">🎓</span>
+            <span class="text-sm font-semibold">Class schedule</span>
+          </button>
+          <button type="button" role="radio" data-usecase="work" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+            <span class="text-2xl">💼</span>
+            <span class="text-sm font-semibold">Work shifts &amp; rosters</span>
+          </button>
+          <button type="button" role="radio" data-usecase="conference" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+            <span class="text-2xl">🎤</span>
+            <span class="text-sm font-semibold">Conference agendas</span>
+          </button>
+          <button type="button" role="radio" data-usecase="events" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+            <span class="text-2xl">🎟️</span>
+            <span class="text-sm font-semibold">Events &amp; flyers</span>
+          </button>
+          <button type="button" role="radio" data-usecase="other" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+            <span class="text-2xl">✨</span>
+            <span class="text-sm font-semibold">Something else</span>
+          </button>
+        </div>
+        <button
+          id="ob-usecase-next"
+          disabled
+          class="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Continue
+        </button>
+      </div>
+
+      <!-- Step 2: calendar destination -->
+      <div data-step="2" class="hidden space-y-3">
+        <h2 class="text-lg font-bold">Where do you keep your calendar?</h2>
+        <p class="-mt-1 text-sm text-muted-foreground">We'll show you the fastest way to import your events.</p>
+        <div id="ob-calendar-grid" class="grid gap-2" role="radiogroup" aria-label="Where do you keep your calendar?">
+          <button type="button" role="radio" data-calendarapp="google" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+            <span class="h-2.5 w-2.5 rounded-full bg-info"></span>
+            <span class="text-sm font-semibold">Google Calendar</span>
+          </button>
+          <button type="button" role="radio" data-calendarapp="apple" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+            <span class="h-2.5 w-2.5 rounded-full bg-muted-foreground"></span>
+            <span class="text-sm font-semibold">Apple Calendar</span>
+          </button>
+          <button type="button" role="radio" data-calendarapp="outlook" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+            <span class="h-2.5 w-2.5 rounded-full bg-primary"></span>
+            <span class="text-sm font-semibold">Outlook</span>
+          </button>
+          <button type="button" role="radio" data-calendarapp="other" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+            <span class="h-2.5 w-2.5 rounded-full bg-success"></span>
+            <span class="text-sm font-semibold">Another app</span>
+          </button>
+        </div>
+        <button
+          id="ob-calendar-next"
+          disabled
+          class="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Continue
+        </button>
+        <button id="ob-calendar-back" class="w-full text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">← Back</button>
+      </div>
+
+      <!-- Step 3: phone number (optional) -->
+      <div data-step="3" class="hidden space-y-3">
+        <h2 class="text-lg font-bold">Get your calendars on your phone</h2>
+        <p class="text-sm text-muted-foreground">
+          Add a phone number and we can text you a download link every time you create a calendar — so your schedule is
+          always one tap away.
+        </p>
+        <label class="block text-sm font-medium" for="ob-phone">Phone number</label>
+        <input
+          id="ob-phone"
+          type="tel"
+          placeholder="+1 (555) 123-4567"
+          autocomplete="tel"
+          class="w-full rounded-lg border border-input bg-input px-4 py-2.5 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <p id="ob-phone-error" class="hidden text-sm text-danger"></p>
+        <p class="text-xs text-muted-foreground">
+          International format works best (e.g. +15551234567). Used only to deliver your calendar files — never marketing.
+        </p>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <button
+            id="ob-phone-next"
+            class="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Save &amp; finish
+          </button>
+          <button
+            id="ob-phone-skip"
+            class="flex-1 rounded-lg border border-input px-4 py-2.5 text-sm font-bold transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            Not now
+          </button>
+        </div>
+        <button id="ob-phone-back" class="w-full text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">← Back</button>
+      </div>
+
+      <!-- Done -->
+      <div data-step="done" class="hidden py-6 text-center">
+        <div class="mb-4 text-6xl">🎉</div>
+        <h2 id="ob-done-title" class="mb-2 text-2xl font-bold">You're all set!</h2>
+        <p id="ob-done-tip" class="mx-auto mb-8 max-w-sm text-sm text-muted-foreground"></p>
+        <a
+          href="/dashboard"
+          class="block w-full rounded-lg bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          Upload your first schedule
+        </a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { authClient } from "../lib/auth-client";
+  import { api, ApiError, type CalendarApp, type UseCase } from "../lib/api";
+
+  const TOTAL_STEPS = 3;
+
+  const flow = document.getElementById("ob-flow")!;
+  const stepLabel = document.getElementById("ob-step-label")!;
+  const errorEl = document.getElementById("ob-error")!;
+  const phoneInput = document.getElementById("ob-phone") as HTMLInputElement;
+  const phoneError = document.getElementById("ob-phone-error")!;
+
+  let useCase: UseCase | null = null;
+  let calendarApp: CalendarApp | null = null;
+  let firstName = "";
+
+  const IMPORT_TIPS: Record<string, string> = {
+    google: "Tip: after you download a .ics file, go to calendar.google.com → Settings → Import & export to add it to Google Calendar.",
+    apple: "Tip: double-click a downloaded .ics file and Apple Calendar will offer to import it — or drag it straight onto a calendar.",
+    outlook: "Tip: in Outlook, go to Calendar → Add calendar → Import from file, then pick your downloaded .ics.",
+  };
+  const DEFAULT_TIP = "Tip: your .ics files import into Google Calendar, Apple Calendar, Outlook, and most other calendar apps.";
+
+  function showStep(step: number | "done") {
+    for (const el of document.querySelectorAll("[data-step]")) {
+      el.classList.toggle("hidden", el.getAttribute("data-step") !== String(step));
+    }
+    const progress = document.getElementById("ob-progress")!;
+    progress.classList.toggle("hidden", step === "done");
+
+    const filled = step === "done" ? TOTAL_STEPS : step;
+    for (const seg of document.querySelectorAll("[data-seg]")) {
+      const active = Number(seg.getAttribute("data-seg")) <= filled;
+      seg.classList.toggle("bg-primary", active);
+      seg.classList.toggle("bg-muted", !active);
+    }
+    stepLabel.textContent = step === "done" ? "All done" : `Step ${step} of ${TOTAL_STEPS}`;
+    errorEl.classList.add("hidden");
+    window.scrollTo({ top: 0 });
+  }
+
+  function showError(message: string) {
+    errorEl.textContent = message;
+    errorEl.classList.remove("hidden");
+  }
+
+  function selectCard(grid: Element, chosen: Element) {
+    for (const card of grid.querySelectorAll(".ob-choice")) {
+      card.classList.remove("border-primary", "bg-primary/10");
+      card.classList.add("border-border", "bg-card");
+      card.setAttribute("aria-checked", "false");
+    }
+    chosen.classList.remove("border-border", "bg-card");
+    chosen.classList.add("border-primary", "bg-primary/10");
+    chosen.setAttribute("aria-checked", "true");
+  }
+
+  async function save(payload: Parameters<typeof api.updateMe>[0], { quiet = false } = {}): Promise<boolean> {
+    try {
+      await api.updateMe(payload);
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        window.location.href = "/login";
+        return false;
+      }
+      if (!quiet) showError(err instanceof Error ? err.message : "Couldn't save. Please try again.");
+      return false;
+    }
+  }
+
+  // Step 1 — use case
+  const usecaseGrid = document.getElementById("ob-usecase-grid")!;
+  for (const card of usecaseGrid.querySelectorAll("[data-usecase]")) {
+    card.addEventListener("click", () => {
+      useCase = card.getAttribute("data-usecase") as UseCase;
+      selectCard(usecaseGrid, card);
+      (document.getElementById("ob-usecase-next") as HTMLButtonElement).disabled = false;
+    });
+  }
+  document.getElementById("ob-usecase-next")!.addEventListener("click", async () => {
+    if (!useCase) return;
+    if (await save({ useCase })) showStep(2);
+  });
+
+  // Step 2 — calendar app
+  const calendarGrid = document.getElementById("ob-calendar-grid")!;
+  for (const card of calendarGrid.querySelectorAll("[data-calendarapp]")) {
+    card.addEventListener("click", () => {
+      calendarApp = card.getAttribute("data-calendarapp") as CalendarApp;
+      selectCard(calendarGrid, card);
+      (document.getElementById("ob-calendar-next") as HTMLButtonElement).disabled = false;
+    });
+  }
+  document.getElementById("ob-calendar-next")!.addEventListener("click", async () => {
+    if (!calendarApp) return;
+    if (await save({ calendarApp })) showStep(3);
+  });
+  document.getElementById("ob-calendar-back")!.addEventListener("click", () => showStep(1));
+
+  // Step 3 — phone (optional)
+  function digitsOf(value: string): number {
+    return value.replace(/\D/g, "").length;
+  }
+  document.getElementById("ob-phone-next")!.addEventListener("click", async () => {
+    const phone = phoneInput.value.trim();
+    phoneError.classList.add("hidden");
+    if (phone && digitsOf(phone) < 7) {
+      phoneError.textContent = "That doesn't look like a phone number — include country and area code, e.g. +15551234567.";
+      phoneError.classList.remove("hidden");
+      return;
+    }
+    if (await save({ phoneNumber: phone, isOnboarded: true })) finish();
+  });
+  document.getElementById("ob-phone-skip")!.addEventListener("click", async () => {
+    if (await save({ isOnboarded: true })) finish();
+  });
+  document.getElementById("ob-phone-back")!.addEventListener("click", () => showStep(2));
+
+  // Skip setup — never trap the user; mark onboarded and let them through.
+  document.getElementById("ob-skip")!.addEventListener("click", async () => {
+    await save({ isOnboarded: true }, { quiet: true });
+    window.location.href = "/dashboard";
+  });
+
+  function finish() {
+    const title = document.getElementById("ob-done-title")!;
+    title.textContent = firstName ? `You're all set, ${firstName}!` : "You're all set!";
+    document.getElementById("ob-done-tip")!.textContent =
+      (calendarApp && IMPORT_TIPS[calendarApp]) || DEFAULT_TIP;
+    showStep("done");
+  }
+
+  (async () => {
+    try {
+      const { data: session } = await authClient.getSession();
+      if (!session?.user) { window.location.href = "/login"; return; }
+      const me = await api.me();
+      if (me.isOnboarded) { window.location.replace("/dashboard"); return; }
+      firstName = me.name?.split(" ")[0] ?? "";
+      if (me.phoneNumber) phoneInput.value = me.phoneNumber;
+      // Endowed progress: step 1 is already unlocked — just pick and go.
+      document.getElementById("ob-loading")!.classList.add("hidden");
+      flow.classList.remove("hidden");
+      showStep(1);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) { window.location.href = "/login"; return; }
+      document.getElementById("ob-loading")!.textContent =
+        err instanceof Error ? err.message : "Couldn't load onboarding.";
+    }
+  })();
+</script>

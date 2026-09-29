@@ -25,10 +25,10 @@ import DashLayout from "../layouts/DashLayout.astro";
   import { escapeHtml } from "../lib/html";
 
   function statusColor(status: string): string {
-    if (status === "completed") return "bg-green-950 text-green-400";
-    if (status === "processing" || status === "pending") return "bg-blue-950 text-blue-400";
-    if (status === "no_events") return "bg-amber-950 text-amber-400";
-    if (status === "failed") return "bg-red-950 text-red-400";
+    if (status === "completed") return "bg-success/15 text-success";
+    if (status === "processing" || status === "pending") return "bg-info/15 text-info";
+    if (status === "no_events") return "bg-warning/15 text-warning";
+    if (status === "failed") return "bg-danger/15 text-danger";
     return "bg-muted text-muted-foreground";
   }
 
@@ -52,8 +52,8 @@ import DashLayout from "../layouts/DashLayout.astro";
         <button data-act="copy" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Copy link</button>
         <button data-act="email" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Email</button>
         <button data-act="sms" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">SMS</button>
-        <button data-act="revoke" data-id="${u.id}" class="text-xs font-bold border border-amber-900 text-amber-400 hover:bg-amber-950 rounded-lg px-3 py-2">Revoke share link</button>
-        <button data-act="delete" data-id="${u.id}" class="text-xs font-bold text-red-400 hover:text-red-300 border border-red-900 rounded-lg px-3 py-2">Delete</button>
+        <button data-act="revoke" data-id="${u.id}" class="text-xs font-bold border border-warning/40 text-warning hover:bg-warning/10 rounded-lg px-3 py-2">Revoke share link</button>
+        <button data-act="delete" data-id="${u.id}" class="text-xs font-bold text-danger hover:text-danger/80 border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-2">Delete</button>
       </div>` : ""}
     </div>`;
   }
@@ -62,6 +62,15 @@ import DashLayout from "../layouts/DashLayout.astro";
     try {
       const { data: session } = await authClient.getSession();
       if (!session?.user) { window.location.href = "/login"; return; }
+
+      // Profile contact info — prefills the email/SMS prompts below.
+      let profileEmail = "";
+      let profilePhone = "";
+      try {
+        const me = await api.me();
+        profileEmail = me.email ?? "";
+        profilePhone = me.phoneNumber ?? "";
+      } catch { /* prompts just won't be prefilled */ }
 
       const { uploads } = await api.listUploads(50);
       document.getElementById("files-loading")!.classList.add("hidden");
@@ -88,7 +97,7 @@ import DashLayout from "../layouts/DashLayout.astro";
             setTimeout(() => { btn.textContent = "Copy link"; }, 2000);
           } catch { /* clipboard unavailable */ }
         } else if (act === "email") {
-          const email = prompt("Send the .ics file to which email address?");
+          const email = prompt("Send the .ics file to which email address?", profileEmail);
           if (!email) return;
           try {
             const res = await api.emailUpload(id, email.trim());
@@ -97,7 +106,7 @@ import DashLayout from "../layouts/DashLayout.astro";
             alert(err instanceof Error ? err.message : "Failed to send email.");
           }
         } else if (act === "sms") {
-          const phone = prompt("Send the download link to which phone number? (e.g. +15551234567)");
+          const phone = prompt("Send the download link to which phone number? (e.g. +15551234567)", profilePhone);
           if (!phone) return;
           try {
             const res = await api.smsUpload(id, phone.trim());

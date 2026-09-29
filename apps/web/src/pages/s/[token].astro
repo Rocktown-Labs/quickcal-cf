@@ -10,32 +10,32 @@ const { token } = Astro.params;
       <div class="mb-8">
         <div class="flex items-center gap-2 mb-4">
           <span class="text-xl">📅</span>
-          <span class="text-sm font-bold text-[#c23326]">QuickCalAI</span>
+          <span class="text-sm font-bold text-primary">QuickCalAI</span>
         </div>
         <h1 id="share-title" class="text-2xl md:text-3xl font-bold mb-2">Loading schedule…</h1>
-        <p id="share-sub" class="text-neutral-400"></p>
+        <p id="share-sub" class="text-muted-foreground"></p>
       </div>
 
-      <div id="share-error" class="hidden rounded-2xl border border-neutral-800 bg-neutral-900/50 p-8 text-center">
+      <div id="share-error" class="hidden rounded-2xl border border-border bg-card p-8 text-center">
         <div class="text-5xl mb-4">🔍</div>
         <h2 class="text-xl font-bold mb-2">Schedule not found</h2>
-        <p class="text-neutral-400 mb-6">This link is invalid, expired, or the file isn't finished processing yet.</p>
-        <a href="/" class="inline-block bg-[#c23326] hover:bg-[#d43d2f] font-bold py-3 px-6 rounded-xl">Go to QuickCalAI</a>
+        <p class="text-muted-foreground mb-6">This link is invalid, expired, or the file isn't finished processing yet.</p>
+        <a href="/" class="inline-block bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-xl">Go to QuickCalAI</a>
       </div>
 
       <div id="share-body" class="hidden">
         <div class="flex flex-col gap-3 mb-8">
-          <a id="share-download" href="#" class="flex items-center justify-center gap-2 w-full bg-[#c23326] hover:bg-[#d43d2f] font-bold py-3 px-6 rounded-xl transition-colors">
+          <a id="share-download" href="#" class="flex items-center justify-center gap-2 w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3 px-6 rounded-xl transition-colors">
             <span>📥</span> Download .ics File
           </a>
           <div class="grid grid-cols-2 gap-3">
-            <a id="share-google" href="#" target="_blank" rel="noopener" class="text-center border border-neutral-700 hover:bg-neutral-800 font-bold py-2.5 px-4 rounded-xl text-sm">Add to Google</a>
-            <button id="share-subscribe" class="border border-neutral-700 hover:bg-neutral-800 font-bold py-2.5 px-4 rounded-xl text-sm">Subscribe (Apple)</button>
+            <a id="share-google" href="#" target="_blank" rel="noopener" class="text-center border border-input hover:bg-accent hover:text-accent-foreground font-bold py-2.5 px-4 rounded-xl text-sm">Add to Google</a>
+            <button id="share-subscribe" class="border border-input hover:bg-accent hover:text-accent-foreground font-bold py-2.5 px-4 rounded-xl text-sm">Subscribe (Apple)</button>
           </div>
         </div>
         <div id="share-events" class="space-y-3"></div>
         <div class="mt-10 text-center">
-          <p class="text-sm text-neutral-500">Powered by <a href="/" class="text-[#c23326] hover:underline">QuickCalAI</a></p>
+          <p class="text-sm text-muted-foreground">Powered by <a href="/" class="text-primary hover:underline">QuickCalAI</a></p>
         </div>
       </div>
     </div>
@@ -74,16 +74,16 @@ const { token } = Astro.params;
           ? "All day"
           : start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) +
             (event.endTime ? ` – ${new Date(event.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : "");
-        return `<div class="bg-neutral-900/50 border border-neutral-800 rounded-xl p-4 md:p-5">
+        return `<div class="bg-card border border-border rounded-xl p-4 md:p-5">
           <div class="flex items-start gap-3">
-            <div class="flex flex-col items-center justify-center w-12 h-12 bg-[#c23326]/10 rounded-lg shrink-0">
-              <span class="text-xs font-bold text-[#c23326]">${month}</span>
+            <div class="flex flex-col items-center justify-center w-12 h-12 bg-primary/10 rounded-lg shrink-0">
+              <span class="text-xs font-bold text-primary">${month}</span>
               <span class="text-lg font-bold">${day}</span>
             </div>
             <div class="flex-1 min-w-0">
               <h3 class="font-semibold mb-1 truncate">${escapeHtml(event.title)}</h3>
-              <div class="text-sm text-neutral-400">🕐 ${time}${event.location ? ` · 📍 ${escapeHtml(event.location)}` : ""}</div>
-              ${event.description && event.description !== event.title ? `<p class="text-sm text-neutral-500 mt-2 line-clamp-2">${escapeHtml(event.description)}</p>` : ""}
+              <div class="text-sm text-muted-foreground">🕐 ${time}${event.location ? ` · 📍 ${escapeHtml(event.location)}` : ""}</div>
+              ${event.description && event.description !== event.title ? `<p class="text-sm text-muted-foreground mt-2 line-clamp-2">${escapeHtml(event.description)}</p>` : ""}
             </div>
           </div>
         </div>`;

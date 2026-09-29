@@ -29,6 +29,16 @@ import DashLayout from "../layouts/DashLayout.astro";
             <input id="set-phone" type="tel" placeholder="+1 (555) 123-4567" class="mt-1 w-full px-4 bg-input border border-input rounded-lg h-10 focus:outline-none focus:border-primary" />
             <p class="mt-1 text-xs text-muted-foreground">Used to prefill SMS delivery. International format, e.g. +15551234567.</p>
           </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-medium" for="set-usecase">You make calendars from</label>
+              <input id="set-usecase" disabled class="mt-1 w-full px-4 bg-background border border-input rounded-lg h-10 text-muted-foreground" />
+            </div>
+            <div>
+              <label class="text-sm font-medium" for="set-calendar">Your calendar app</label>
+              <input id="set-calendar" disabled class="mt-1 w-full px-4 bg-background border border-input rounded-lg h-10 text-muted-foreground" />
+            </div>
+          </div>
           <div>
             <button id="save-profile" class="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-5 py-2.5 text-sm font-bold">Save</button>
             <span id="profile-status" class="ml-3 text-sm"></span>
@@ -44,9 +54,9 @@ import DashLayout from "../layouts/DashLayout.astro";
           <button id="btn-upgrade" class="hidden bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-5 py-2.5 text-sm font-bold">Upgrade to Premium</button>
           <button id="btn-upgrade-annual" class="hidden border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-5 py-2.5 text-sm font-bold">Upgrade Annual</button>
           <button id="btn-portal" class="hidden border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-5 py-2.5 text-sm font-bold">Manage Billing</button>
-          <button id="btn-cancel" class="hidden border border-red-800 text-red-400 hover:bg-red-950 rounded-lg px-5 py-2.5 text-sm font-bold">Cancel Subscription</button>
+          <button id="btn-cancel" class="hidden border border-danger/40 text-danger hover:bg-danger/10 rounded-lg px-5 py-2.5 text-sm font-bold">Cancel Subscription</button>
         </div>
-        <p id="sub-error" class="hidden mt-3 text-sm text-red-400"></p>
+        <p id="sub-error" class="hidden mt-3 text-sm text-danger"></p>
       </section>
 
       <!-- API keys -->
@@ -57,9 +67,12 @@ import DashLayout from "../layouts/DashLayout.astro";
           <input id="key-name" placeholder="e.g. claude-agent" class="flex-1 px-4 bg-input border border-input rounded-lg h-10 text-sm focus:outline-none focus:border-primary" />
           <button id="btn-create-key" class="bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-5 text-sm font-bold">Create</button>
         </div>
-        <div id="new-key" class="hidden mb-4 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
-          <p class="text-sm font-bold text-green-500 mb-1">Copy this key now — it won't be shown again:</p>
-          <code id="new-key-value" class="block break-all text-sm select-all"></code>
+        <div id="new-key" class="hidden mb-4 rounded-lg border border-success/30 bg-success/10 p-4">
+          <p class="text-sm font-bold text-success mb-2">Copy this key now — it won't be shown again:</p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <code id="new-key-value" class="flex-1 min-w-40 break-all text-sm select-all"></code>
+            <button id="btn-copy-key" class="shrink-0 rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground px-3 py-1.5 text-xs font-bold transition-colors">Copy key</button>
+          </div>
         </div>
         <div id="keys-list" class="space-y-2"></div>
       </section>
@@ -78,6 +91,20 @@ import DashLayout from "../layouts/DashLayout.astro";
     el.classList.remove("hidden");
   }
 
+  const USE_CASE_LABELS: Record<string, string> = {
+    class: "Class schedule",
+    work: "Work shifts & rosters",
+    conference: "Conference agendas",
+    events: "Events & flyers",
+    other: "Something else",
+  };
+  const CALENDAR_APP_LABELS: Record<string, string> = {
+    google: "Google Calendar",
+    apple: "Apple Calendar",
+    outlook: "Outlook",
+    other: "Another app",
+  };
+
   async function init() {
     try {
       const { data: session } = await authClient.getSession();
@@ -87,6 +114,10 @@ import DashLayout from "../layouts/DashLayout.astro";
       (document.getElementById("set-name") as HTMLInputElement).value = me.name || "";
       (document.getElementById("set-email") as HTMLInputElement).value = me.email || "";
       (document.getElementById("set-phone") as HTMLInputElement).value = me.phoneNumber || "";
+      (document.getElementById("set-usecase") as HTMLInputElement).value =
+        (me.useCase && USE_CASE_LABELS[me.useCase]) || "Not set yet";
+      (document.getElementById("set-calendar") as HTMLInputElement).value =
+        (me.calendarApp && CALENDAR_APP_LABELS[me.calendarApp]) || "Not set yet";
 
       document.getElementById("save-profile")!.addEventListener("click", async () => {
         const status = document.getElementById("profile-status")!;
@@ -94,10 +125,10 @@ import DashLayout from "../layouts/DashLayout.astro";
           const phone = (document.getElementById("set-phone") as HTMLInputElement).value.trim();
           await api.updateMe({ phoneNumber: phone, isOnboarded: true });
           status.textContent = "Saved.";
-          status.className = "ml-3 text-sm text-green-500";
+          status.className = "ml-3 text-sm text-success";
         } catch (err) {
           status.textContent = err instanceof Error ? err.message : "Save failed.";
-          status.className = "ml-3 text-sm text-red-400";
+          status.className = "ml-3 text-sm text-danger";
         }
       });
 
@@ -172,7 +203,7 @@ import DashLayout from "../layouts/DashLayout.astro";
                 <p class="text-sm font-semibold truncate">${escapeHtml(k.name)}</p>
                 <p class="text-xs text-muted-foreground font-mono">${escapeHtml(k.keyPrefix)}… ${k.lastUsedAt ? `· last used ${new Date(k.lastUsedAt).toLocaleDateString()}` : "· never used"}</p>
               </div>
-              <button data-revoke="${k.id}" class="shrink-0 text-xs font-bold text-red-400 hover:text-red-300 border border-red-900 rounded-lg px-3 py-1.5">Revoke</button>
+              <button data-revoke="${k.id}" class="shrink-0 text-xs font-bold text-danger hover:text-danger/80 border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-1.5">Revoke</button>
             </div>`).join("");
         for (const btn of list.querySelectorAll("[data-revoke]")) {
           btn.addEventListener("click", async () => {
@@ -190,12 +221,34 @@ import DashLayout from "../layouts/DashLayout.astro";
         try {
           const created = await api.createKey({ name });
           document.getElementById("new-key-value")!.textContent = created.key;
+          document.getElementById("btn-copy-key")!.textContent = "Copy key";
           document.getElementById("new-key")!.classList.remove("hidden");
           nameInput.value = "";
           void refreshKeys();
         } catch (err) {
           showError(err instanceof Error ? err.message : "Could not create key.");
         }
+      });
+
+      // One-click copy for the freshly created key (shown once).
+      document.getElementById("btn-copy-key")!.addEventListener("click", async () => {
+        const btn = document.getElementById("btn-copy-key") as HTMLButtonElement;
+        const value = document.getElementById("new-key-value")!.textContent ?? "";
+        if (!value) return;
+        try {
+          await navigator.clipboard.writeText(value);
+          btn.textContent = "Copied!";
+        } catch {
+          // Clipboard API unavailable (e.g. insecure context) — select the
+          // key text so a manual ⌘C / Ctrl+C is one keystroke away.
+          const range = document.createRange();
+          range.selectNodeContents(document.getElementById("new-key-value")!);
+          const sel = window.getSelection();
+          sel?.removeAllRanges();
+          sel?.addRange(range);
+          btn.textContent = "Press Ctrl/⌘ + C";
+        }
+        setTimeout(() => { btn.textContent = "Copy key"; }, 2500);
       });
 
       await refreshKeys();

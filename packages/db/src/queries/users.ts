@@ -66,6 +66,8 @@ export async function getUserProfile(db: Database, userId: string) {
       email: user.email,
       name: user.name,
       phoneNumber: user.phoneNumber,
+      useCase: user.useCase,
+      calendarApp: user.calendarApp,
       isOnboarded: user.isOnboarded,
     })
     .from(user)
@@ -80,6 +82,8 @@ export async function updateUserProfile(
   userId: string,
   updates: {
     phoneNumber?: string;
+    useCase?: string;
+    calendarApp?: string;
     isOnboarded?: boolean;
   },
 ) {

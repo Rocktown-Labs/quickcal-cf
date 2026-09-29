@@ -105,9 +105,14 @@ export interface Profile {
   name: string;
   email: string;
   phoneNumber: string | null;
+  useCase: string | null;
+  calendarApp: string | null;
   isOnboarded: boolean;
   isPremium: boolean;
 }
+
+export type UseCase = "class" | "work" | "conference" | "events" | "other";
+export type CalendarApp = "google" | "apple" | "outlook" | "other";
 
 export interface ApiKeySummary {
   id: string;
@@ -160,7 +165,12 @@ export const api = {
   me(): Promise<Profile> {
     return request("/api/user/me");
   },
-  updateMe(body: { phoneNumber?: string; isOnboarded?: boolean }): Promise<Profile> {
+  updateMe(body: {
+    phoneNumber?: string;
+    useCase?: UseCase;
+    calendarApp?: CalendarApp;
+    isOnboarded?: boolean;
+  }): Promise<Profile> {
     return request("/api/user/me", { method: "PATCH", json: body });
   },
   emailUpload(uploadId: string, email: string): Promise<{ message: string }> {

@@ -66,6 +66,10 @@ export async function isDocumentCalendar(
   }
 }
 
+// Gemini 3.8 Flash — stable model ID (released 2026-09-02, no preview suffix).
+// Bumped from gemini-2.5-flash for better extraction quality at lower cost.
+const EXTRACTION_MODEL = "gemini-3.8-flash";
+
 export async function extractEventsFromDocument(
   apiKey: string,
   fileData: Uint8Array,
@@ -75,7 +79,7 @@ export async function extractEventsFromDocument(
   const dataUrl = `data:${fileType};base64,${toBase64(fileData)}`;
 
   const { text } = await generateText({
-    model: google("gemini-2.5-flash"),
+    model: google(EXTRACTION_MODEL),
     messages: [
       {
         role: "user",

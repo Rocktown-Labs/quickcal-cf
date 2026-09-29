@@ -9,6 +9,9 @@ export const user = sqliteTable("user", {
   image: text("image"),
   stripeCustomerId: text("stripe_customer_id"),
   phoneNumber: text("phone_number"),
+  // Onboarding answers (POST-SIGNUP questionnaire)
+  useCase: text("use_case"),
+  calendarApp: text("calendar_app"),
   isOnboarded: integer("is_onboarded", { mode: "boolean" }).default(false).notNull(),
   role: text("role").default("user").notNull(),
   banned: integer("banned", { mode: "boolean" }).default(false).notNull(),

@@ -37,10 +37,15 @@ const {
       rel="stylesheet"
     />
     <script is:inline>
+      function applyTheme(theme) {
+        document.documentElement.className = theme;
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute("content", theme === "light" ? "#fcfcfc" : "#000000");
+      }
       try {
-        document.documentElement.className = localStorage.getItem("theme") || "dark";
+        applyTheme(localStorage.getItem("theme") || "dark");
       } catch {
-        document.documentElement.className = "dark";
+        applyTheme("dark");
       }
     </script>
     <title>{title}</title>
