@@ -14,13 +14,13 @@ import {
 } from "@quickcal-cf/db";
 import { ENV } from "../env.server";
 import { getDb } from "../services";
-import { requireAuth, type AuthEnv } from "../lib/auth";
+import { type AuthEnv } from "../lib/auth";
 import { rateLimit } from "../middleware/rate-limit";
 
 const app = new OpenAPIHono<AuthEnv>();
-// Scoped — this sub-app mounts at "/api" in index.ts.
-app.use("/events", requireAuth);
-app.use("/events", rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "events:user" }));
+// Mounted at /api/events (own prefix) — unscoped middleware is reliable here.
+// Auth is ALSO declared on the main app in index.ts (mount-order safety).
+app.use(rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "events:user" }));
 
 const timeRegex = /^$|^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -86,7 +86,7 @@ async function refreshUploadIcs(userId: string, uploadId: string) {
 
 const updateEvent = createRoute({
   method: "patch",
-  path: "/events/{id}",
+  path: "/{id}",
   tags: ["Events"],
   summary: "Edit one of your events (review flow)",
   description:
@@ -175,7 +175,7 @@ app.openapi(updateEvent, async (c) => {
 
 const deleteEvent = createRoute({
   method: "delete",
-  path: "/events/{id}",
+  path: "/{id}",
   tags: ["Events"],
   summary: "Delete one of your events",
   description: "The parent upload's .ics is regenerated automatically.",

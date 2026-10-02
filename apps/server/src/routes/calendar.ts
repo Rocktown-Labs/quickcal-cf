@@ -9,7 +9,7 @@ import {
   rotateCalToken,
 } from "@quickcal-cf/db";
 import { getDb } from "../services";
-import { requireAuth, type AuthEnv } from "../lib/auth";
+import { type AuthEnv } from "../lib/auth";
 import { rateLimit } from "../middleware/rate-limit";
 
 const app = new OpenAPIHono<AuthEnv>();
@@ -59,7 +59,6 @@ app.openapi(getFeed, async (c) => {
 
 // ─── Owner management (auth'd) ───────────────────────────────────────────────
 
-app.use("/rotate", requireAuth);
 app.use("/rotate", rateLimit({ windowMs: 60_000, maxRequests: 5, keyPrefix: "calfeed:user" }));
 
 const rotateFeed = createRoute({

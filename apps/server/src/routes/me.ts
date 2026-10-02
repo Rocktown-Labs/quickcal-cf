@@ -4,13 +4,12 @@ import jsonContent from "stoker/openapi/helpers/json-content";
 import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
 import { ensureCalToken, getUserProfile, isPremium, updateUserProfile } from "@quickcal-cf/db";
 import { getDb } from "../services";
-import { requireAuth, type AuthEnv } from "../lib/auth";
+import { type AuthEnv } from "../lib/auth";
 import { rateLimit } from "../middleware/rate-limit";
 import { webhookSecretFor } from "../lib/webhook";
 import { ENV } from "../env.server";
 
 const app = new OpenAPIHono<AuthEnv>();
-app.use(requireAuth);
 app.use(rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "me:user" }));
 
 const profileSchema = z.object({

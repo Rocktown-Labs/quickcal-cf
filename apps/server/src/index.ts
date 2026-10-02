@@ -60,12 +60,26 @@ app.use("/api/manual-event", rateLimit({ windowMs: 60_000, maxRequests: 30, keyP
 app.use("/api/auth/*", rateLimit({ windowMs: 60_000, maxRequests: 20, keyPrefix: "auth" }));
 app.use("/api/admin/*", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "admin" }));
 
+// Top-level auth guards. A Hono foot-gun: when two sub-apps share a mount
+// prefix, the SECOND sub-app's path-scoped middleware is silently dropped —
+// which is exactly how /api/events lost requireAuth in production (unauth
+// requests reached the queries and bound undefined as userId). Declaring
+// auth on the main app makes it independent of mount order.
+app.use("/api/uploads/*", requireAuth);
+app.use("/api/events/*", requireAuth);
+app.use("/api/manual-event", requireAuth);
+app.use("/api/manual-event/*", requireAuth);
+app.use("/api/keys/*", requireAuth);
+app.use("/api/dashboard/*", requireAuth);
+app.use("/api/user/*", requireAuth);
+app.use("/api/calendar/rotate", requireAuth);
+
 app.on(["POST", "GET"], "/api/auth/*", async (c) => (await createAuth()).handler(c.req.raw));
 
 app.route("/api/uploads", uploads);
 app.route("/api/uploads", delivery);
 app.route("/api", manualEvent);
-app.route("/api", events);
+app.route("/api/events", events);
 app.route("/api/share", share);
 app.route("/api/keys", keys);
 app.route("/api/dashboard", dashboard);

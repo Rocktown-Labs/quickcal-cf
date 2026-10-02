@@ -15,7 +15,7 @@ import {
 } from "@quickcal-cf/db";
 import { ENV } from "../env.server";
 import { getDb } from "../services";
-import { requireAuth, type AuthEnv } from "../lib/auth";
+import { type AuthEnv } from "../lib/auth";
 import { rateLimit } from "../middleware/rate-limit";
 import { MAX_UPLOAD_FILE_SIZE_BYTES, detectMimeType } from "../lib/validators";
 import {
@@ -30,7 +30,6 @@ import {
 import { fetchIngestDocument, IngestUrlError } from "../lib/fetch-document";
 
 const app = new OpenAPIHono<AuthEnv>();
-app.use(requireAuth);
 // Generous per-user budget covering status polling (the web/native uploaders
 // poll every 2s). Ingestion routes add their own strict limits below.
 app.use(rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "uploads:user" }));

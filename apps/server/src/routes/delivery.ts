@@ -6,7 +6,7 @@ import createMessageObjectSchema from "stoker/openapi/schemas/create-message-obj
 import { getUploadById, getUploadEventCount } from "@quickcal-cf/db";
 import { ENV } from "../env.server";
 import { getDb } from "../services";
-import { requireAuth, type AuthEnv } from "../lib/auth";
+import { type AuthEnv } from "../lib/auth";
 import { isPremium } from "../lib/premium";
 import {
   NotificationConfigurationError,
@@ -16,7 +16,6 @@ import {
 } from "../lib/notifications";
 
 const app = new OpenAPIHono<AuthEnv>();
-app.use(requireAuth);
 
 const idParams = z.object({ id: z.string().uuid() });
 

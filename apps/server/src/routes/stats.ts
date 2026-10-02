@@ -3,11 +3,10 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import jsonContent from "stoker/openapi/helpers/json-content";
 import { getDashboardStats, getRecentUploads } from "@quickcal-cf/db";
 import { getDb } from "../services";
-import { requireAuth, type AuthEnv } from "../lib/auth";
+import { type AuthEnv } from "../lib/auth";
 import { rateLimit } from "../middleware/rate-limit";
 
 const app = new OpenAPIHono<AuthEnv>();
-app.use(requireAuth);
 app.use(rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "dashboard:user" }));
 
 const getStats = createRoute({

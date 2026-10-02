@@ -30,7 +30,7 @@ Set these as GitHub Actions secrets, Cloudflare Worker secrets, or in `apps/serv
 | `ADMIN_USER_IDS` | Optional | Bootstrap admins before sign-up |
 | `STRIPE_SECRET_KEY` | **Missing** | Stripe API |
 | `STRIPE_WEBHOOK_SECRET` | **Missing** | Stripe webhook verification |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Set in GitHub Actions | AI extraction |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | **Broken in prod (verified 2026-10-02)** | AI extraction — the deployed key returns `AI_APICallError: invalid authentication credentials`; every AI ingestion fails until a valid key replaces it. Free-credit refunds now cover these failures. |
 | `RESEND_API_KEY` | Set in GitHub Actions | Email delivery |
 | `RESEND_FROM_EMAIL` | Suggested: `QuickCalAI <noreply@extractions.quickcalai.com>` | Email sender |
 | `SENT_DM_API_KEY` | Set in GitHub Actions | SMS delivery |
@@ -71,6 +71,15 @@ After custom DNS is configured, these should become `https://quickcalai.com` and
 
 ### Sent.dm
 - Make sure a sending number is configured in the Sent.dm dashboard before using the SMS feature.
+
+## Agent-native platform (shipped 2026-10-02)
+
+- Ingestion: `POST /api/uploads` (file), `/text` (pasted schedule), `/from-url` (SSRF-hardened server fetch), `/events` (structured JSON, free, no AI). All accept `Idempotency-Key` + `callbackUrl`.
+- MCP server at `POST /mcp` (stateless streamable-HTTP JSON-RPC, `qc_` key auth) — 9 tools.
+- Review API: `GET /api/uploads/{id}/events`, `PATCH`/`DELETE /api/events/{id}` with automatic `.ics` regeneration; AI extractions carry per-event confidence + source quotes.
+- Aggregate calendar feed: `GET /api/calendar/{token}` (subscribe once, every event), rotate via `POST /api/calendar/rotate`.
+- Free trial: 1 free AI extraction per user (atomic `free_credits`), then `free_credits_exhausted`; failures refund the credit (sync and workflow paths).
+- Webhooks: signed `X-QuickCal-Signature` (Stripe-style `t=…,v1=…`), per-user secret in `/api/user/me`, non-blocking delivery (log-and-abandon after retries).
 
 ## Security & correctness fixes (applied)
 

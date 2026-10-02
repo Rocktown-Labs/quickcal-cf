@@ -4,7 +4,7 @@ import jsonContent from "stoker/openapi/helpers/json-content";
 import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
 import { events, generateICSForManual } from "@quickcal-cf/db";
 import { getDb } from "../services";
-import { requireAuth, type AuthEnv } from "../lib/auth";
+import { type AuthEnv } from "../lib/auth";
 import { manualEventSchema } from "../lib/validators";
 import { rateLimit } from "../middleware/rate-limit";
 
@@ -12,7 +12,6 @@ const app = new OpenAPIHono<AuthEnv>();
 // NB: scope middleware to "/manual-event" explicitly. This sub-app is mounted
 // at "/api" in index.ts, so unscoped `use()` would apply to EVERY /api/*
 // request — 401-ing the public share routes and rate-limiting the whole API.
-app.use("/manual-event", requireAuth);
 app.use(
   "/manual-event",
   rateLimit({ windowMs: 60_000, maxRequests: 20, keyPrefix: "manual:user" }),
