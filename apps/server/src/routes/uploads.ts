@@ -193,7 +193,7 @@ app.openapi(createUpload, async (c) => {
       const result = await startIngestionWorkflow(
         db,
         userId,
-        { fileName: file.name, fileType: detectedType, storageKey, sourceType: "file" },
+        { fileName: file.name, fileType: detectedType, storageKey, sourceType: "file", creditUsed: access === "credit" },
         callbackUrl,
         (params) => ENV.CALENDAR_WORKFLOW.create({ params }),
       );
@@ -274,6 +274,7 @@ app.openapi(createTextUpload, async (c) => {
           fileType: "text/plain",
           storageKey,
           sourceType: "text",
+          creditUsed: access === "credit",
         },
         callbackUrl,
         (params) => ENV.CALENDAR_WORKFLOW.create({ params }),
@@ -371,6 +372,7 @@ app.openapi(createUrlUpload, async (c) => {
           fileType: doc.contentType,
           storageKey,
           sourceType: isText ? "text" : "file",
+          creditUsed: access === "credit",
         },
         callbackUrl,
         (params) => ENV.CALENDAR_WORKFLOW.create({ params }),

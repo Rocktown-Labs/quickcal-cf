@@ -162,6 +162,8 @@ export interface IngestSource {
   fileType: string;
   storageKey: string;
   sourceType: "file" | "text";
+  /** True when a free-trial credit paid for this ingestion. */
+  creditUsed?: boolean;
 }
 
 interface StartWorkflowFn {
@@ -172,6 +174,7 @@ interface StartWorkflowFn {
     fileType: string;
     userId: string;
     sourceType: "file" | "text";
+    creditUsed?: boolean;
   }): Promise<{ id: string }>;
 }
 
@@ -203,6 +206,7 @@ export async function startIngestionWorkflow(
       fileType: source.fileType,
       userId,
       sourceType: source.sourceType,
+      creditUsed: source.creditUsed,
     });
     await updateUploadRecord(db, upload.id, {
       workflowRunId: instance.id,

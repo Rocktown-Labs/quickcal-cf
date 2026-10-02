@@ -5,6 +5,7 @@ import {
   generateICSForAI,
   generateShareToken,
   getUploadById,
+  refundFreeCredit,
   updateUploadRecord,
   type Database,
 } from "@quickcal-cf/db";
@@ -24,6 +25,8 @@ export interface CalendarProcessingInput {
   userId: string;
   /** "text" skips the vision gate and extracts from the stored text file. */
   sourceType: "file" | "text";
+  /** True when a free-trial credit paid for this ingestion — refunded if the run fails. */
+  creditUsed?: boolean;
 }
 
 export interface CalendarProcessingResult {
@@ -202,6 +205,10 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
           failureReason: error instanceof Error ? error.message : "Unknown workflow failure.",
         });
       });
+      // A failed run delivered nothing — don't keep the free-trial credit.
+      if (event.payload.creditUsed) {
+        await refundFreeCredit(db, userId);
+      }
       result = { uploadId, eventCount: 0, status: "failed" };
       return this.finish(step, db, uploadId, userId, result);
     }
@@ -210,7 +217,10 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
   /**
    * Fires the signed webhook (if the upload carries a callbackUrl) once the
    * terminal state is durable. Runs as its own retried step so a flaky
-   * callback target never re-runs extraction.
+   * callback target never re-runs extraction — and if the target stays
+   * broken, delivery is logged and abandoned rather than failing the
+   * workflow (which would let the status reconciler mislabel a completed
+   * upload as failed).
    */
   private async finish(
     step: WorkflowStep,
@@ -222,23 +232,31 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
     const upload = await getUploadById(db, uploadId);
 
     if (upload?.callbackUrl) {
-      await step.do(
-        "webhook",
-        { retries: { limit: 5, delay: "10 seconds", backoff: "exponential" } },
-        async () => {
-          const secret = await webhookSecretFor(this.env.BETTER_AUTH_SECRET, userId);
-          await sendWebhook(upload.callbackUrl!, secret, {
-            event: `upload.${result.status}`,
-            uploadId,
-            status: result.status,
-            eventCount: result.eventCount,
-            failureReason: upload.failureReason ?? null,
-            shareToken: result.shareToken ?? null,
-            downloadPath: result.shareToken ? `/api/share/${result.shareToken}/ics` : null,
-            sentAt: new Date().toISOString(),
-          });
-        },
-      );
+      try {
+        await step.do(
+          "webhook",
+          { retries: { limit: 5, delay: "10 seconds", backoff: "exponential" } },
+          async () => {
+            const secret = await webhookSecretFor(this.env.BETTER_AUTH_SECRET, userId);
+            await sendWebhook(upload.callbackUrl!, secret, {
+              event: `upload.${result.status}`,
+              uploadId,
+              status: result.status,
+              eventCount: result.eventCount,
+              failureReason: upload.failureReason ?? null,
+              shareToken: result.shareToken ?? null,
+              downloadPath: result.shareToken ? `/api/share/${result.shareToken}/ics` : null,
+              sentAt: new Date().toISOString(),
+            });
+          },
+        );
+      } catch (err) {
+        console.warn(
+          `[webhook] delivery abandoned for upload ${uploadId} (${upload.callbackUrl}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
     }
 
     return result;
