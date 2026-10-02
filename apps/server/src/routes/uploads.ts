@@ -31,7 +31,15 @@ import { fetchIngestDocument, IngestUrlError } from "../lib/fetch-document";
 
 const app = new OpenAPIHono<AuthEnv>();
 app.use(requireAuth);
-app.use(rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "uploads:user" }));
+// Generous per-user budget covering status polling (the web/native uploaders
+// poll every 2s). Ingestion routes add their own strict limits below.
+app.use(rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "uploads:user" }));
+// AI ingestion is expensive — strict per-user caps per method.
+app.use("/", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
+app.use("/text", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
+app.use("/from-url", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
+// Structured events are free (no AI) — a slightly looser cap.
+app.use("/events", rateLimit({ windowMs: 60_000, maxRequests: 30, keyPrefix: "eventsdirect:user" }));
 
 const uploadStatusEnum = z.enum(["pending", "processing", "completed", "failed", "no_events"]);
 

@@ -52,7 +52,7 @@ app.use(originCheck);
 // Rate limits — backed by the RateLimiter Durable Object so counters hold
 // across isolates. Falls back to in-memory when the binding is missing.
 app.use(rateLimit({ windowMs: 60_000, maxRequests: 120, keyPrefix: "global" }));
-app.use("/api/uploads/*", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "uploads" }));
+app.use("/api/uploads/*", rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "uploads" }));
 app.use("/api/keys/*", rateLimit({ windowMs: 60_000, maxRequests: 20, keyPrefix: "keys" }));
 app.use("/api/share/*", rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "share" }));
 app.use("/api/manual-event", rateLimit({ windowMs: 60_000, maxRequests: 30, keyPrefix: "manual" }));
