@@ -15,7 +15,8 @@ image/PDF ──▶ POST /api/uploads ──▶ R2 (source file) ──▶ Cloud
                                                           │
                     ┌───────────────────────────────────┘
                     ▼
-            Gemini "is this a calendar?" (gemini-3.8-flash)
+            Clef "is this a calendar?" (@cf/cloudflare/clef — in-spec images;
+                    │    PDFs, oversized images, and Clef errors → Gemini 3.8 Flash)
                     ▼
             Gemini event extraction (gemini-3.8-flash)
                     ▼
@@ -26,8 +27,10 @@ image/PDF ──▶ POST /api/uploads ──▶ R2 (source file) ──▶ Cloud
 
 1. The browser uploads the file to the API (`multipart/form-data`, ≤ 10 MB, JPEG/PNG/WebP/PDF).
 2. The API stores the file in R2, records an upload row in D1, and starts a Cloudflare Workflow.
-3. The workflow asks Gemini whether the document is a calendar, then extracts events as a validated
-   JSON array (`date` YYYY-MM-DD, `time` HH:MM, `description`).
+3. The workflow asks Clef (Cloudflare's decision model, in-network via the Workers AI
+   binding) whether the document is a calendar — PDFs, oversized images, and any Clef
+   failure fall back to Gemini for the same check. It then extracts events as a validated
+   JSON array (`date` YYYY-MM-DD, `time` HH:MM, `description`) with Gemini.
 4. It writes an `.ics` to R2, inserts event rows, and marks the upload `completed` with a public
    share token (or `no_events` / `failed`).
 5. The dashboard polls status and offers download, copy-link, device share, email, and SMS delivery.
@@ -55,6 +58,7 @@ Bun + Turborepo monorepo, deployed entirely to Cloudflare via [Alchemy](https://
 - **Cloudflare D1** (SQLite, Drizzle ORM) — users, sessions, uploads, events, API keys, subscriptions, plans.
 - **Cloudflare R2** — source documents under `uploads/{userId}/…`, generated calendars under `ics/{shareToken}.ics`. Private; nothing is served except through the API.
 - **Cloudflare Workflows** — durable AI processing pipeline.
+- **Cloudflare Workers AI** — the `@cf/cloudflare/clef` decision model classifies in-spec image uploads ("is this a calendar?") in-network; PDFs, oversized images, and any Clef failure fall back to Gemini.
 - **Better-Auth** — sessions via cookies (SameSite=None for the split web/API origins) or `Authorization: Bearer qc_…` user API keys for agents/scripts. API keys are stored SHA-256-hashed; plaintext is shown once at creation.
 - **Security** — an Origin-check middleware guards all state-changing routes (CSRF defense for the `SameSite=None` cookies), rate limiting is backed by a `RateLimiter` Durable Object shared across isolates, uploads are validated by magic-byte signatures, and share links can be revoked from the Files screen. Password reset and email verification flow through Resend.
 

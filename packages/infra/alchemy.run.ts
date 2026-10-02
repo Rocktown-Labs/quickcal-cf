@@ -5,7 +5,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import "varlock/auto-load";
 
-
 export const db = Cloudflare.D1.Database("database", {
   migrations: "../../packages/db/src/migrations",
 });
@@ -28,6 +27,7 @@ export const server = Cloudflare.Worker("server", {
     DB: db,
     FILES: files,
     CALENDAR_WORKFLOW: calendarWorkflow,
+    AI: Cloudflare.Workers.AI(),
     RATE_LIMITER: Cloudflare.DurableObject("RATE_LIMITER", {
       className: "RateLimiter",
     }),
@@ -41,7 +41,10 @@ export const server = Cloudflare.Worker("server", {
     STRIPE_SECRET_KEY: Config.withDefault(Config.Redacted("STRIPE_SECRET_KEY"), ""),
     STRIPE_WEBHOOK_SECRET: Config.withDefault(Config.Redacted("STRIPE_WEBHOOK_SECRET"), ""),
     STRIPE_PREMIUM_PRICE_ID: Config.withDefault(Config.String("STRIPE_PREMIUM_PRICE_ID"), ""),
-    STRIPE_PREMIUM_ANNUAL_PRICE_ID: Config.withDefault(Config.String("STRIPE_PREMIUM_ANNUAL_PRICE_ID"), ""),
+    STRIPE_PREMIUM_ANNUAL_PRICE_ID: Config.withDefault(
+      Config.String("STRIPE_PREMIUM_ANNUAL_PRICE_ID"),
+      "",
+    ),
     GOOGLE_GENERATIVE_AI_API_KEY: Config.Redacted("GOOGLE_GENERATIVE_AI_API_KEY"),
     RESEND_API_KEY: Config.Redacted("RESEND_API_KEY"),
     RESEND_FROM_EMAIL: Config.withDefault(Config.String("RESEND_FROM_EMAIL"), ""),
@@ -53,7 +56,6 @@ export const server = Cloudflare.Worker("server", {
 });
 
 export type ServerEnv = Cloudflare.InferEnv<typeof server>;
-
 
 export default Alchemy.Stack(
   "quickcal-cf",

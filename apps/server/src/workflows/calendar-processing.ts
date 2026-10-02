@@ -8,7 +8,7 @@ import {
   updateUploadRecord,
   type Database,
 } from "@quickcal-cf/db";
-import { extractEventsFromDocument, isDocumentCalendar, type ExtractedEvent } from "../lib/ai";
+import { extractEventsFromDocument, classifyDocument, type ExtractedEvent } from "../lib/ai";
 
 export interface CalendarProcessingInput {
   uploadId: string;
@@ -61,10 +61,21 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
         });
       });
 
-      const isCalendar = await step.do("check-is-calendar", async () => {
-        const { data, contentType } = await this.getSourceFile(storageKey, fileType);
-        return isDocumentCalendar(this.env.GOOGLE_GENERATIVE_AI_API_KEY, data, contentType);
-      });
+      const isCalendar = await step.do(
+        "check-is-calendar",
+        // Transient AI-provider hiccups (rate limits, shared-GPU 429s)
+        // shouldn't fail the upload on the first hit.
+        { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" } },
+        async () => {
+          const { data, contentType } = await this.getSourceFile(storageKey, fileType);
+          return classifyDocument({
+            ai: this.env.AI,
+            geminiApiKey: this.env.GOOGLE_GENERATIVE_AI_API_KEY,
+            data,
+            contentType,
+          });
+        },
+      );
 
       if (!isCalendar) {
         const failureReason = "The uploaded file did not appear to contain a calendar or schedule.";
