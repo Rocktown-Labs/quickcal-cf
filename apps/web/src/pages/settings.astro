@@ -76,6 +76,37 @@ import DashLayout from "../layouts/DashLayout.astro";
         </div>
         <div id="keys-list" class="space-y-2"></div>
       </section>
+
+      <!-- Developer: agent integrations -->
+      <section class="rounded-xl border border-border bg-card p-6">
+        <h2 class="font-bold text-lg mb-2">Agents &amp; integrations</h2>
+        <p class="text-sm text-muted-foreground mb-4">Everything an AI agent (or a calendar app) needs to work with your account.</p>
+
+        <div class="space-y-2">
+          <h3 class="text-sm font-semibold">Calendar feed — subscribe once, see everything</h3>
+          <p class="text-xs text-muted-foreground">Every event you own, always current. Add by URL in Google Calendar, or switch to <code class="text-foreground">webcal://</code> for Apple Calendar.</p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <code id="feed-url" class="flex-1 min-w-40 break-all text-xs select-all bg-input border border-input rounded-lg px-3 py-2"></code>
+            <button id="btn-copy-feed" class="shrink-0 rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground px-3 py-1.5 text-xs font-bold transition-colors">Copy URL</button>
+            <button id="btn-rotate-feed" class="shrink-0 rounded-lg border border-danger/40 text-danger hover:bg-danger/10 px-3 py-1.5 text-xs font-bold transition-colors">Rotate token</button>
+          </div>
+        </div>
+
+        <div class="mt-5 space-y-2">
+          <h3 class="text-sm font-semibold">Webhook signing secret</h3>
+          <p class="text-xs text-muted-foreground">For <code class="text-foreground">callbackUrl</code> webhooks: verify the <code class="text-foreground">X-QuickCal-Signature</code> header (<code class="text-foreground">t=&lt;unix-seconds&gt;,v1=&lt;hex&gt;</code>) with HMAC-SHA256 over <code class="text-foreground">ts + "." + body</code> using this secret.</p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <code id="webhook-secret" class="flex-1 min-w-40 break-all text-xs select-all bg-input border border-input rounded-lg px-3 py-2"></code>
+            <button id="btn-copy-secret" class="shrink-0 rounded-lg border border-input bg-background hover:bg-accent hover:text-accent-foreground px-3 py-1.5 text-xs font-bold transition-colors">Copy secret</button>
+          </div>
+        </div>
+
+        <div class="mt-5 space-y-2">
+          <h3 class="text-sm font-semibold">MCP server</h3>
+          <p class="text-xs text-muted-foreground">Use QuickCalAI from any MCP client (Claude, Cursor, …) — auth with your <code class="text-foreground">qc_…</code> API key:</p>
+          <code id="mcp-url" class="block text-xs break-all bg-input border border-input rounded-lg px-3 py-2"></code>
+        </div>
+      </section>
     </div>
   </div>
 </DashLayout>
@@ -84,6 +115,14 @@ import DashLayout from "../layouts/DashLayout.astro";
   import { authClient } from "../lib/auth-client";
   import { api, ApiError } from "../lib/api";
   import { escapeHtml } from "../lib/html";
+
+  function toast(message: string, ok = true) {
+    const el = document.createElement("div");
+    el.textContent = message;
+    el.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-xl ${ok ? "bg-success text-background" : "bg-danger text-white"}`;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
 
   function showError(message: string) {
     const el = document.getElementById("sub-error")!;
@@ -252,6 +291,39 @@ import DashLayout from "../layouts/DashLayout.astro";
       });
 
       await refreshKeys();
+
+      // Agents & integrations
+      const serverOrigin = api.serverUrl();
+      const feedUrl = document.getElementById("feed-url")!;
+      const mcpUrl = document.getElementById("mcp-url")!;
+      const webhookSecret = document.getElementById("webhook-secret")!;
+      feedUrl.textContent = me.calendarFeedPath ? `${serverOrigin}${me.calendarFeedPath}` : "";
+      mcpUrl.textContent = `${serverOrigin}/mcp`;
+      webhookSecret.textContent = me.webhookSecret;
+
+      document.getElementById("btn-copy-feed")!.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(feedUrl.textContent || "");
+          toast("Calendar feed URL copied.");
+        } catch { /* clipboard unavailable */ }
+      });
+      document.getElementById("btn-copy-secret")!.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(webhookSecret.textContent || "");
+          toast("Webhook secret copied.");
+        } catch { /* clipboard unavailable */ }
+      });
+      document.getElementById("btn-rotate-feed")!.addEventListener("click", async () => {
+        if (!confirm("Rotate the calendar feed token? Old subscription URLs stop working immediately.")) return;
+        try {
+          const res = await api.rotateCalendarFeed();
+          feedUrl.textContent = `${serverOrigin}${res.feedPath}`;
+          toast("Feed token rotated — re-add the URL in your calendar app.");
+        } catch (err) {
+          showError(err instanceof Error ? err.message : "Could not rotate the feed.");
+        }
+      });
+
       document.getElementById("settings-loading")!.classList.add("hidden");
       document.getElementById("settings-body")!.classList.remove("hidden");
     } catch (err) {

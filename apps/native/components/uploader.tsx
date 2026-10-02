@@ -7,11 +7,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Share, Text as RNText, View } from "react-native";
 import { Button, Input, Label, Spinner, Text, TextArea, TextField, useToast } from "heroui-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import { api, ApiError, type RnFilePart, type StatusResponse } from "@/lib/api";
+import { api, type DirectEvent, type RnFilePart, type StatusResponse } from "@/lib/api";
 import {
+  useCreateDirectEvents,
+  useCreateTextUpload,
   useCreateUpload,
+  useCreateUrlUpload,
   useEmailUpload,
-  useManualEvent,
   useMe,
   useSmsUpload,
   useUploadStatus,
@@ -21,23 +23,35 @@ import { authClient } from "@/lib/auth-client";
 import { PressCard, ProgressBar, Pulse } from "@/components/qc";
 
 const STEPS = [
-  "Analyzing image",
+  "Analyzing source",
   "Detecting dates & times",
   "Extracting event details",
   "Formatting calendar data",
 ] as const;
 
 type UploadState = "idle" | "processing" | "error" | "complete";
+type Tab = "ai" | "text" | "manual";
+
+interface ManualRow {
+  title: string;
+  date: Date;
+  time: Date | null;
+  endTime: Date | null;
+  location: string;
+  description: string;
+}
 
 export function Uploader() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const [tab, setTab] = useState<"ai" | "manual">("ai");
+  const [tab, setTab] = useState<Tab>("ai");
   const [state, setState] = useState<UploadState>("idle");
 
-  // AI flow
+  // AI ingestion (file / URL / text)
   const createUpload = useCreateUpload();
+  const createUrlUpload = useCreateUrlUpload();
+  const createTextUpload = useCreateTextUpload();
   const [runId, setRunId] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
   const [uploadId, setUploadId] = useState<string | null>(null);
@@ -46,14 +60,25 @@ export function Uploader() {
   const [errorMessage, setErrorMessage] = useState("");
   const [complete, setComplete] = useState<StatusResponse | null>(null);
 
-  // Manual form
-  const manualEvent = useManualEvent();
-  const [title, setTitle] = useState("");
-  const [date, setDate] = useState<Date | null>(null);
-  const [time, setTime] = useState<Date | null>(null);
-  const [description, setDescription] = useState("");
+  // URL tab input
+  const [urlValue, setUrlValue] = useState("");
+
+  // Text tab inputs
+  const [textContent, setTextContent] = useState("");
+  const [textTitle, setTextTitle] = useState("");
+
+  // Manual multi-event builder
+  const createDirectEvents = useCreateDirectEvents();
+  const [manualRows, setManualRows] = useState<ManualRow[]>([]);
+  const [rowTitle, setRowTitle] = useState("");
+  const [rowDate, setRowDate] = useState<Date | null>(null);
+  const [rowTime, setRowTime] = useState<Date | null>(null);
+  const [rowEndTime, setRowEndTime] = useState<Date | null>(null);
+  const [rowLocation, setRowLocation] = useState("");
+  const [rowDescription, setRowDescription] = useState("");
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
   // Delivery
   const emailUpload = useEmailUpload();
@@ -64,6 +89,8 @@ export function Uploader() {
 
   const me = useMe();
   const isPremium = me.data?.isPremium ?? false;
+  const freeCredits = me.data?.freeCredits ?? 0;
+  const canIngest = isPremium || freeCredits > 0;
 
   const statusQuery = useUploadStatus(runId);
   const status = statusQuery.data ?? null;
@@ -88,7 +115,7 @@ export function Uploader() {
       setErrorTitle("No calendar events found");
       setErrorMessage(
         status.failureReason ??
-          "That file looked valid, but QuickCalAI could not find any dates or times to turn into events.",
+          "That source looked valid, but QuickCalAI could not find any dates or times to turn into events.",
       );
       setState("error");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -107,21 +134,36 @@ export function Uploader() {
     [stepIndex],
   );
 
-  const manualDate = date
-    ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
-    : "";
-  const manualTime = time
-    ? `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`
-    : "";
-
   const shareToken = complete?.result?.shareToken ?? null;
   const eventCount = complete?.eventCount ?? 0;
 
-  // ── Actions ────────────────────────────────────────────────────────────────
+  // ── Shared actions ────────────────────────────────────────────────────────
 
   function showErrorToast(err: unknown, fallback: string) {
     const message = err instanceof Error ? err.message : fallback;
     toast.show({ variant: "danger", label: message });
+  }
+
+  async function runIngestion(
+    displayName: string,
+    start: () => Promise<{ runId: string; uploadId: string }>,
+  ) {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setFileName(displayName);
+    setStepIndex(0);
+    setState("processing");
+    try {
+      const res = await start();
+      setUploadId(res.uploadId);
+      setRunId(res.runId);
+    } catch (err) {
+      setErrorTitle("Upload failed");
+      setErrorMessage(err instanceof Error ? err.message : "Please try again.");
+      setState("error");
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // A refused free credit should update the gate on next render.
+      void me.refetch();
+    }
   }
 
   async function pickAndUpload() {
@@ -138,28 +180,42 @@ export function Uploader() {
       return;
     }
 
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
     const file: RnFilePart = {
       uri: asset.uri,
       name: asset.name ?? "upload",
       type: asset.mimeType ?? "application/octet-stream",
     };
 
-    setFileName(asset.name ?? "upload");
-    setStepIndex(0);
-    setState("processing");
+    await runIngestion(asset.name ?? "upload", () => createUpload.mutateAsync(file));
+  }
 
-    try {
-      const res = await createUpload.mutateAsync(file);
-      setUploadId(res.uploadId);
-      setRunId(res.runId);
-    } catch (err) {
-      setErrorTitle("Upload failed");
-      setErrorMessage(err instanceof Error ? err.message : "Please try again.");
-      setState("error");
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  async function startUrlUpload() {
+    const url = urlValue.trim();
+    if (!/^https:\/\//i.test(url)) {
+      toast.show({
+        variant: "danger",
+        label: "Paste an https:// link to an image, PDF, or text file.",
+      });
+      return;
     }
+    let host = url;
+    try {
+      host = new URL(url).hostname;
+    } catch {
+      /* validated above */
+    }
+    await runIngestion(host, () => createUrlUpload.mutateAsync(url));
+  }
+
+  async function startTextUpload() {
+    if (!textContent.trim()) {
+      toast.show({ variant: "danger", label: "Paste some schedule text first." });
+      return;
+    }
+    const title = textTitle.trim() || "Pasted text";
+    await runIngestion(title, () =>
+      createTextUpload.mutateAsync({ content: textContent, title: title || undefined }),
+    );
   }
 
   function reset() {
@@ -235,30 +291,104 @@ export function Uploader() {
     }
   }
 
-  async function submitManual() {
-    if (!title.trim() || !date) {
-      toast.show({ variant: "danger", label: "Please fill in at least title and date." });
+  // ── Manual builder ─────────────────────────────────────────────────────────
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const rowDateStr = rowDate
+    ? `${rowDate.getFullYear()}-${pad(rowDate.getMonth() + 1)}-${pad(rowDate.getDate())}`
+    : "";
+  const rowTimeStr = rowTime ? `${pad(rowTime.getHours())}:${pad(rowTime.getMinutes())}` : "";
+  const rowEndStr = rowEndTime
+    ? `${pad(rowEndTime.getHours())}:${pad(rowEndTime.getMinutes())}`
+    : "";
+
+  function rowToEvent(row: ManualRow): DirectEvent {
+    const date = `${row.date.getFullYear()}-${pad(row.date.getMonth() + 1)}-${pad(row.date.getDate())}`;
+    return {
+      title: row.title,
+      date,
+      time: row.time ? `${pad(row.time.getHours())}:${pad(row.time.getMinutes())}` : "",
+      endTime: row.endTime ? `${pad(row.endTime.getHours())}:${pad(row.endTime.getMinutes())}` : "",
+      location: row.location || "",
+      description: row.description || "",
+    };
+  }
+
+  function addManualRow() {
+    if (!rowTitle.trim() || !rowDate) {
+      toast.show({
+        variant: "danger",
+        label: "Fill in at least title and date, then add to the list.",
+      });
+      return;
+    }
+    setManualRows((rows) => [
+      ...rows,
+      {
+        title: rowTitle.trim(),
+        date: rowDate,
+        time: rowTime,
+        endTime: rowEndTime,
+        location: rowLocation.trim(),
+        description: rowDescription.trim(),
+      },
+    ]);
+    setRowTitle("");
+    setRowDate(null);
+    setRowTime(null);
+    setRowEndTime(null);
+    setRowLocation("");
+    setRowDescription("");
+  }
+
+  async function submitManualRows() {
+    const rows = [...manualRows];
+    if (rowTitle.trim() && rowDate) {
+      rows.push({
+        title: rowTitle.trim(),
+        date: rowDate,
+        time: rowTime,
+        endTime: rowEndTime,
+        location: rowLocation.trim(),
+        description: rowDescription.trim(),
+      });
+    }
+    if (rows.length === 0) {
+      toast.show({ variant: "danger", label: "Add at least one event (title + date)." });
       return;
     }
     try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await manualEvent.mutateAsync({
-        title: title.trim(),
-        date: manualDate,
-        time: manualTime || undefined,
-        description: description.trim() || undefined,
-        timezone,
+      const res = await createDirectEvents.mutateAsync({
+        events: rows.map(rowToEvent),
+        name: `${rows.length} manual event${rows.length === 1 ? "" : "s"}`,
       });
+      setManualRows([]);
+      setRowTitle("");
+      setRowDate(null);
+      setRowTime(null);
+      setRowEndTime(null);
+      setRowLocation("");
+      setRowDescription("");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      toast.show({ variant: "success", label: "Event created!" });
-      setTitle("");
-      setDate(null);
-      setTime(null);
-      setDescription("");
-      await shareIcsContent(res.icsContent, res.fileName).catch(() => undefined);
+      setFileName(`${res.eventCount} manual event${res.eventCount === 1 ? "" : "s"}`);
+      setUploadId(res.uploadId);
+      setComplete({
+        uploadId: res.uploadId,
+        status: "completed",
+        eventCount: res.eventCount,
+        failureReason: null,
+        result: {
+          uploadId: res.uploadId,
+          eventCount: res.eventCount,
+          status: "completed",
+          shareToken: res.shareToken,
+          downloadPath: res.downloadPath,
+        },
+      });
+      setState("complete");
     } catch (err) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showErrorToast(err, "Failed to create event.");
+      showErrorToast(err, "Failed to create events.");
     }
   }
 
@@ -289,22 +419,23 @@ export function Uploader() {
             ) : null}
           </View>
           <Text className="text-neutral-400">
-            Upload an image or PDF with dates and times to extract calendar events instantly
+            Turn a photo, PDF, pasted text, or a link into calendar events — or build events by
+            hand.
           </Text>
         </View>
 
         {/* Tab switcher */}
         <View className="flex-row bg-neutral-900 p-1 rounded-xl border border-neutral-800 self-start">
-          {(["ai", "manual"] as const).map((key) => {
+          {(["ai", "text", "manual"] as const).map((key) => {
             const active = tab === key;
             return (
               <PressCard
                 key={key}
                 onPress={() => setTab(key)}
-                className={`px-4 py-2 rounded-lg ${active ? "bg-[#c23326]" : ""}`}
+                className={`px-3 py-2 rounded-lg ${active ? "bg-[#c23326]" : ""}`}
               >
-                <Text className={`text-sm font-bold ${active ? "text-white" : "text-neutral-400"}`}>
-                  {key === "ai" ? "⚡ AI Upload" : "✏️ Manual"}
+                <Text className={`text-xs font-bold ${active ? "text-white" : "text-neutral-400"}`}>
+                  {key === "ai" ? "⚡ AI" : key === "text" ? "📋 Paste" : "✏️ Manual"}
                 </Text>
               </PressCard>
             );
@@ -312,22 +443,105 @@ export function Uploader() {
         </View>
 
         {tab === "ai" ? (
-          isPremium ? (
-            <PressCard
-              onPress={() => void pickAndUpload()}
-              className="rounded-2xl border-2 border-dashed border-neutral-800 py-12 items-center bg-neutral-900/50"
-            >
-              <Text className="text-3xl mb-3">📤</Text>
-              <Text className="text-lg font-bold text-white">Choose a photo or PDF</Text>
-              <Text className="text-neutral-400 mt-1">Supports JPEG, PNG, WebP, and PDF</Text>
-              <Text className="text-neutral-500 mt-3 text-sm">Up to 10MB</Text>
-            </PressCard>
+          canIngest ? (
+            <View className="gap-3">
+              <PressCard
+                onPress={() => void pickAndUpload()}
+                className="rounded-2xl border-2 border-dashed border-neutral-800 py-12 items-center bg-neutral-900/50"
+              >
+                <Text className="text-3xl mb-3">📤</Text>
+                <Text className="text-lg font-bold text-white">Choose a photo or PDF</Text>
+                <Text className="text-neutral-400 mt-1">Supports JPEG, PNG, WebP, and PDF</Text>
+                <Text className="text-neutral-500 mt-3 text-sm">Up to 10MB</Text>
+              </PressCard>
+              <View className="flex-row gap-2">
+                <View className="flex-1">
+                  <Input
+                    value={urlValue}
+                    onChangeText={setUrlValue}
+                    placeholder="…or paste an https:// link"
+                    keyboardType="url"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+                <Button
+                  className="bg-[#c23326]"
+                  onPress={() => void startUrlUpload()}
+                  isDisabled={createUrlUpload.isPending}
+                >
+                  {createUrlUpload.isPending ? (
+                    <Spinner size="sm" color="default" />
+                  ) : (
+                    <Button.Label>Fetch</Button.Label>
+                  )}
+                </Button>
+              </View>
+              {!isPremium ? (
+                <Text className="text-neutral-400 text-xs text-center">
+                  🎁 {freeCredits} free AI extraction{freeCredits === 1 ? "" : "s"} left — Premium
+                  unlocks unlimited.
+                </Text>
+              ) : null}
+            </View>
           ) : (
             <View className="rounded-2xl border border-neutral-800 bg-neutral-900/50 py-12 items-center gap-3">
               <Text className="text-5xl">👑</Text>
-              <Text className="text-xl font-bold text-white">Premium Feature</Text>
+              <Text className="text-xl font-bold text-white">
+                You've used your free AI extraction
+              </Text>
               <Text className="text-neutral-400 text-center px-8">
-                Unlock AI-powered calendar extraction with our Premium plan
+                Upgrade to Premium for unlimited AI extraction from images, PDFs, text, and URLs.
+              </Text>
+              <Button className="bg-[#c23326]" size="lg" onPress={() => void upgradeToPremium()}>
+                <Button.Label>Upgrade to Premium</Button.Label>
+              </Button>
+            </View>
+          )
+        ) : tab === "text" ? (
+          canIngest ? (
+            <View className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 gap-4">
+              <Text className="text-neutral-400 text-sm">
+                Paste a schedule as plain text, Markdown, or CSV — the AI reads the dates and times
+                for you.
+              </Text>
+              <TextField>
+                <Label>Title (optional)</Label>
+                <Input
+                  value={textTitle}
+                  onChangeText={setTextTitle}
+                  placeholder="Fall class schedule"
+                />
+              </TextField>
+              <TextField>
+                <Label>Schedule text</Label>
+                <TextArea
+                  value={textContent}
+                  onChangeText={setTextContent}
+                  placeholder={
+                    "Mon 10/5: Biology 101 at 9:00 AM in Room 214\nTue 10/6: Study group 3-5pm @ library"
+                  }
+                />
+              </TextField>
+              <Button
+                className="bg-[#c23326]"
+                size="lg"
+                onPress={() => void startTextUpload()}
+                isDisabled={createTextUpload.isPending}
+              >
+                {createTextUpload.isPending ? (
+                  <Spinner size="sm" color="default" />
+                ) : (
+                  <Button.Label>⚡ Extract Events from Text</Button.Label>
+                )}
+              </Button>
+            </View>
+          ) : (
+            <View className="rounded-2xl border border-neutral-800 bg-neutral-900/50 py-12 items-center gap-3">
+              <Text className="text-5xl">👑</Text>
+              <Text className="text-xl font-bold text-white">Free AI extraction used</Text>
+              <Text className="text-neutral-400 text-center px-8">
+                Upgrade to Premium to extract events from pasted text too.
               </Text>
               <Button className="bg-[#c23326]" size="lg" onPress={() => void upgradeToPremium()}>
                 <Button.Label>Upgrade to Premium</Button.Label>
@@ -338,61 +552,121 @@ export function Uploader() {
           <View className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 gap-4">
             <TextField>
               <Label>Event Title *</Label>
-              <Input value={title} onChangeText={setTitle} placeholder="Meeting with John" />
+              <Input value={rowTitle} onChangeText={setRowTitle} placeholder="Meeting with John" />
             </TextField>
-            <View className="flex-row gap-3">
+            <View className="flex-row gap-2">
               <View className="flex-1">
                 <Button variant="outline" className="h-10" onPress={() => setShowDatePicker(true)}>
-                  <Button.Label>{date ? manualDate : "Pick a date *"}</Button.Label>
+                  <Button.Label>{rowDate ? rowDateStr : "Pick a date *"}</Button.Label>
                 </Button>
               </View>
               <View className="flex-1">
                 <Button variant="outline" className="h-10" onPress={() => setShowTimePicker(true)}>
-                  <Button.Label>{time ? manualTime : "Pick a time"}</Button.Label>
+                  <Button.Label>{rowTime ? rowTimeStr : "Pick time"}</Button.Label>
+                </Button>
+              </View>
+              <View className="flex-1">
+                <Button
+                  variant="outline"
+                  className="h-10"
+                  onPress={() => setShowEndTimePicker(true)}
+                >
+                  <Button.Label>{rowEndTime ? rowEndStr : "End time"}</Button.Label>
                 </Button>
               </View>
             </View>
             {showDatePicker ? (
               <DateTimePicker
-                value={date ?? new Date()}
+                value={rowDate ?? new Date()}
                 mode="date"
                 onChange={(_, picked) => {
                   setShowDatePicker(false);
-                  if (picked) setDate(picked);
+                  if (picked) setRowDate(picked);
                 }}
               />
             ) : null}
             {showTimePicker ? (
               <DateTimePicker
-                value={time ?? new Date()}
+                value={rowTime ?? new Date()}
                 mode="time"
                 is24Hour
                 onChange={(_, picked) => {
                   setShowTimePicker(false);
-                  if (picked) setTime(picked);
+                  if (picked) setRowTime(picked);
+                }}
+              />
+            ) : null}
+            {showEndTimePicker ? (
+              <DateTimePicker
+                value={rowEndTime ?? rowTime ?? new Date()}
+                mode="time"
+                is24Hour
+                onChange={(_, picked) => {
+                  setShowEndTimePicker(false);
+                  if (picked) setRowEndTime(picked);
                 }}
               />
             ) : null}
             <TextField>
+              <Label>Location (optional)</Label>
+              <Input value={rowLocation} onChangeText={setRowLocation} placeholder="Room 214" />
+            </TextField>
+            <TextField>
               <Label>Description</Label>
               <TextArea
-                value={description}
-                onChangeText={setDescription}
+                value={rowDescription}
+                onChangeText={setRowDescription}
                 placeholder="Event details…"
               />
             </TextField>
+            <Button variant="outline" onPress={() => addManualRow()}>
+              <Button.Label>＋ Add to list</Button.Label>
+            </Button>
+
+            {manualRows.length > 0 ? (
+              <View className="gap-2">
+                {manualRows.map((row, i) => (
+                  <PressCard
+                    key={`${row.title}-${i}`}
+                    onPress={() => setManualRows((rows) => rows.filter((_, idx) => idx !== i))}
+                    className="rounded-lg border border-neutral-800 bg-neutral-950 px-4 py-2.5 flex-row items-center gap-3"
+                  >
+                    <View className="flex-1">
+                      <Text className="text-white text-sm font-semibold" numberOfLines={1}>
+                        {row.title}
+                      </Text>
+                      <Text className="text-neutral-500 text-xs">
+                        {rowDateStrFor(row)}
+                        {row.time
+                          ? ` · ${pad(row.time.getHours())}:${pad(row.time.getMinutes())}`
+                          : ""}
+                        {row.location ? ` · ${row.location}` : ""}
+                      </Text>
+                    </View>
+                    <Text className="text-red-400 text-xs font-bold">Remove</Text>
+                  </PressCard>
+                ))}
+              </View>
+            ) : null}
+
             <Button
               className="bg-[#c23326]"
               size="lg"
-              onPress={() => void submitManual()}
-              isDisabled={manualEvent.isPending}
+              onPress={() => void submitManualRows()}
+              isDisabled={createDirectEvents.isPending}
             >
-              {manualEvent.isPending ? (
+              {createDirectEvents.isPending ? (
                 <Spinner size="sm" color="default" />
               ) : (
-                <Button.Label>📅 Create Calendar Event</Button.Label>
+                <Button.Label>
+                  📅 Create {manualRows.length > 0 ? manualRows.length : ""} Calendar Event
+                  {manualRows.length === 1 ? "" : "s"}
+                </Button.Label>
               )}
             </Button>
+            <Text className="text-neutral-500 text-xs text-center">
+              Free — no AI involved. The .ics is ready instantly.
+            </Text>
           </View>
         )}
       </View>
@@ -485,7 +759,7 @@ export function Uploader() {
         <Text className="text-neutral-400 text-center px-4">{errorMessage}</Text>
         <View className="flex-row gap-3 mt-2">
           <Button className="bg-[#c23326]" onPress={reset}>
-            <Button.Label>↻ Try another file</Button.Label>
+            <Button.Label>↻ Try another source</Button.Label>
           </Button>
           <Button variant="outline" onPress={() => router.push("/files")}>
             <Button.Label>View files</Button.Label>
@@ -552,6 +826,21 @@ export function Uploader() {
           </PressCard>
         </View>
 
+        <PressCard
+          onPress={() => router.push("/files")}
+          className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex-row items-center gap-3"
+        >
+          <View className="w-10 h-10 rounded-lg bg-white/15 items-center justify-center">
+            <Text className="text-lg">🔍</Text>
+          </View>
+          <View className="flex-1">
+            <Text className="text-white font-bold">Review &amp; edit events</Text>
+            <Text className="text-white/80 text-sm">
+              Fix titles, dates, and times before importing
+            </Text>
+          </View>
+        </PressCard>
+
         {deliveryOpen && uploadId ? (
           <Animated.View
             entering={FadeInDown.springify().dampingRatio(1)}
@@ -609,8 +898,13 @@ export function Uploader() {
       </View>
 
       <PressCard onPress={reset} className="items-center py-2">
-        <RNText className="text-neutral-500 text-sm">Upload another file</RNText>
+        <RNText className="text-neutral-500 text-sm">Start another upload</RNText>
       </PressCard>
     </Animated.View>
   );
+}
+
+function rowDateStrFor(row: { date: Date }): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${row.date.getFullYear()}-${pad(row.date.getMonth() + 1)}-${pad(row.date.getDate())}`;
 }

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { user } from "./auth";
 
 export const uploadStatusValues = [
@@ -34,6 +34,7 @@ export const uploads = sqliteTable(
     icsKey: text("ics_key"), // R2 object key for the combined .ics file
     shareToken: text("share_token").unique(), // Public share token for preview page
     workflowRunId: text("workflow_run_id").unique(),
+    callbackUrl: text("callback_url"), // Signed webhook target for agent workflows
     failureReason: text("failure_reason"),
 
     // Text union instead of pgEnum — validated in zod schemas.
@@ -61,6 +62,11 @@ export const events = sqliteTable(
     endTime: integer("end_time", { mode: "timestamp_ms" }),
     isAllDay: integer("is_all_day", { mode: "boolean" }).default(false).notNull(),
 
+    // Extraction aids for the review flow — per-event AI confidence (0..1)
+    // and the quote from the source document the event was parsed from.
+    confidence: real("confidence"),
+    sourceQuote: text("source_quote"),
+
     uploadId: text("upload_id").references(() => uploads.id, {
       onDelete: "cascade",
     }),
@@ -73,4 +79,23 @@ export const events = sqliteTable(
     index("events_userId_idx").on(table.userId),
     index("events_uploadId_idx").on(table.uploadId),
   ],
+);
+
+// Idempotency keys for ingestion endpoints — agents retry, and a retried
+// upload must not create a second upload + workflow run. Scoped per user.
+export const idempotencyKeys = sqliteTable(
+  "idempotency_keys",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    keyHash: text("key_hash").notNull(), // sha256 of the raw Idempotency-Key header
+    responseJson: text("response_json").notNull(), // exact response body to replay
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [uniqueIndex("idempotency_user_key_idx").on(table.userId, table.keyHash)],
 );

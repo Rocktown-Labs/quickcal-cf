@@ -22,6 +22,9 @@
         <button data-tab="ai" class="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap bg-primary text-primary-foreground shadow-md">
           <span>⚡</span><span>AI Upload</span>
         </button>
+        <button data-tab="text" class="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap text-muted-foreground hover:text-foreground">
+          <span>📋</span><span>Paste Text</span>
+        </button>
         <button data-tab="manual" class="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap text-muted-foreground hover:text-foreground">
           <span>✏️</span><span>Manual</span>
         </button>
@@ -41,12 +44,38 @@
           <p class="text-sm text-muted-foreground font-medium pt-4">Supports JPEG, PNG, WebP, and PDF up to 10MB</p>
         </div>
       </div>
+      <div data-url-row class="hidden mt-3 flex gap-2">
+        <input data-url-input type="url" placeholder="…or paste an image / PDF / text file URL (https)" class="flex-1 px-4 bg-input border border-input rounded-lg h-10 text-base focus:outline-none focus:border-primary" />
+        <button data-url-submit class="shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-5 h-10 text-sm font-bold disabled:opacity-50">Fetch</button>
+      </div>
+      <p data-free-note class="hidden mt-3 text-center text-sm text-muted-foreground">
+        🎁 <strong class="text-foreground">1 free AI extraction</strong> left — no credit card needed. Premium unlocks unlimited.
+      </p>
       <div data-premium-gate class="hidden text-center py-12 bg-card rounded-2xl border border-border">
         <div class="text-5xl mx-auto mb-4">👑</div>
-        <h3 class="text-xl font-bold mb-2">Premium Feature</h3>
-        <p class="text-muted-foreground mb-6 text-base">Unlock AI-powered calendar extraction with our Premium plan</p>
+        <h3 class="text-xl font-bold mb-2">You've used your free AI extraction</h3>
+        <p class="text-muted-foreground mb-6 text-base">Upgrade to Premium for unlimited AI extraction from images, PDFs, text, and URLs.</p>
         <a href="/settings#subscription" class="inline-block bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-4 rounded-xl shadow-lg transition-all font-bold">Upgrade to Premium</a>
       </div>
+    </div>
+
+    <!-- Paste text tab -->
+    <div data-panel="text" class="hidden bg-card rounded-2xl border border-border p-6 space-y-4">
+      <p class="text-sm text-muted-foreground">Paste a schedule as plain text, Markdown, or CSV — the AI reads dates and times straight from it. Same thing an API agent sends to <code class="text-foreground">POST /api/uploads/text</code>.</p>
+      <div class="space-y-2">
+        <label class="text-sm font-semibold ml-1" for="text-title">Title (optional)</label>
+        <input id="text-title" placeholder="Fall class schedule" class="w-full px-4 bg-input border border-input rounded-lg h-10 text-base focus:outline-none focus:border-primary" />
+      </div>
+      <div class="space-y-2">
+        <label class="text-sm font-semibold ml-1" for="text-content">Schedule text</label>
+        <textarea id="text-content" placeholder={"Mon 10/5: Biology 101 at 9:00 AM in Room 214\nTue 10/6: Study group 3-5pm @ library\n…"} class="w-full px-4 py-3 bg-input border border-input rounded-xl focus:outline-none focus:border-primary resize-none text-base h-40 font-mono text-sm"></textarea>
+      </div>
+      <div data-text-gate class="hidden text-center py-8">
+        <div class="text-4xl mx-auto mb-3">👑</div>
+        <p class="text-muted-foreground">AI extraction is a Premium feature — <a href="/settings#subscription" class="text-primary font-semibold">upgrade here</a>. (First extraction is free.)</p>
+      </div>
+      <button data-text-submit class="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-xl text-lg font-bold transition-all shadow-lg disabled:opacity-50">⚡ Extract Events from Text</button>
+      <p data-text-error class="hidden text-sm text-danger"></p>
     </div>
 
     <!-- Manual tab -->
@@ -67,13 +96,24 @@
           <label class="text-sm font-semibold ml-1" for="manual-time">Time (optional)</label>
           <input id="manual-time" type="time" step="60" class="w-full px-4 bg-input border border-input rounded-lg h-10 text-base focus:outline-none focus:border-primary" />
         </div>
+        <div class="col-span-1 space-y-2">
+          <label class="text-sm font-semibold ml-1" for="manual-end">End time (optional)</label>
+          <input id="manual-end" type="time" step="60" class="w-full px-4 bg-input border border-input rounded-lg h-10 text-base focus:outline-none focus:border-primary" />
+        </div>
+        <div class="col-span-1 space-y-2">
+          <label class="text-sm font-semibold ml-1" for="manual-location">Location (optional)</label>
+          <input id="manual-location" placeholder="Room 214" class="w-full px-4 bg-input border border-input rounded-lg h-10 text-base focus:outline-none focus:border-primary" />
+        </div>
         <div class="col-span-2 space-y-2">
           <label class="text-sm font-semibold ml-1" for="manual-desc">Description</label>
           <textarea id="manual-desc" placeholder="Event details..." class="w-full px-4 py-3 bg-input border border-input rounded-xl focus:outline-none focus:border-primary resize-none text-base h-24"></textarea>
         </div>
       </div>
-      <button data-manual-submit class="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-xl text-lg font-bold transition-all shadow-lg disabled:opacity-50">📅 Create Calendar Event</button>
+      <button data-manual-add class="w-full border border-input hover:bg-accent hover:text-accent-foreground rounded-xl h-10 text-sm font-bold">＋ Add to list</button>
+      <div data-manual-list class="space-y-2"></div>
+      <button data-manual-submit class="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-xl text-lg font-bold transition-all shadow-lg disabled:opacity-50">📅 Create <span data-manual-count>0</span> Calendar Event<span data-manual-plural>s</span></button>
       <p data-manual-error class="hidden text-sm text-danger"></p>
+      <p class="text-xs text-muted-foreground text-center">Free — no AI involved. The .ics is ready instantly.</p>
     </div>
   </div>
 
@@ -170,6 +210,7 @@
         <div class="text-base font-semibold truncate" data-result-name></div>
         <div class="text-sm text-muted-foreground"><span data-event-count></span> events • Ready to import</div>
       </div>
+      <button data-action="review" class="px-4 py-2 bg-muted rounded-lg border border-input hover:bg-accent hover:text-accent-foreground transition-all text-sm shrink-0">Review &amp; edit events</button>
       <button data-action="copy" class="px-4 py-2 bg-muted rounded-lg border border-input hover:bg-accent hover:text-accent-foreground transition-all text-sm shrink-0">Copy Link</button>
     </div>
     <div class="pt-6 text-center w-full">
@@ -190,6 +231,7 @@
   const STEPS = ["Analyzing image", "Detecting dates & times", "Extracting event details", "Formatting calendar data"];
 
   let isPremium = false;
+  let freeCredits = 0;
   let pollTimer: number | null = null;
   let stepTimer: number | null = null;
   let stepIndex = 0;
@@ -198,6 +240,7 @@
   let shareToken: string | null = null;
   let downloadPath: string | null = null;
   let eventCount = 0;
+  const manualRows: Array<{ title: string; date: string; time: string; endTime: string; location: string; description: string }> = [];
 
   function show(state: string) {
     for (const el of $$("[data-state]")) {
@@ -219,12 +262,13 @@
     setTimeout(() => el.remove(), 3500);
   }
 
-  function setTab(tab: "ai" | "manual") {
+  function setTab(tab: "ai" | "text" | "manual") {
     for (const btn of $$("[data-tab]")) {
       const active = btn.getAttribute("data-tab") === tab;
       btn.className = `flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${active ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`;
     }
     $('[data-panel="ai"]')?.classList.toggle("hidden", tab !== "ai");
+    $('[data-panel="text"]')?.classList.toggle("hidden", tab !== "text");
     $('[data-panel="manual"]')?.classList.toggle("hidden", tab !== "manual");
   }
 
@@ -259,8 +303,12 @@
     eventCount = 0;
     stepIndex = 0;
     fileName = "";
+    manualRows.length = 0;
+    renderManualList();
     const input = $("[data-file-input]") as HTMLInputElement | null;
     if (input) input.value = "";
+    const urlInput = qs("[data-url-input]") as HTMLInputElement | null;
+    if (urlInput) urlInput.value = "";
     $('[data-delivery-form]')?.classList.add("hidden");
     const hint = $("[data-delivery-hint]");
     if (hint) hint.textContent = "Send file directly";
@@ -273,14 +321,47 @@
       return;
     }
     fileName = file.name;
+    await runIngestion(() => api.createUpload(file));
+  }
+
+  async function startUrlUpload() {
+    const input = qs("[data-url-input]") as HTMLInputElement | null;
+    const url = input?.value.trim() ?? "";
+    if (!url || !/^https:\/\//i.test(url)) {
+      toast("Paste an https:// URL to an image, PDF, or text file.", false);
+      return;
+    }
+    let host = url;
+    try { host = new URL(url).hostname; } catch { /* validated below */ }
+    fileName = host;
     const nameEl = $("[data-file-name]");
-    if (nameEl) nameEl.textContent = file.name;
+    if (nameEl) nameEl.textContent = url;
+    await runIngestion(() => api.createUploadFromUrl(url));
+  }
+
+  async function startTextUpload() {
+    const content = (qs("#text-content") as HTMLTextAreaElement)?.value ?? "";
+    const title = (qs("#text-title") as HTMLInputElement)?.value.trim() ?? "";
+    if (!content.trim()) {
+      toast("Paste some schedule text first.", false);
+      return;
+    }
+    fileName = title || "Pasted text";
+    const nameEl = $("[data-file-name]");
+    if (nameEl) nameEl.textContent = fileName;
+    await runIngestion(() => api.createUploadFromText(content, title || undefined));
+  }
+
+  /**
+   * Shared processing flow for every AI ingestion (file, URL, text):
+   * show the stepper, start the workflow, poll until terminal.
+   */
+  async function runIngestion(start: () => Promise<{ runId: string }>) {
     stepIndex = 0;
     renderSteps();
     show("processing");
-
     try {
-      const { runId } = await api.createUpload(file);
+      const { runId } = await start();
       stepTimer = window.setInterval(() => {
         if (stepIndex < STEPS.length - 1) { stepIndex += 1; renderSteps(); }
       }, 3000);
@@ -298,6 +379,8 @@
       }, 2000);
     } catch (err) {
       showError("Upload failed", err instanceof Error ? err.message : "Please try again.");
+      // A free credit may have been refused — refresh the banner state.
+      void api.me().then((me) => { freeCredits = me.freeCredits; }).catch(() => undefined);
     }
   }
 
@@ -383,11 +466,13 @@
 
   // Wire up static controls
   for (const btn of $$("[data-tab]")) {
-    btn.addEventListener("click", () => setTab(btn.getAttribute("data-tab") as "ai" | "manual"));
+    btn.addEventListener("click", () => setTab(btn.getAttribute("data-tab") as "ai" | "text" | "manual"));
   }
   for (const btn of $$("[data-reset]")) {
     btn.addEventListener("click", reset);
   }
+  qs("[data-url-submit]")?.addEventListener("click", () => void startUrlUpload());
+  qs("[data-text-submit]")?.addEventListener("click", () => void startTextUpload());
 
   const dropzone = $("[data-dropzone]");
   const fileInput = $('[data-file-input]') as HTMLInputElement | null;
@@ -411,6 +496,9 @@
       if (action === "download") void downloadIcs();
       else if (action === "copy") void copyLink();
       else if (action === "share") void deviceShare();
+      else if (action === "review") {
+        window.location.href = uploadId ? `/files#${uploadId}` : "/files";
+      }
       else if (action === "delivery") {
         const form = $("[data-delivery-form]");
         form?.classList.toggle("hidden");
@@ -454,56 +542,135 @@
     }
   });
 
-  $('[data-manual-submit]')?.addEventListener("click", async () => {
-    const title = (qs("#manual-title") as HTMLInputElement)?.value.trim() ?? "";
-    const date = (qs("#manual-date") as HTMLInputElement)?.value ?? "";
-    const time = (qs("#manual-time") as HTMLInputElement)?.value ?? "";
-    const description = (qs("#manual-desc") as HTMLTextAreaElement)?.value.trim() ?? "";
+  // ── Manual multi-event builder (free, no AI) ────────────────────────────
+
+  function renderManualList() {
+    const list = qs("[data-manual-list]");
+    const count = qs("[data-manual-count]") as HTMLElement | null;
+    const plural = qs("[data-manual-plural]") as HTMLElement | null;
+    if (count) count.textContent = String(manualRows.length);
+    if (plural) plural.style.display = manualRows.length === 1 ? "none" : "inline";
+    if (!list) return;
+    list.innerHTML = manualRows.map((row, i) => `
+      <div class="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-2.5">
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-semibold truncate">${row.title.replace(/</g, "&lt;")}</p>
+          <p class="text-xs text-muted-foreground">${row.date}${row.time ? ` · ${row.time}` : ""}${row.endTime ? `–${row.endTime}` : ""}${row.location ? ` · ${row.location}` : ""}</p>
+        </div>
+        <button data-remove-row="${i}" class="shrink-0 text-xs font-bold text-danger border border-danger/40 rounded-lg px-2.5 py-1">Remove</button>
+      </div>`).join("");
+    for (const btn of list.querySelectorAll("[data-remove-row]")) {
+      btn.addEventListener("click", () => {
+        manualRows.splice(Number(btn.getAttribute("data-remove-row")), 1);
+        renderManualList();
+      });
+    }
+  }
+
+  function readManualForm() {
+    return {
+      title: (qs("#manual-title") as HTMLInputElement)?.value.trim() ?? "",
+      date: (qs("#manual-date") as HTMLInputElement)?.value ?? "",
+      time: (qs("#manual-time") as HTMLInputElement)?.value ?? "",
+      endTime: (qs("#manual-end") as HTMLInputElement)?.value ?? "",
+      location: (qs("#manual-location") as HTMLInputElement)?.value.trim() ?? "",
+      description: (qs("#manual-desc") as HTMLTextAreaElement)?.value.trim() ?? "",
+    };
+  }
+
+  function clearManualForm() {
+    for (const id of ["#manual-title", "#manual-date", "#manual-time", "#manual-end", "#manual-location", "#manual-desc"]) {
+      const el = qs(id) as HTMLInputElement | HTMLTextAreaElement | null;
+      if (el) el.value = "";
+    }
+  }
+
+  qs("[data-manual-add]")?.addEventListener("click", () => {
     const errEl = $("[data-manual-error]");
-    if (!title || !date) {
-      if (errEl) { errEl.textContent = "Please fill in at least title and date."; errEl.classList.remove("hidden"); }
+    errEl?.classList.add("hidden");
+    const row = readManualForm();
+    if (!row.title || !row.date) {
+      if (errEl) { errEl.textContent = "Fill in at least title and date, then add to the list."; errEl.classList.remove("hidden"); }
       return;
     }
+    manualRows.push(row);
+    clearManualForm();
+    renderManualList();
+  });
+
+  $('[data-manual-submit]')?.addEventListener("click", async () => {
+    const errEl = $("[data-manual-error]");
     errEl?.classList.add("hidden");
+
+    // If the form has a fresh row, pull it in first.
+    const current = readManualForm();
+    if (current.title && current.date) {
+      manualRows.push(current);
+      clearManualForm();
+    }
+
+    if (manualRows.length === 0) {
+      if (errEl) { errEl.textContent = "Add at least one event (title + date)."; errEl.classList.remove("hidden"); }
+      return;
+    }
+
     try {
-      const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const data = await api.manualEvent({ title, date, time, description, timezone });
-      const blob = new Blob([data.icsContent], { type: "text/calendar; charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = data.fileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      toast("Event created and ICS file downloaded!");
+      const data = await api.createDirectEvents(manualRows);
+      manualRows.length = 0;
+      renderManualList();
+      fileName = `manual-events`;
+      uploadId = data.uploadId;
+      eventCount = data.eventCount;
+      shareToken = data.shareToken;
+      downloadPath = data.downloadPath;
+      for (const el of $$("[data-event-count]")) el.textContent = String(eventCount);
+      const nameEl = $("[data-result-name]");
+      if (nameEl) nameEl.textContent = `${eventCount} manual event${eventCount === 1 ? "" : "s"}-events.ics`;
+      show("complete");
+      toast(`Created ${eventCount} event${eventCount === 1 ? "" : "s"} — review them on the Files page.`);
     } catch (err) {
       if (errEl) {
-        errEl.textContent = err instanceof ApiError ? err.message : "Failed to create event.";
+        errEl.textContent = err instanceof ApiError ? err.message : "Failed to create events.";
         errEl.classList.remove("hidden");
       }
     }
   });
 
-  // Init: require session, load premium state
+  // Init: require session, load premium + free-credit state
   (async () => {
     try {
       const { data: session } = await authClient.getSession();
       if (!session?.user) { window.location.href = "/login"; return; }
       const me = await api.me();
       isPremium = me.isPremium;
+      freeCredits = me.freeCredits;
+      const canIngest = isPremium || freeCredits > 0;
       if (isPremium) {
         root.querySelector("[data-premium-badge]")?.classList.remove("hidden");
         root.querySelector("[data-premium-badge]")?.classList.add("flex");
+      }
+      if (canIngest) {
         $('[data-dropzone]')?.classList.remove("hidden");
+        $('[data-url-row]')?.classList.remove("hidden");
+        if (!isPremium && freeCredits > 0) {
+          const note = qs("[data-free-note]");
+          if (note) {
+            note.innerHTML = `🎁 <strong class="text-foreground">${freeCredits} free AI extraction${freeCredits === 1 ? "" : "s"}</strong> left — no credit card needed. Premium unlocks unlimited.`;
+            note.classList.remove("hidden");
+          }
+        }
       } else {
         $('[data-premium-gate]')?.classList.remove("hidden");
+      }
+      if (!canIngest) {
+        qs("[data-text-gate]")?.classList.remove("hidden");
+        (qs("[data-text-submit]") as HTMLButtonElement | null)?.setAttribute("disabled", "true");
       }
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const tzNote = $("[data-tz-note]");
       const tzEl = $("[data-tz]");
       if (tz && tzNote && tzEl) { tzEl.textContent = tz; tzNote.classList.remove("hidden"); }
+      renderManualList();
       setTab("ai");
       show("idle");
     } catch {

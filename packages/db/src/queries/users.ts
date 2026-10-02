@@ -1,6 +1,7 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, gt, sql } from "drizzle-orm";
 import type { Database } from "../index";
 import { events, uploads, user } from "../schema";
+import { generateShareToken } from "./uploads";
 
 // Public-facing columns only — never leak internal storage keys.
 const uploadSummaryColumns = {
@@ -68,12 +69,65 @@ export async function getUserProfile(db: Database, userId: string) {
       phoneNumber: user.phoneNumber,
       useCase: user.useCase,
       calendarApp: user.calendarApp,
+      freeCredits: user.freeCredits,
       isOnboarded: user.isOnboarded,
     })
     .from(user)
     .where(eq(user.id, userId))
     .limit(1);
 
+  return rows[0] ?? null;
+}
+
+/**
+ * Atomically consume one free AI extraction. Returns true when a credit was
+ * consumed, false when the user has none left. The `freeCredits > 0` guard
+ * makes this safe under concurrent requests (single-statement CAS).
+ */
+export async function consumeFreeCredit(db: Database, userId: string): Promise<boolean> {
+  const rows = await db
+    .update(user)
+    .set({ freeCredits: sql`${user.freeCredits} - 1` })
+    .where(and(eq(user.id, userId), gt(user.freeCredits, 0)))
+    .returning({ freeCredits: user.freeCredits });
+  return rows.length > 0;
+}
+
+/** Refund a free credit when ingestion fails after the credit was taken. */
+export async function refundFreeCredit(db: Database, userId: string): Promise<void> {
+  await db
+    .update(user)
+    .set({ freeCredits: sql`${user.freeCredits} + 1` })
+    .where(eq(user.id, userId));
+}
+
+/** Returns the user's calendar feed token, creating one on first use. */
+export async function ensureCalToken(db: Database, userId: string): Promise<string> {
+  const existing = await db
+    .select({ calToken: user.calToken })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  if (existing[0]?.calToken) return existing[0].calToken;
+
+  const token = generateShareToken();
+  await db.update(user).set({ calToken: token }).where(eq(user.id, userId));
+  return token;
+}
+
+/** Rotate the calendar feed token (invalidates old subscription URLs). */
+export async function rotateCalToken(db: Database, userId: string): Promise<string> {
+  const token = generateShareToken();
+  await db.update(user).set({ calToken: token }).where(eq(user.id, userId));
+  return token;
+}
+
+export async function getUserByCalToken(db: Database, calToken: string) {
+  const rows = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.calToken, calToken))
+    .limit(1);
   return rows[0] ?? null;
 }
 

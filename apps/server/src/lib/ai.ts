@@ -6,13 +6,28 @@ export interface ExtractedEvent {
   id: number;
   date: string;
   time: string;
+  endTime: string;
   description: string;
+  title: string;
+  location: string;
+  /** 0..1 — the model's confidence this event was parsed correctly. */
+  confidence: number | null;
+  /** The snippet of the source document this event was parsed from. */
+  sourceQuote: string | null;
 }
+
+const timeRegex = /^$|^([01]\d|2[0-3]):[0-5]\d$/;
 
 const extractedEventSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
-  time: z.string().regex(/^$|^([01]\d|2[0-3]):[0-5]\d$/, "Time must be in HH:MM format"),
+  time: z.string().regex(timeRegex, "Time must be in HH:MM format"),
+  endTime: z.string().regex(timeRegex, "End time must be in HH:MM format").optional().default(""),
+  // Short event name — falls back to the description when omitted by the model.
+  title: z.string().trim().max(200).optional().default(""),
   description: z.string().trim().min(1).max(1000),
+  location: z.string().trim().max(300).optional().default(""),
+  confidence: z.number().min(0).max(1).optional().nullable().default(null),
+  sourceQuote: z.string().trim().max(500).optional().nullable().default(null),
 });
 
 // Cap the number of events so a pathological document (or a hallucinating
@@ -166,6 +181,43 @@ export async function classifyDocument(input: ClassifyDocumentInput): Promise<bo
   return gemini(geminiApiKey, data, contentType);
 }
 
+const EXTRACTION_PROMPT = `Analyze the provided calendar, schedule, or agenda document. Examine ALL pages and identify all distinct events, appointments, or line items across the entire document.
+
+For each item, extract:
+- "title": a short event name (e.g. "Biology 101", "Standup", "Dentist"). If no distinct name exists, use the description.
+- "date": the event date in YYYY-MM-DD format. If the document only defines dates indirectly (e.g. a weekday under a date header), resolve it to the concrete date. Leave "" only if truly undeterminable.
+- "time": the start time in HH:MM 24-hour format, or "" if none is given.
+- "endTime": the end time in HH:MM 24-hour format, or "" if none is given.
+- "location": where it takes place, or "" if not stated.
+- "description": a brief description of the event.
+- "confidence": a number between 0 and 1 for how certain you are the date and time are parsed correctly.
+- "sourceQuote": the exact short snippet from the document this event was parsed from.
+
+Do not invent dates or times that are not in the document. Return the data as a JSON array of objects with no duplicates.`;
+
+function parseExtraction(text: string | undefined): ExtractedEvent[] {
+  if (text === undefined) return [];
+
+  const cleanedText = text
+    .trim()
+    .replace(/^```json\s*/, "")
+    .replace(/\s*```$/, "");
+
+  if (cleanedText === "") return [];
+
+  const raw: unknown = JSON.parse(cleanedText);
+  const parsed = extractedEventsSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error(`Invalid AI extraction output: ${parsed.error.message}`);
+  }
+
+  return parsed.data.map((item, index) => ({
+    ...item,
+    title: item.title || item.description,
+    id: Date.now() + index,
+  }));
+}
+
 export async function extractEventsFromDocument(
   apiKey: string,
   fileData: Uint8Array,
@@ -180,10 +232,7 @@ export async function extractEventsFromDocument(
       {
         role: "user",
         content: [
-          {
-            type: "text",
-            text: `Analyze the provided calendar, schedule, or agenda document. Please examine ALL pages and identify all distinct events, appointments, or line items across the entire document. For each item, extract the date (YYYY-MM-DD format), time (HH:MM 24 hour format), and a brief description. If a date or time is not explicitly mentioned for an item, leave the corresponding field as an empty string. Return the data as a JSON array of objects with no duplicates.`,
-          },
+          { type: "text", text: EXTRACTION_PROMPT },
           {
             type: "image",
             image: dataUrl,
@@ -193,27 +242,34 @@ export async function extractEventsFromDocument(
     ],
   });
 
-  if (text === undefined) {
-    return [];
-  }
+  return parseExtraction(text);
+}
 
-  const cleanedText = text
-    .trim()
-    .replace(/^```json\s*/, "")
-    .replace(/\s*```$/, "");
+/**
+ * Text-only extraction — the pipeline for pasted plain text, markdown, and
+ * CSV schedules (also used by URL ingestion when the target is a text
+ * document). Same schema and parsing as the vision path.
+ */
+export async function extractEventsFromText(
+  apiKey: string,
+  content: string,
+): Promise<ExtractedEvent[]> {
+  const google = createGoogleGenerativeAI({ apiKey });
 
-  if (cleanedText === "") {
-    return [];
-  }
+  const { text } = await generateText({
+    model: google(EXTRACTION_MODEL),
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `${EXTRACTION_PROMPT}\n\nThe schedule content follows between the markers. Ignore the markers themselves.\n\n<<<BEGIN DOCUMENT>>>\n${content}\n<<<END DOCUMENT>>>`,
+          },
+        ],
+      },
+    ],
+  });
 
-  const raw: unknown = JSON.parse(cleanedText);
-  const parsed = extractedEventsSchema.safeParse(raw);
-  if (!parsed.success) {
-    throw new Error(`Invalid AI extraction output: ${parsed.error.message}`);
-  }
-
-  return parsed.data.map((item, index) => ({
-    ...item,
-    id: Date.now() + index,
-  }));
+  return parseExtraction(text);
 }

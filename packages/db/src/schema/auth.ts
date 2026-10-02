@@ -12,6 +12,12 @@ export const user = sqliteTable("user", {
   // Onboarding answers (POST-SIGNUP questionnaire)
   useCase: text("use_case"),
   calendarApp: text("calendar_app"),
+  // Free AI extractions remaining (the "1 free extraction" trial).
+  // Premium users bypass this counter entirely.
+  freeCredits: integer("free_credits").default(1).notNull(),
+  // Secret token for the aggregate calendar feed (webcal:// subscription
+  // containing every event the user owns). Rotatable.
+  calToken: text("cal_token").unique(),
   isOnboarded: integer("is_onboarded", { mode: "boolean" }).default(false).notNull(),
   role: text("role").default("user").notNull(),
   banned: integer("banned", { mode: "boolean" }).default(false).notNull(),

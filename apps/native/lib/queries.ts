@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type RnFilePart, type UploadStatus } from "./api";
+import { api, type DirectEvent, type RnFilePart, type ReviewEvent, type UploadStatus } from "./api";
 
 export const queryKeys = {
   me: ["me"] as const,
   stats: ["stats"] as const,
   uploads: ["uploads"] as const,
   keys: ["keys"] as const,
+  uploadEvents: (uploadId: string) => ["uploadEvents", uploadId] as const,
   uploadStatus: (runId: string) => ["uploadStatus", runId] as const,
 };
 
@@ -56,6 +57,89 @@ export function useCreateUpload() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.uploads });
       void qc.invalidateQueries({ queryKey: queryKeys.stats });
+    },
+  });
+}
+
+export function useCreateUrlUpload() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (url: string) => api.createUploadFromUrl(url),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.me });
+    },
+  });
+}
+
+export function useCreateTextUpload() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { content: string; title?: string }) =>
+      api.createUploadFromText(input.content, input.title),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.me });
+    },
+  });
+}
+
+export function useCreateDirectEvents() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { events: DirectEvent[]; name?: string }) =>
+      api.createDirectEvents(input.events, input.name),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.uploads });
+      void qc.invalidateQueries({ queryKey: queryKeys.stats });
+    },
+  });
+}
+
+export function useUploadEvents(uploadId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.uploadEvents(uploadId ?? ""),
+    queryFn: () => api.listUploadEvents(uploadId!),
+    enabled: Boolean(uploadId),
+  });
+}
+
+export function useUpdateEvent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      eventId,
+      patch,
+      uploadId,
+    }: {
+      eventId: string;
+      patch: Partial<Pick<DirectEvent, "title" | "date" | "time">>;
+      uploadId: string;
+    }) => api.updateEvent(eventId, patch),
+    onSuccess: (_data, variables) => {
+      // The .ics and share link are regenerated server-side.
+      void qc.invalidateQueries({ queryKey: queryKeys.uploads });
+      void qc.invalidateQueries({ queryKey: queryKeys.uploadEvents(variables.uploadId) });
+    },
+  });
+}
+
+export function useDeleteEvent() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { eventId: string; uploadId: string }) => api.deleteEvent(input.eventId),
+    onSuccess: (_data, variables) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.uploads });
+      void qc.invalidateQueries({ queryKey: queryKeys.uploadEvents(variables.uploadId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.stats });
+    },
+  });
+}
+
+export function useRotateCalendarFeed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.rotateCalendarFeed,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.me });
     },
   });
 }

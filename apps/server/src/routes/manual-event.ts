@@ -13,7 +13,10 @@ const app = new OpenAPIHono<AuthEnv>();
 // at "/api" in index.ts, so unscoped `use()` would apply to EVERY /api/*
 // request — 401-ing the public share routes and rate-limiting the whole API.
 app.use("/manual-event", requireAuth);
-app.use("/manual-event", rateLimit({ windowMs: 60_000, maxRequests: 20, keyPrefix: "manual:user" }));
+app.use(
+  "/manual-event",
+  rateLimit({ windowMs: 60_000, maxRequests: 20, keyPrefix: "manual:user" }),
+);
 
 const createManualEvent = createRoute({
   method: "post",

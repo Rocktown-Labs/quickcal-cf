@@ -14,4 +14,6 @@ export * from "./queries/users";
 export * from "./queries/apikeys";
 export * from "./queries/billing";
 export * from "./queries/plans";
+export * from "./queries/events";
+export * from "./queries/idempotency";
 export * from "./ics";

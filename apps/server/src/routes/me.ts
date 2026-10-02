@@ -2,10 +2,12 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import jsonContent from "stoker/openapi/helpers/json-content";
 import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
-import { getUserProfile, isPremium, updateUserProfile } from "@quickcal-cf/db";
+import { ensureCalToken, getUserProfile, isPremium, updateUserProfile } from "@quickcal-cf/db";
 import { getDb } from "../services";
 import { requireAuth, type AuthEnv } from "../lib/auth";
 import { rateLimit } from "../middleware/rate-limit";
+import { webhookSecretFor } from "../lib/webhook";
+import { ENV } from "../env.server";
 
 const app = new OpenAPIHono<AuthEnv>();
 app.use(requireAuth);
@@ -20,6 +22,9 @@ const profileSchema = z.object({
   calendarApp: z.string().nullable(),
   isOnboarded: z.boolean(),
   isPremium: z.boolean(),
+  freeCredits: z.number(),
+  calendarFeedPath: z.string().nullable(),
+  webhookSecret: z.string(),
 });
 
 // Onboarding questionnaire answers — sent by the web app's /onboarding flow.
@@ -47,7 +52,20 @@ app.openapi(getMe, async (c) => {
   if (!profile) {
     return c.json({ message: "Profile not found" }, HttpStatusCodes.NOT_FOUND);
   }
-  return c.json({ id: userId, ...profile, isPremium: premium }, HttpStatusCodes.OK);
+  const [calToken, webhookSecret] = await Promise.all([
+    ensureCalToken(db, userId),
+    webhookSecretFor(ENV.BETTER_AUTH_SECRET, userId),
+  ]);
+  return c.json(
+    {
+      id: userId,
+      ...profile,
+      isPremium: premium,
+      calendarFeedPath: `/api/calendar/${calToken}`,
+      webhookSecret,
+    },
+    HttpStatusCodes.OK,
+  );
 });
 
 const updateMeBody = z.object({
@@ -81,7 +99,20 @@ app.openapi(updateMe, async (c) => {
   });
 
   const [profile, premium] = await Promise.all([getUserProfile(db, userId), isPremium(db, userId)]);
-  return c.json({ id: userId, ...profile!, isPremium: premium }, HttpStatusCodes.OK);
+  const [calToken, webhookSecret] = await Promise.all([
+    ensureCalToken(db, userId),
+    webhookSecretFor(ENV.BETTER_AUTH_SECRET, userId),
+  ]);
+  return c.json(
+    {
+      id: userId,
+      ...profile!,
+      isPremium: premium,
+      calendarFeedPath: `/api/calendar/${calToken}`,
+      webhookSecret,
+    },
+    HttpStatusCodes.OK,
+  );
 });
 
 export default app;

@@ -1,12 +1,13 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import jsonContent from "stoker/openapi/helpers/json-content";
+import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
 import createMessageObjectSchema from "stoker/openapi/schemas/create-message-object";
 import {
-  createUploadRecord,
   deleteUpload,
   getUploadById,
   getUploadEventCount,
+  getUploadEventsForReview,
   getUserUploadByWorkflowRunId,
   getUserUploads,
   updateUploadRecord,
@@ -15,9 +16,18 @@ import {
 import { ENV } from "../env.server";
 import { getDb } from "../services";
 import { requireAuth, type AuthEnv } from "../lib/auth";
-import { isPremium } from "../lib/premium";
 import { rateLimit } from "../middleware/rate-limit";
 import { MAX_UPLOAD_FILE_SIZE_BYTES, detectMimeType } from "../lib/validators";
+import {
+  createDirectEventsRecord,
+  ingestionForbiddenResponse,
+  refundIngestion,
+  requireIngestionAccess,
+  startIngestionWorkflow,
+  validateCallbackUrl,
+  withIdempotency,
+} from "../lib/ingest";
+import { fetchIngestDocument, IngestUrlError } from "../lib/fetch-document";
 
 const app = new OpenAPIHono<AuthEnv>();
 app.use(requireAuth);
@@ -83,11 +93,30 @@ app.openapi(listUploads, async (c) => {
   );
 });
 
+const ingestAcceptedSchema = jsonContent(
+  z.object({
+    uploadId: z.string(),
+    runId: z.string(),
+    status: uploadStatusEnum,
+  }),
+  "Upload stored, workflow started",
+);
+
+const ingestForbiddenResponse = jsonContent(
+  z.object({
+    message: z.string(),
+    code: z.string().optional(),
+  }),
+  "No free AI extractions left — Premium required",
+);
+
 const createUpload = createRoute({
   method: "post",
   path: "/",
   tags: ["Uploads"],
-  summary: "Upload a schedule document (premium)",
+  summary: "Upload a schedule document (Premium or free-trial credit)",
+  description:
+    "Send `file` as multipart/form-data (JPEG/PNG/WebP/PDF, ≤ 10MB). Optionally add `callbackUrl` for a signed webhook when processing finishes, and an `Idempotency-Key` header so retries replay instead of duplicating.",
   request: {
     body: {
       content: {
@@ -95,24 +124,15 @@ const createUpload = createRoute({
           schema: z.object({
             // OpenAPI file-upload placeholder; validated at runtime instead.
             file: z.any(),
+            callbackUrl: z.string().optional(),
           }),
         },
       },
     },
   },
   responses: {
-    [HttpStatusCodes.ACCEPTED]: jsonContent(
-      z.object({
-        uploadId: z.string(),
-        runId: z.string(),
-        status: uploadStatusEnum,
-      }),
-      "Upload stored, workflow started",
-    ),
-    [HttpStatusCodes.FORBIDDEN]: jsonContent(
-      createMessageObjectSchema("Premium required"),
-      "AI upload is a premium feature",
-    ),
+    [HttpStatusCodes.ACCEPTED]: ingestAcceptedSchema,
+    [HttpStatusCodes.FORBIDDEN]: ingestForbiddenResponse,
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createMessageObjectSchema("Invalid file"),
       "File validation failed",
@@ -124,81 +144,367 @@ app.openapi(createUpload, async (c) => {
   const userId = c.get("userId");
   const db = getDb();
 
-  if (!(await isPremium(db, userId))) {
-    return c.json(
-      { message: "AI upload is a premium feature. Please upgrade your subscription." },
-      HttpStatusCodes.FORBIDDEN,
-    );
-  }
+  return withIdempotency(c, db, userId, async () => {
+    const access = await requireIngestionAccess(db, userId);
+    if (!access) {
+      return c.json(ingestionForbiddenResponse(), HttpStatusCodes.FORBIDDEN);
+    }
 
-  const formData = await c.req.formData();
-  const file = formData.get("file");
+    const formData = await c.req.formData();
+    const file = formData.get("file");
 
-  if (!(file instanceof File)) {
-    return c.json({ message: "No file provided" }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
-  }
-  if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) {
-    return c.json({ message: "File exceeds 10MB limit" }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
-  }
+    const fail = (message: string) => {
+      void refundIngestion(db, userId, access);
+      return c.json({ message }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
+    };
 
-  // Validate the real content — the client-supplied Content-Type is only a
-  // hint, so check magic bytes before anything is stored or sent to the AI.
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const detectedType = detectMimeType(bytes);
-  if (!detectedType) {
-    return c.json(
-      { message: "Unsupported file type — could not read the file contents." },
-      HttpStatusCodes.UNPROCESSABLE_ENTITY,
-    );
-  }
+    if (!(file instanceof File)) return fail("No file provided");
+    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) return fail("File exceeds 10MB limit");
 
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "upload";
-  const storageKey = `uploads/${userId}/${Date.now()}-${safeName}`;
+    // Validate the real content — the client-supplied Content-Type is only a
+    // hint, so check magic bytes before anything is stored or sent to the AI.
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const detectedType = detectMimeType(bytes);
+    if (!detectedType) {
+      return fail("Unsupported file type — could not read the file contents.");
+    }
 
-  await ENV.FILES.put(storageKey, bytes, {
-    httpMetadata: { contentType: detectedType },
-  });
+    const callbackUrl = validateCallbackUrl(String(formData.get("callbackUrl") ?? "")) ?? null;
+    if (formData.has("callbackUrl") && !callbackUrl) {
+      return fail("callbackUrl must be an https:// URL (http allowed for localhost).");
+    }
 
-  const upload = await createUploadRecord(db, {
-    fileName: file.name,
-    fileType: detectedType,
-    storageKey,
-    userId,
-    status: "pending",
-  }).catch(async (error) => {
-    await ENV.FILES.delete(storageKey).catch(() => undefined);
-    throw error;
-  });
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "upload";
+    const storageKey = `uploads/${userId}/${Date.now()}-${safeName}`;
 
-  try {
-    const instance = await ENV.CALENDAR_WORKFLOW.create({
-      params: {
-        uploadId: upload.id,
-        storageKey,
-        fileName: file.name,
-        fileType: detectedType,
+    try {
+      await ENV.FILES.put(storageKey, bytes, {
+        httpMetadata: { contentType: detectedType },
+      });
+
+      const result = await startIngestionWorkflow(
+        db,
         userId,
-      },
+        { fileName: file.name, fileType: detectedType, storageKey, sourceType: "file" },
+        callbackUrl,
+        (params) => ENV.CALENDAR_WORKFLOW.create({ params }),
+      );
+
+      return c.json(result, HttpStatusCodes.ACCEPTED);
+    } catch (error) {
+      await ENV.FILES.delete(storageKey).catch(() => undefined);
+      await refundIngestion(db, userId, access);
+      throw error;
+    }
+  });
+});
+
+// ─── Text ingestion (agents paste schedules as plain text) ──────────────────
+
+const MAX_TEXT_BYTES = 100 * 1024;
+
+const createTextUpload = createRoute({
+  method: "post",
+  path: "/text",
+  tags: ["Uploads"],
+  summary: "Extract events from pasted schedule text (Premium or free-trial credit)",
+  description:
+    "Give the AI a raw schedule as plain text, Markdown, or CSV — no file needed. Same processing pipeline and review flow as file uploads. Optionally include `callbackUrl` and an `Idempotency-Key` header.",
+  request: {
+    body: jsonContentRequired(
+      z.object({
+        content: z.string().trim().min(1).max(MAX_TEXT_BYTES),
+        title: z.string().trim().max(120).optional(),
+        callbackUrl: z.string().optional(),
+      }),
+      "Schedule text",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.ACCEPTED]: ingestAcceptedSchema,
+    [HttpStatusCodes.FORBIDDEN]: ingestForbiddenResponse,
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createMessageObjectSchema("Invalid input"),
+      "Text validation failed",
+    ),
+  },
+});
+
+app.openapi(createTextUpload, async (c) => {
+  const userId = c.get("userId");
+  const db = getDb();
+
+  return withIdempotency(c, db, userId, async () => {
+    const { content, title, callbackUrl: rawCallback } = c.req.valid("json");
+
+    const callbackUrl = validateCallbackUrl(rawCallback) ?? null;
+    if (rawCallback && !callbackUrl) {
+      return c.json(
+        { message: "callbackUrl must be an https:// URL (http allowed for localhost)." },
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+      );
+    }
+
+    const access = await requireIngestionAccess(db, userId);
+    if (!access) {
+      return c.json(ingestionForbiddenResponse(), HttpStatusCodes.FORBIDDEN);
+    }
+
+    const storageKey = `uploads/${userId}/${Date.now()}-pasted-text.txt`;
+    const textBytes = new TextEncoder().encode(content);
+
+    try {
+      await ENV.FILES.put(storageKey, textBytes, {
+        httpMetadata: { contentType: "text/plain" },
+      });
+
+      const result = await startIngestionWorkflow(
+        db,
+        userId,
+        {
+          fileName: title || "Pasted text",
+          fileType: "text/plain",
+          storageKey,
+          sourceType: "text",
+        },
+        callbackUrl,
+        (params) => ENV.CALENDAR_WORKFLOW.create({ params }),
+      );
+
+      return c.json(result, HttpStatusCodes.ACCEPTED);
+    } catch (error) {
+      await ENV.FILES.delete(storageKey).catch(() => undefined);
+      await refundIngestion(db, userId, access);
+      throw error;
+    }
+  });
+});
+
+// ─── URL ingestion (agents hand over links) ──────────────────────────────────
+
+const createUrlUpload = createRoute({
+  method: "post",
+  path: "/from-url",
+  tags: ["Uploads"],
+  summary: "Ingest a schedule from a public URL (Premium or free-trial credit)",
+  description:
+    "The server fetches the URL (https only) and runs the same pipeline. Accepted: JPEG/PNG/WebP/PDF (by content, not header) and plain text / Markdown / CSV. HTML pages are rejected — link the image/PDF/text file directly. Optionally include `callbackUrl` and an `Idempotency-Key` header.",
+  request: {
+    body: jsonContentRequired(
+      z.object({
+        url: z.string().trim().url(),
+        callbackUrl: z.string().optional(),
+      }),
+      "Document URL",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.ACCEPTED]: ingestAcceptedSchema,
+    [HttpStatusCodes.FORBIDDEN]: ingestForbiddenResponse,
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createMessageObjectSchema("Invalid input"),
+      "URL rejected or validation failed",
+    ),
+    [HttpStatusCodes.BAD_GATEWAY]: jsonContent(
+      createMessageObjectSchema("Fetch failed"),
+      "The document URL could not be fetched",
+    ),
+  },
+});
+
+app.openapi(createUrlUpload, async (c) => {
+  const userId = c.get("userId");
+  const db = getDb();
+
+  return withIdempotency(c, db, userId, async () => {
+    const { url, callbackUrl: rawCallback } = c.req.valid("json");
+
+    const callbackUrl = validateCallbackUrl(rawCallback) ?? null;
+    if (rawCallback && !callbackUrl) {
+      return c.json(
+        { message: "callbackUrl must be an https:// URL (http allowed for localhost)." },
+        HttpStatusCodes.UNPROCESSABLE_ENTITY,
+      );
+    }
+
+    const access = await requireIngestionAccess(db, userId);
+    if (!access) {
+      return c.json(ingestionForbiddenResponse(), HttpStatusCodes.FORBIDDEN);
+    }
+
+    let doc;
+    try {
+      doc = await fetchIngestDocument(url);
+    } catch (error) {
+      await refundIngestion(db, userId, access);
+      const message = error instanceof Error ? error.message : "Could not fetch that document.";
+      const status = error instanceof IngestUrlError ? error.status : 422;
+      if (status === 502) {
+        return c.json({ message }, HttpStatusCodes.BAD_GATEWAY);
+      }
+      return c.json({ message }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
+    }
+
+    const isText = doc.text !== null;
+    const safeName =
+      doc.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "fetched-document";
+    const storageKey = `uploads/${userId}/${Date.now()}-${safeName}`;
+
+    try {
+      await ENV.FILES.put(storageKey, doc.bytes, {
+        httpMetadata: { contentType: doc.contentType },
+      });
+
+      const result = await startIngestionWorkflow(
+        db,
+        userId,
+        {
+          fileName: doc.fileName,
+          fileType: doc.contentType,
+          storageKey,
+          sourceType: isText ? "text" : "file",
+        },
+        callbackUrl,
+        (params) => ENV.CALENDAR_WORKFLOW.create({ params }),
+      );
+
+      return c.json(result, HttpStatusCodes.ACCEPTED);
+    } catch (error) {
+      await ENV.FILES.delete(storageKey).catch(() => undefined);
+      await refundIngestion(db, userId, access);
+      throw error;
+    }
+  });
+});
+
+// ─── Direct structured events (no AI — agents that already parsed) ─────────
+
+const structuredEventSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
+  time: z
+    .string()
+    .trim()
+    .regex(/^$|^([01]\d|2[0-3]):[0-5]\d$/, "Time must be in HH:MM 24-hour format")
+    .optional()
+    .default(""),
+  endTime: z
+    .string()
+    .trim()
+    .regex(/^$|^([01]\d|2[0-3]):[0-5]\d$/, "End time must be in HH:MM 24-hour format")
+    .optional()
+    .default(""),
+  location: z.string().trim().max(300).optional().default(""),
+  description: z.string().trim().max(2000).optional().default(""),
+});
+
+const MAX_DIRECT_EVENTS = 500;
+
+const createDirectEvents = createRoute({
+  method: "post",
+  path: "/events",
+  tags: ["Uploads"],
+  summary: "Create events directly from structured JSON (free, no AI)",
+  description:
+    "For agents that already parsed the schedule themselves — skip the AI, pass up to 500 structured events, and get the same upload record, .ics file, and share link as every other ingestion path. Free tier: no credit is consumed. Supports `Idempotency-Key`.",
+  request: {
+    body: jsonContentRequired(
+      z.object({
+        name: z.string().trim().max(120).optional(),
+        events: z.array(structuredEventSchema).min(1).max(MAX_DIRECT_EVENTS),
+      }),
+      "Structured events",
+    ),
+  },
+  responses: {
+    [HttpStatusCodes.CREATED]: jsonContent(
+      z.object({
+        uploadId: z.string(),
+        status: uploadStatusEnum,
+        eventCount: z.number(),
+        shareToken: z.string(),
+        downloadPath: z.string(),
+      }),
+      "Events created — the .ics and share link are ready immediately",
+    ),
+    [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
+      createMessageObjectSchema("Invalid input"),
+      "Event validation failed",
+    ),
+  },
+});
+
+app.openapi(createDirectEvents, async (c) => {
+  const userId = c.get("userId");
+  const db = getDb();
+
+  return withIdempotency(c, db, userId, async () => {
+    const { name, events: inputEvents } = c.req.valid("json");
+
+    const result = await createDirectEventsRecord(db, ENV.FILES, userId, {
+      name,
+      events: inputEvents,
     });
 
-    await updateUploadRecord(db, upload.id, {
-      workflowRunId: instance.id,
-      status: "processing",
-      failureReason: null,
-    });
+    return c.json(result, HttpStatusCodes.CREATED);
+  });
+});
 
-    return c.json(
-      { uploadId: upload.id, runId: instance.id, status: "processing" as const },
-      HttpStatusCodes.ACCEPTED,
-    );
-  } catch (error) {
-    await updateUploadRecord(db, upload.id, {
-      status: "failed",
-      failureReason:
-        error instanceof Error ? error.message : "Failed to start processing workflow.",
-    });
-    throw error;
+// ─── Review: the owner's event list for an upload ────────────────────────────
+
+const eventReviewSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  location: z.string().nullable(),
+  startTime: z.string(),
+  endTime: z.string().nullable(),
+  isAllDay: z.boolean(),
+  confidence: z.number().nullable(),
+  sourceQuote: z.string().nullable(),
+});
+
+const listUploadEvents = createRoute({
+  method: "get",
+  path: "/{id}/events",
+  tags: ["Uploads"],
+  summary: "List an upload's events for review (with confidence and source quote)",
+  request: {
+    params: z.object({ id: z.string().uuid() }),
+  },
+  responses: {
+    [HttpStatusCodes.OK]: jsonContent(
+      z.object({ events: z.array(eventReviewSchema) }),
+      "Extracted events",
+    ),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      createMessageObjectSchema("Not found"),
+      "Upload not found",
+    ),
+  },
+});
+
+app.openapi(listUploadEvents, async (c) => {
+  const { id } = c.req.valid("param");
+  const userId = c.get("userId");
+  const db = getDb();
+
+  const upload = await getUploadById(db, id);
+  if (!upload || upload.userId !== userId) {
+    return c.json({ message: "Upload not found" }, HttpStatusCodes.NOT_FOUND);
   }
+
+  const rows = await getUploadEventsForReview(db, userId, upload.id);
+  return c.json(
+    {
+      events: rows.map((e) => ({
+        ...e,
+        startTime: e.startTime.toISOString(),
+        endTime: e.endTime?.toISOString() ?? null,
+      })),
+    },
+    HttpStatusCodes.OK,
+  );
 });
 
 type StatusRow = {

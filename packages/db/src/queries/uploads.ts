@@ -22,6 +22,9 @@ export async function createUploadRecord(
     userId: string;
     status?: UploadStatus;
     workflowRunId?: string | null;
+    callbackUrl?: string | null;
+    icsKey?: string | null;
+    shareToken?: string | null;
     failureReason?: string | null;
   },
 ) {
@@ -35,6 +38,9 @@ export async function createUploadRecord(
       userId: input.userId,
       status: input.status ?? "pending",
       workflowRunId: input.workflowRunId ?? null,
+      callbackUrl: input.callbackUrl ?? null,
+      icsKey: input.icsKey ?? null,
+      shareToken: input.shareToken ?? null,
       failureReason: input.failureReason ?? null,
     })
     .returning({
@@ -82,6 +88,7 @@ const uploadColumns = {
   icsKey: uploads.icsKey,
   shareToken: uploads.shareToken,
   workflowRunId: uploads.workflowRunId,
+  callbackUrl: uploads.callbackUrl,
   failureReason: uploads.failureReason,
   status: uploads.status,
   userId: uploads.userId,
@@ -164,4 +171,23 @@ export async function getUploadByShareToken(db: Database, shareToken: string) {
     .limit(1);
 
   return result[0] ?? null;
+}
+
+/** Full event rows (incl. confidence/source quote) for the owner's review UI. */
+export async function getUploadEventsForReview(db: Database, userId: string, uploadId: string) {
+  return db
+    .select({
+      id: events.id,
+      title: events.title,
+      description: events.description,
+      location: events.location,
+      startTime: events.startTime,
+      endTime: events.endTime,
+      isAllDay: events.isAllDay,
+      confidence: events.confidence,
+      sourceQuote: events.sourceQuote,
+    })
+    .from(events)
+    .where(and(eq(events.uploadId, uploadId), eq(events.userId, userId)))
+    .orderBy(events.startTime);
 }

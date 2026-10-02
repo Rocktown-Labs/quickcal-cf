@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { Alert } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { Button, Input, Label, Spinner, TextField, useToast } from "heroui-native";
 import { authClient } from "@/lib/auth-client";
+import { api } from "@/lib/api";
 import {
   useApiKeys,
   useCreateApiKey,
   useDeleteApiKey,
   useMe,
+  useRotateCalendarFeed,
   useUpdateProfile,
 } from "@/lib/queries";
 import { PressCard } from "@/components/qc";
@@ -27,6 +30,7 @@ export default function SettingsScreen() {
   const { data: session } = authClient.useSession();
   const me = useMe();
   const updateProfile = useUpdateProfile();
+  const rotateFeed = useRotateCalendarFeed();
   const keys = useApiKeys();
   const createKey = useCreateApiKey();
   const deleteKey = useDeleteApiKey();
@@ -287,6 +291,105 @@ export default function SettingsScreen() {
                 </PressCard>
               </View>
             ))}
+          </View>
+        </SectionCard>
+
+        <SectionCard title="Agents & integrations">
+          <Text className="text-neutral-400 text-sm">
+            Everything an AI agent (or a calendar app) needs to work with your account.
+          </Text>
+
+          <View className="gap-1.5">
+            <Text className="text-white text-sm font-semibold">Calendar feed</Text>
+            <Text className="text-neutral-500 text-xs">
+              Every event you own, always current. Add by URL in Google Calendar, or webcal:// in
+              Apple Calendar.
+            </Text>
+            <Text className="text-neutral-300 text-xs" selectable>
+              {me.data?.calendarFeedPath ? `${api.serverUrl()}${me.data.calendarFeedPath}` : "…"}
+            </Text>
+            <View className="flex-row gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onPress={() => {
+                  void Clipboard.setStringAsync(
+                    me.data?.calendarFeedPath
+                      ? `${api.serverUrl()}${me.data.calendarFeedPath}`
+                      : "",
+                  );
+                  toast.show({ variant: "success", label: "Feed URL copied." });
+                }}
+              >
+                <Button.Label>Copy URL</Button.Label>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-red-900"
+                onPress={() =>
+                  Alert.alert(
+                    "Rotate feed token?",
+                    "Old subscription URLs stop working immediately.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Rotate",
+                        style: "destructive",
+                        onPress: () =>
+                          void rotateFeed
+                            .mutateAsync()
+                            .then(() =>
+                              toast.show({
+                                variant: "success",
+                                label: "Feed rotated — re-add the URL in your calendar app.",
+                              }),
+                            )
+                            .catch((err: unknown) =>
+                              toast.show({
+                                variant: "danger",
+                                label: err instanceof Error ? err.message : "Could not rotate.",
+                              }),
+                            ),
+                      },
+                    ],
+                  )
+                }
+              >
+                <Button.Label className="text-red-400">Rotate token</Button.Label>
+              </Button>
+            </View>
+          </View>
+
+          <View className="gap-1.5">
+            <Text className="text-white text-sm font-semibold">Webhook signing secret</Text>
+            <Text className="text-neutral-500 text-xs">
+              Verify callbackUrl webhooks: HMAC-SHA256(secret, ts + "." + body) against the
+              X-QuickCal-Signature header.
+            </Text>
+            <Text className="text-neutral-300 text-xs" selectable>
+              {me.data?.webhookSecret ?? "…"}
+            </Text>
+            <Button
+              size="sm"
+              variant="outline"
+              onPress={() => {
+                void Clipboard.setStringAsync(me.data?.webhookSecret ?? "");
+                toast.show({ variant: "success", label: "Webhook secret copied." });
+              }}
+            >
+              <Button.Label>Copy secret</Button.Label>
+            </Button>
+          </View>
+
+          <View className="gap-1.5">
+            <Text className="text-white text-sm font-semibold">MCP server</Text>
+            <Text className="text-neutral-500 text-xs">
+              Use QuickCalAI from any MCP client — auth with your qc_… API key:
+            </Text>
+            <Text className="text-neutral-300 text-xs" selectable>
+              {api.serverUrl()}/mcp
+            </Text>
           </View>
         </SectionCard>
 

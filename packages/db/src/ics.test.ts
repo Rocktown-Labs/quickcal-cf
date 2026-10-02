@@ -1,5 +1,53 @@
 import { describe, expect, test } from "bun:test";
-import { generateICS, generateICSForAI, generateICSForManual } from "./ics";
+import { generateICS, generateICSForAI, generateICSForManual, generateICSFromRows } from "./ics";
+
+describe("generateICSFromRows (review edits / aggregate feed)", () => {
+  const timedRow = {
+    title: "Biology 101",
+    description: null,
+    location: "Room 214",
+    // Wall-clock 14:30 encoded as UTC — the storage invariant.
+    startTime: new Date("2026-10-01T14:30:00Z"),
+    endTime: new Date("2026-10-01T16:00:00Z"),
+    isAllDay: false,
+  };
+
+  test("round-trips a timed row back into floating local time with end + location", () => {
+    const ics = generateICSFromRows([timedRow]);
+    expect(ics).toContain("SUMMARY:Biology 101");
+    expect(ics).toContain("DTSTART:20261001T143000");
+    expect(ics).toContain("DTEND:20261001T160000");
+    expect(ics).toContain("LOCATION:Room 214");
+  });
+
+  test("falls back to a 1-hour duration when there is no end time", () => {
+    const ics = generateICSFromRows([{ ...timedRow, endTime: null }]);
+    expect(ics).toContain("DURATION:PT1H");
+  });
+
+  test("renders all-day rows as date-only events", () => {
+    const ics = generateICSFromRows([
+      { ...timedRow, startTime: new Date("2026-12-25T00:00:00Z"), isAllDay: true },
+    ]);
+    expect(ics).toContain("DTSTART;VALUE=DATE:20261225");
+  });
+
+  test("many rows produce a calendar with the same event count", () => {
+    const ics = generateICSFromRows([timedRow, allDayRow()]);
+    expect(ics.match(/BEGIN:VEVENT/g)?.length).toBe(2);
+  });
+
+  function allDayRow() {
+    return {
+      title: "Holiday",
+      description: null,
+      location: null,
+      startTime: new Date("2027-01-01T00:00:00Z"),
+      endTime: null,
+      isAllDay: true,
+    };
+  }
+});
 
 describe("generateICSForAI", () => {
   test("creates a timed event with a 1-hour duration", () => {

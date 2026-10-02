@@ -93,8 +93,34 @@ export interface Profile {
   name: string;
   email: string;
   phoneNumber: string | null;
+  useCase: string | null;
+  calendarApp: string | null;
   isOnboarded: boolean;
   isPremium: boolean;
+  freeCredits: number;
+  calendarFeedPath: string | null;
+  webhookSecret: string;
+}
+
+export interface DirectEvent {
+  title: string;
+  date: string;
+  time?: string;
+  endTime?: string;
+  location?: string;
+  description?: string;
+}
+
+export interface ReviewEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  startTime: string;
+  endTime: string | null;
+  isAllDay: boolean;
+  confidence: number | null;
+  sourceQuote: string | null;
 }
 
 export interface ApiKeySummary {
@@ -116,6 +142,55 @@ export const api = {
     const form = new FormData();
     form.append("file", file as unknown as Blob);
     return request("/api/uploads", { method: "POST", body: form });
+  },
+  createUploadFromUrl(
+    url: string,
+    callbackUrl?: string,
+  ): Promise<{ uploadId: string; runId: string; status: UploadStatus }> {
+    return request("/api/uploads/from-url", {
+      method: "POST",
+      json: { url, ...(callbackUrl ? { callbackUrl } : {}) },
+    });
+  },
+  createUploadFromText(
+    content: string,
+    title?: string,
+    callbackUrl?: string,
+  ): Promise<{ uploadId: string; runId: string; status: UploadStatus }> {
+    return request("/api/uploads/text", {
+      method: "POST",
+      json: { content, ...(title ? { title } : {}), ...(callbackUrl ? { callbackUrl } : {}) },
+    });
+  },
+  createDirectEvents(
+    events: DirectEvent[],
+    name?: string,
+  ): Promise<{
+    uploadId: string;
+    status: "completed";
+    eventCount: number;
+    shareToken: string;
+    downloadPath: string;
+  }> {
+    return request("/api/uploads/events", {
+      method: "POST",
+      json: { events, ...(name ? { name } : {}) },
+    });
+  },
+  listUploadEvents(uploadId: string): Promise<{ events: ReviewEvent[] }> {
+    return request(`/api/uploads/${uploadId}/events`);
+  },
+  updateEvent(
+    eventId: string,
+    patch: Partial<Pick<DirectEvent, "title" | "date" | "time">>,
+  ): Promise<ReviewEvent> {
+    return request(`/api/events/${eventId}`, { method: "PATCH", json: patch });
+  },
+  deleteEvent(eventId: string): Promise<{ message: string }> {
+    return request(`/api/events/${eventId}`, { method: "DELETE" });
+  },
+  rotateCalendarFeed(): Promise<{ feedPath: string }> {
+    return request("/api/calendar/rotate", { method: "POST" });
   },
   uploadStatusById(uploadId: string): Promise<StatusResponse> {
     return request(`/api/uploads/${uploadId}/status`);

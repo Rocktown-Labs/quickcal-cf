@@ -1,12 +1,15 @@
 # QuickCalAI
 
-QuickCalAI turns schedule documents into calendar files. Upload a screenshot, photo, or PDF containing a
-schedule — a class timetable, conference agenda, shift roster, event flyer — and QuickCalAI uses Google
-Gemini to read every date and time, then generates a standard `.ics` calendar file that imports into
-Google Calendar, Apple Calendar, Outlook, and any other calendar app.
+QuickCalAI turns schedules into calendar files. Give it a photo, PDF, **pasted text**, a **public URL**, or **structured JSON events** — Google Gemini reads every date and time (or skips AI entirely for structured input) and generates a standard `.ics` file that imports into Google Calendar, Apple Calendar, Outlook, and any other calendar app.
 
-Free accounts can create single events by hand. Premium accounts ($12.99/mo or $71.88/yr via Stripe)
-unlock AI extraction from uploads, plus email (Resend) and SMS (Sent.dm) delivery and public share links.
+Free accounts get **one free AI extraction** plus unlimited manual/bulk event building. Premium accounts ($12.99/mo or $71.88/yr via Stripe) unlock unlimited AI extraction, email (Resend) and SMS (Sent.dm) delivery, and public share links.
+
+## How agents use it
+
+- **REST API** (`/doc`, `/reference`) — authenticate with a `qc_…` user API key as `Authorization: Bearer`. Ingestion accepts an `Idempotency-Key` header (retries replay instead of duplicating) and an optional `callbackUrl` (signed webhook, Stripe-style `X-QuickCal-Signature: t=…,v1=…`; the per-user signing secret is in `GET /api/user/me`).
+- **MCP server** at `POST /mcp` — stateless streamable-HTTP JSON-RPC. Tools: `upload_text`, `ingest_url`, `create_events`, `check_upload_status`, `list_uploads`, `get_upload_events`, `update_event`, `delete_event`, `revoke_share`. Same `qc_…` auth.
+- **Calendar feed** — one private URL with every event you own; subscribe in any calendar app and rotate it from Settings.
+- **Review API** — every extraction returns per-event confidence and the source quote it was parsed from; `PATCH /api/events/{id}` fixes misreads and the `.ics` regenerates immediately.
 
 ## How it works
 

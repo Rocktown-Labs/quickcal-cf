@@ -49,13 +49,97 @@ import DashLayout from "../layouts/DashLayout.astro";
       </div>
       ${completed ? `<div class="mt-3 flex flex-wrap gap-2">
         <button data-act="download" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-3 py-2">Download .ics</button>
+        <button data-act="review" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Review events</button>
         <button data-act="copy" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Copy link</button>
         <button data-act="email" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Email</button>
         <button data-act="sms" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">SMS</button>
         <button data-act="revoke" data-id="${u.id}" class="text-xs font-bold border border-warning/40 text-warning hover:bg-warning/10 rounded-lg px-3 py-2">Revoke share link</button>
         <button data-act="delete" data-id="${u.id}" class="text-xs font-bold text-danger hover:text-danger/80 border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-2">Delete</button>
-      </div>` : ""}
+      </div>
+      <div data-review="${u.id}" class="hidden mt-3 space-y-2"></div>` : ""}
     </div>`;
+  }
+
+  function confidenceBadge(confidence: number | null): string {
+    if (confidence === null) return "";
+    const pct = Math.round(confidence * 100);
+    const tone = confidence >= 0.8 ? "bg-success/15 text-success" : confidence >= 0.5 ? "bg-warning/15 text-warning" : "bg-danger/15 text-danger";
+    return `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full ${tone}">${pct}%</span>`;
+  }
+
+  function reviewRow(event: {
+    id: string;
+    title: string;
+    startTime: string;
+    isAllDay: boolean;
+    confidence: number | null;
+    sourceQuote: string | null;
+  }): string {
+    const start = new Date(event.startTime);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const date = `${start.getUTCFullYear()}-${pad(start.getUTCMonth() + 1)}-${pad(start.getUTCDate())}`;
+    const time = event.isAllDay ? "" : `${pad(start.getUTCHours())}:${pad(start.getUTCMinutes())}`;
+    return `<div class="rounded-lg border border-border bg-background p-3" data-event-row="${event.id}">
+      <div class="flex flex-wrap items-center gap-2">
+        <input data-field="title" value="${escapeHtml(event.title)}" class="flex-1 min-w-40 px-3 bg-input border border-input rounded-lg h-9 text-sm" />
+        ${confidenceBadge(event.confidence)}
+        <input data-field="date" type="date" value="${date}" class="px-2 bg-input border border-input rounded-lg h-9 text-sm" />
+        <input data-field="time" type="time" value="${time}" class="px-2 bg-input border border-input rounded-lg h-9 text-sm" title="Empty = all-day" />
+      </div>
+      ${event.sourceQuote ? `<p class="mt-2 text-xs text-muted-foreground italic border-l-2 border-border pl-2">"${escapeHtml(event.sourceQuote)}"</p>` : ""}
+      <div class="mt-2 flex gap-2">
+        <button data-act="save-event" data-event="${event.id}" class="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-3 py-1.5">Save</button>
+        <button data-act="delete-event" data-event="${event.id}" class="text-xs font-bold text-danger border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-1.5">Delete event</button>
+      </div>
+    </div>`;
+  }
+
+  async function openReview(uploadId: string) {
+    const panel = document.querySelector(`[data-review="${uploadId}"]`);
+    if (!panel) return;
+    if (!panel.classList.contains("hidden")) { panel.classList.add("hidden"); return; }
+    panel.innerHTML = `<p class="text-sm text-muted-foreground">Loading events…</p>`;
+    panel.classList.remove("hidden");
+    try {
+      const { events } = await api.listUploadEvents(uploadId);
+      if (events.length === 0) {
+        panel.innerHTML = `<p class="text-sm text-muted-foreground">No events in this upload.</p>`;
+        return;
+      }
+      panel.innerHTML = events.map(reviewRow).join("");
+    } catch (err) {
+      panel.innerHTML = `<p class="text-sm text-danger">${err instanceof Error ? err.message : "Could not load events."}</p>`;
+    }
+  }
+
+  async function saveEvent(eventId: string) {
+    const row = document.querySelector(`[data-event-row="${eventId}"]`);
+    if (!row) return;
+    const title = (row.querySelector('[data-field="title"]') as HTMLInputElement).value.trim();
+    const date = (row.querySelector('[data-field="date"]') as HTMLInputElement).value;
+    const time = (row.querySelector('[data-field="time"]') as HTMLInputElement).value;
+    if (!title || !date) { alert("Title and date are required."); return; }
+    try {
+      await api.updateEvent(eventId, { title, date, time });
+      alert("Saved — the .ics and share link now reflect your edits.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Save failed.");
+    }
+  }
+
+  async function deleteEvent(eventId: string, uploadId: string) {
+    if (!confirm("Delete this event? The calendar file is regenerated immediately.")) return;
+    try {
+      await api.deleteEvent(eventId);
+      const row = document.querySelector(`[data-event-row="${eventId}"]`);
+      row?.remove();
+      const panel = document.querySelector(`[data-review="${uploadId}"]`);
+      if (panel && panel.children.length === 0) {
+        panel.innerHTML = `<p class="text-sm text-muted-foreground">No events left in this upload.</p>`;
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Delete failed.");
+    }
   }
 
   async function init() {
@@ -90,6 +174,12 @@ import DashLayout from "../layouts/DashLayout.astro";
 
         if (act === "download" && token) {
           window.location.href = `${api.serverUrl()}/api/share/${token}/ics`;
+        } else if (act === "review") {
+          void openReview(id);
+        } else if (act === "save-event") {
+          void saveEvent(btn.getAttribute("data-event")!);
+        } else if (act === "delete-event") {
+          void deleteEvent(btn.getAttribute("data-event")!, id);
         } else if (act === "copy" && token) {
           try {
             await navigator.clipboard.writeText(`${window.location.origin}/s/${token}`);
@@ -132,6 +222,14 @@ import DashLayout from "../layouts/DashLayout.astro";
           }
         }
       });
+
+      // Deep link from the uploader's "Review & edit events" button.
+      const hash = window.location.hash.replace("#", "");
+      if (hash) {
+        const target = document.querySelector(`[data-card="${hash}"]`);
+        target?.scrollIntoView({ behavior: "smooth", block: "center" });
+        void openReview(hash);
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) { window.location.href = "/login"; return; }
       document.getElementById("files-loading")!.textContent =

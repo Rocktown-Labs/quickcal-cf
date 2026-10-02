@@ -15,6 +15,10 @@ import keys from "./routes/keys";
 import dashboard from "./routes/stats";
 import me from "./routes/me";
 import admin from "./routes/admin";
+import events from "./routes/events";
+import calendar from "./routes/calendar";
+import { mcpApp } from "./mcp";
+import { requireAuth } from "./lib/auth";
 import { rateLimit } from "./middleware/rate-limit";
 import { originCheck } from "./middleware/csrf";
 
@@ -61,11 +65,19 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => (await createAuth()).handler
 app.route("/api/uploads", uploads);
 app.route("/api/uploads", delivery);
 app.route("/api", manualEvent);
+app.route("/api", events);
 app.route("/api/share", share);
 app.route("/api/keys", keys);
 app.route("/api/dashboard", dashboard);
 app.route("/api/user", me);
+app.route("/api/calendar", calendar);
 app.route("/api/admin", admin);
+
+// MCP server — stateless streamable-HTTP JSON-RPC for AI agents.
+// Same auth as the REST API; requests without a session or qc_ key 401.
+app.use("/mcp", requireAuth);
+app.use("/mcp", rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "mcp" }));
+app.route("/mcp", mcpApp);
 
 app.doc("/doc", {
   openapi: "3.1.0",
@@ -73,7 +85,7 @@ app.doc("/doc", {
     title: "QuickCalAI API",
     version: "1.0.0",
     description:
-      "Upload schedule documents, extract calendar events, and manage API keys. Agents authenticate with a user API key as `Authorization: Bearer qc_...`.",
+      "Turn schedules into calendar files. Ingest a file, pasted text, a public URL, or structured JSON events; then poll status, review/edit the extracted events, and download or share the .ics. Also available as an MCP server at POST /mcp (stateless streamable-HTTP JSON-RPC — send `tools/list` for the catalog). Agents authenticate with a user API key as `Authorization: Bearer qc_...` and may send an `Idempotency-Key` header on ingestion requests to make retries safe.",
   },
 });
 
