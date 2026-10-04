@@ -58,7 +58,9 @@ jobs:
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
           STRIPE_PREMIUM_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_ANNUAL_PRICE_ID }}
-          GOOGLE_GENERATIVE_AI_API_KEY: ${{ secrets.GOOGLE_GENERATIVE_AI_API_KEY }}
+          # Document reading (GLM-OCR on z.ai) + event extraction (Workers AI GLM)
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          EXTRACTION_MODEL: ${{ vars.EXTRACTION_MODEL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
           SENT_DM_API_KEY: ${{ secrets.SENT_DM_API_KEY }}

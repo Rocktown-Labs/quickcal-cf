@@ -1,5 +1,3 @@
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { generateText } from "ai";
 import { z } from "zod";
 
 export interface ExtractedEvent {
@@ -21,7 +19,11 @@ const timeRegex = /^$|^([01]\d|2[0-3]):[0-5]\d$/;
 const extractedEventSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
   time: z.string().regex(timeRegex, "Time must be in HH:MM format"),
-  endTime: z.string().regex(timeRegex, "End time must be in HH:MM format").optional().default(""),
+  endTime: z
+    .string()
+    .regex(timeRegex, "End time must be in HH:MM format")
+    .optional()
+    .default(""),
   // Short event name — falls back to the description when omitted by the model.
   title: z.string().trim().max(200).optional().default(""),
   description: z.string().trim().min(1).max(1000),
@@ -38,6 +40,24 @@ const extractedEventsSchema = z
   .array(extractedEventSchema)
   .max(MAX_EXTRACTED_EVENTS, `Too many events extracted (max ${MAX_EXTRACTED_EVENTS})`);
 
+// ─── The gate: Clef (Cloudflare Workers AI, in-network) ─────────────────────
+
+// Cloudflare Clef (27B decision model) classifies in-spec image uploads for
+// the "is this a calendar?" gate: in-network via the AI binding, ~209 ms
+// median latency, and $0.24/M input tokens vs a frontier VLM's pricing.
+// Clef accepts embedded PNG/JPEG/WebP only (≤ 4 MiB and 16 megapixels each).
+// PDFs and oversized images are OCR'd instead (see lib/ocr.ts) — extraction
+// on that text decides, so they need no pixel gate at all.
+const CLEF_MODEL = "@cf/cloudflare/clef";
+const CLEF_PROBABILITY_THRESHOLD = 0.5;
+export const CLEF_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const CLEF_MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
+/** True when the upload fits within Clef's image input constraints. */
+export function shouldUseClefGate(contentType: string, byteLength: number): boolean {
+  return CLEF_IMAGE_TYPES.has(contentType) && byteLength <= CLEF_MAX_IMAGE_BYTES;
+}
+
 function toBase64(data: Uint8Array): string {
   let bin = "";
   const chunk = 0x8000;
@@ -47,42 +67,23 @@ function toBase64(data: Uint8Array): string {
   return btoa(bin);
 }
 
-// ─── Models ───
-
-// Gemini 3.8 Flash — stable model ID (released 2026-09-02, no preview suffix).
-// Runs event extraction (Clef is a decision model — no free-form output) and
-// doubles as the classifier of last resort.
-const EXTRACTION_MODEL = "gemini-3.8-flash";
-const CLASSIFICATION_MODEL = "gemini-3.8-flash";
-
-// Cloudflare Clef (27B decision model, launched 2026-10-01) classifies image
-// uploads for the "is this a calendar?" gate: in-network via the AI binding,
-// ~209 ms median latency, and $0.24/M input tokens vs Gemini's $0.75/M.
-// Clef accepts embedded PNG/JPEG/WebP only (≤ 4 MiB and 16 megapixels each),
-// so PDFs and oversized photos stay on Gemini — it is a fast path with a
-// Gemini fallback, not a wholesale replacement.
-const CLEF_MODEL = "@cf/cloudflare/clef";
-const CLEF_PROBABILITY_THRESHOLD = 0.5;
-const CLEF_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
-const CLEF_MAX_IMAGE_BYTES = 4 * 1024 * 1024;
-
-/** True when the upload fits within Clef's image input constraints. */
-export function shouldUseClefGate(contentType: string, byteLength: number): boolean {
-  return CLEF_IMAGE_TYPES.has(contentType) && byteLength <= CLEF_MAX_IMAGE_BYTES;
-}
-
 // System One noul answers arrive as { type: "noul", noul: probability }
 // where noul ∈ [0, 1] is the probability the answer is yes. Accept a bare
 // number too, in case the API ever simplifies the shape.
 function clefYesProbability(response: unknown): number {
-  const answer = (response as { answers?: Record<string, unknown> } | null)?.answers?.isCalendar;
+  const answer = (response as { answers?: Record<string, unknown> } | null)?.answers
+    ?.isCalendar;
   if (typeof answer === "number") return answer;
   const noul = (answer as { noul?: unknown } | null)?.noul;
   if (typeof noul === "number") return noul;
   throw new Error("Clef returned an unexpected answer shape");
 }
 
-/** Clef gate — throws on any failure so the caller can fall back to Gemini. */
+/**
+ * Clef gate — throws on any failure (so the workflow can retry, then mark
+ * the upload `failed`). A provider error must never be mislabeled "not a
+ * calendar" (`no_events`).
+ */
 export async function isDocumentCalendarClef(
   ai: Ai,
   fileData: Uint8Array,
@@ -109,77 +110,9 @@ export async function isDocumentCalendarClef(
   return clefYesProbability(response) >= CLEF_PROBABILITY_THRESHOLD;
 }
 
-/**
- * Gemini gate — throws on provider errors (and empty replies) instead of
- * swallowing them, so callers can tell "not a calendar" apart from "the
- * check failed".
- */
-export async function isDocumentCalendar(
-  apiKey: string,
-  fileData: Uint8Array,
-  fileType: string,
-): Promise<boolean> {
-  const google = createGoogleGenerativeAI({ apiKey });
-  const dataUrl = `data:${fileType};base64,${toBase64(fileData)}`;
+// ─── The extraction: GLM on the Workers AI binding (in-network) ─────────────
 
-  const { text } = await generateText({
-    model: google(CLASSIFICATION_MODEL),
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: `Analyze the following document. Does it primarily represent a calendar, schedule, agenda, or a list of events with dates? Please answer with only a single word: 'yes' or 'no'.`,
-          },
-          {
-            type: "image",
-            image: dataUrl,
-          },
-        ],
-      },
-    ],
-  });
-
-  if (text === undefined || text.trim() === "") {
-    throw new Error("Gemini classification returned an empty response");
-  }
-  return text.trim().toLowerCase() === "yes";
-}
-
-export interface ClassifyDocumentInput {
-  ai: Ai;
-  geminiApiKey: string;
-  data: Uint8Array;
-  contentType: string;
-  /** Test seam — override the Gemini fallback classifier. */
-  geminiClassifier?: typeof isDocumentCalendar;
-}
-
-/**
- * "Is this a calendar?" gate. Routes in-spec images to Cloudflare Clef
- * (cheap, in-network) and everything else — PDFs, oversized images — to
- * Gemini. A Clef failure falls back to Gemini rather than failing the
- * upload; only when both providers fail does this throw, so provider
- * outages surface as `failed` uploads instead of being mislabeled
- * "not a calendar" (`no_events`).
- */
-export async function classifyDocument(input: ClassifyDocumentInput): Promise<boolean> {
-  const { ai, geminiApiKey, data, contentType } = input;
-  const gemini = input.geminiClassifier ?? isDocumentCalendar;
-
-  if (shouldUseClefGate(contentType, data.byteLength)) {
-    try {
-      return await isDocumentCalendarClef(ai, data, contentType);
-    } catch (err) {
-      console.warn(
-        `Clef gate failed (${err instanceof Error ? err.message : String(err)}); falling back to Gemini`,
-      );
-    }
-  }
-
-  return gemini(geminiApiKey, data, contentType);
-}
+export const DEFAULT_EXTRACTION_MODEL = "@cf/zai-org/glm-5.3-flash";
 
 const EXTRACTION_PROMPT = `Analyze the provided calendar, schedule, or agenda document. Examine ALL pages and identify all distinct events, appointments, or line items across the entire document.
 
@@ -193,19 +126,58 @@ For each item, extract:
 - "confidence": a number between 0 and 1 for how certain you are the date and time are parsed correctly.
 - "sourceQuote": the exact short snippet from the document this event was parsed from.
 
-Do not invent dates or times that are not in the document. Return the data as a JSON array of objects with no duplicates.`;
+Do not invent dates or times that are not in the document. Return ONLY a JSON array of objects with no duplicates, no commentary, and no markdown fences.`;
 
-function parseExtraction(text: string | undefined): ExtractedEvent[] {
-  if (text === undefined) return [];
+/**
+ * Normalizes Workers AI text-model responses. Most models return
+ * { response }, but newer/reasoning-capable models have been known to shape
+ * output differently — accept the common alternatives without failing.
+ */
+function workersAiText(response: unknown): string | undefined {
+  if (response === null || response === undefined) return undefined;
+  if (typeof response === "string") return response;
 
-  const cleanedText = text
+  const obj = response as {
+    response?: unknown;
+    text?: unknown;
+    choices?: Array<{ message?: { content?: unknown } }>;
+  };
+
+  if (typeof obj.response === "string") return obj.response;
+  if (typeof obj.text === "string") return obj.text;
+  const content = obj.choices?.[0]?.message?.content;
+  if (typeof content === "string") return content;
+
+  throw new Error("Extraction model returned an unrecognized response shape");
+}
+
+/**
+ * Pulls the JSON events array out of a model reply that may include fences,
+ * prose, or reasoning before/after the payload.
+ */
+function extractJsonArray(text: string): unknown {
+  const cleaned = text
     .trim()
-    .replace(/^```json\s*/, "")
+    .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "");
 
-  if (cleanedText === "") return [];
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Fall back to the outermost array literal in the reply.
+    const start = cleaned.indexOf("[");
+    const end = cleaned.lastIndexOf("]");
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error("Extraction output contained no JSON array");
+    }
+    return JSON.parse(cleaned.slice(start, end + 1));
+  }
+}
 
-  const raw: unknown = JSON.parse(cleanedText);
+export function parseExtraction(text: string | undefined): ExtractedEvent[] {
+  if (text === undefined || text.trim() === "") return [];
+
+  const raw = extractJsonArray(text);
   const parsed = extractedEventsSchema.safeParse(raw);
   if (!parsed.success) {
     throw new Error(`Invalid AI extraction output: ${parsed.error.message}`);
@@ -218,58 +190,25 @@ function parseExtraction(text: string | undefined): ExtractedEvent[] {
   }));
 }
 
-export async function extractEventsFromDocument(
-  apiKey: string,
-  fileData: Uint8Array,
-  fileType: string,
-): Promise<ExtractedEvent[]> {
-  const google = createGoogleGenerativeAI({ apiKey });
-  const dataUrl = `data:${fileType};base64,${toBase64(fileData)}`;
-
-  const { text } = await generateText({
-    model: google(EXTRACTION_MODEL),
-    messages: [
-      {
-        role: "user",
-        content: [
-          { type: "text", text: EXTRACTION_PROMPT },
-          {
-            type: "image",
-            image: dataUrl,
-          },
-        ],
-      },
-    ],
-  });
-
-  return parseExtraction(text);
-}
-
 /**
- * Text-only extraction — the pipeline for pasted plain text, markdown, and
- * CSV schedules (also used by URL ingestion when the target is a text
- * document). Same schema and parsing as the vision path.
+ * Extracts events from schedule text (OCR markdown, pasted text, CSV) using
+ * GLM on the Workers AI binding — in-network, no external key. Throws on
+ * provider errors so the workflow's retry policy applies.
  */
 export async function extractEventsFromText(
-  apiKey: string,
+  ai: Ai,
   content: string,
+  model = DEFAULT_EXTRACTION_MODEL,
 ): Promise<ExtractedEvent[]> {
-  const google = createGoogleGenerativeAI({ apiKey });
-
-  const { text } = await generateText({
-    model: google(EXTRACTION_MODEL),
+  const response = await ai.run(model, {
     messages: [
       {
         role: "user",
-        content: [
-          {
-            type: "text",
-            text: `${EXTRACTION_PROMPT}\n\nThe schedule content follows between the markers. Ignore the markers themselves.\n\n<<<BEGIN DOCUMENT>>>\n${content}\n<<<END DOCUMENT>>>`,
-          },
-        ],
+        content: `${EXTRACTION_PROMPT}\n\nThe schedule content follows between the markers. Ignore the markers themselves.\n\n<<<BEGIN DOCUMENT>>>\n${content}\n<<<END DOCUMENT>>>`,
       },
     ],
+    stream: false,
   });
 
-  return parseExtraction(text);
+  return parseExtraction(workersAiText(response));
 }

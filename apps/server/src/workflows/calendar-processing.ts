@@ -10,11 +10,12 @@ import {
   type Database,
 } from "@quickcal-cf/db";
 import {
-  extractEventsFromDocument,
   extractEventsFromText,
-  classifyDocument,
+  isDocumentCalendarClef,
+  shouldUseClefGate,
   type ExtractedEvent,
 } from "../lib/ai";
+import { ocrDocument } from "../lib/ocr";
 import { sendWebhook, webhookSecretFor } from "../lib/webhook";
 
 export interface CalendarProcessingInput {
@@ -23,7 +24,7 @@ export interface CalendarProcessingInput {
   fileName: string;
   fileType: string;
   userId: string;
-  /** "text" skips the vision gate and extracts from the stored text file. */
+  /** "text" extracts from the stored text directly; "file" OCRs first. */
   sourceType: "file" | "text";
   /** True when a free-trial credit paid for this ingestion — refunded if the run fails. */
   creditUsed?: boolean;
@@ -76,47 +77,75 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
         });
       });
 
+      // The gate runs only where it's free and in-network: in-spec images,
+      // via Clef on the Workers AI binding. PDFs and oversized images skip
+      // the pixel gate entirely — they're OCR'd first and extraction decides
+      // (see the "ocr" step), which answers "is this a calendar?" implicitly
+      // for the formats Clef can't read.
       if (sourceType !== "text") {
-        const isCalendar = await step.do(
-          "check-is-calendar",
-          // Transient AI-provider hiccups (rate limits, shared-GPU 429s)
-          // shouldn't fail the upload on the first hit.
-          { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" } },
-          async () => {
-            const { data, contentType } = await this.getSourceFile(storageKey, fileType);
-            return classifyDocument({
-              ai: this.env.AI,
-              geminiApiKey: this.env.GOOGLE_GENERATIVE_AI_API_KEY,
-              data,
-              contentType,
-            });
-          },
-        );
+        const { data, contentType } = await this.getSourceFile(storageKey, fileType);
 
-        if (!isCalendar) {
-          const failureReason =
-            "The uploaded file did not appear to contain a calendar or schedule.";
-          await step.do("mark-no-events", async () => {
-            await updateUploadRecord(db, uploadId, {
-              status: "no_events",
-              failureReason,
+        if (shouldUseClefGate(contentType, data.byteLength)) {
+          const isCalendar = await step.do(
+            "check-is-calendar",
+            // Transient AI-provider hiccups (rate limits, shared-GPU 429s)
+            // shouldn't fail the upload on the first hit. Clef failures throw
+            // here — never mislabeled as "not a calendar".
+            { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" } },
+            () => isDocumentCalendarClef(this.env.AI, data, contentType),
+          );
+
+          if (!isCalendar) {
+            const failureReason =
+              "The uploaded file did not appear to contain a calendar or schedule.";
+            await step.do("mark-no-events", async () => {
+              await updateUploadRecord(db, uploadId, {
+                status: "no_events",
+                failureReason,
+              });
             });
-          });
-          result = { uploadId, eventCount: 0, status: "no_events" };
-          return this.finish(step, db, uploadId, userId, result);
+            result = { uploadId, eventCount: 0, status: "no_events" };
+            return this.finish(step, db, uploadId, userId, result);
+          }
         }
       }
 
-      const extractedEvents = await step.do("extract-events", async () => {
+      // Every non-text source becomes text first: images and PDFs are OCR'd
+      // by GLM-OCR (z.ai), which also handles what Clef cannot read. The
+      // workflow retries transient provider failures; hard OcrErrors surface
+      // as the upload's failureReason (e.g. WebP, missing key).
+      let scheduleText: string;
+      if (sourceType === "text") {
         const source = await this.getSourceFile(storageKey, fileType);
-        return sourceType === "text"
-          ? extractEventsFromText(this.env.GOOGLE_GENERATIVE_AI_API_KEY, source.text)
-          : extractEventsFromDocument(
-              this.env.GOOGLE_GENERATIVE_AI_API_KEY,
-              source.data,
-              source.contentType,
+        scheduleText = source.text;
+      } else {
+        scheduleText = await step.do(
+          "ocr",
+          { retries: { limit: 3, delay: "10 seconds", backoff: "exponential" } },
+          async () => {
+            const { data, contentType } = await this.getSourceFile(storageKey, fileType);
+            return ocrDocument(
+              {
+                apiKey: this.env.ZAI_API_KEY,
+                url: this.env.ZAI_LAYOUT_PARSING_URL,
+              },
+              data,
+              contentType,
             );
-      });
+          },
+        );
+      }
+
+      const extractedEvents = await step.do(
+        "extract-events",
+        { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" } },
+        () =>
+          extractEventsFromText(
+            this.env.AI,
+            scheduleText,
+            this.env.EXTRACTION_MODEL ?? undefined,
+          ),
+      );
 
       if (extractedEvents.length === 0) {
         const failureReason = "No calendar events were found in the uploaded document.";

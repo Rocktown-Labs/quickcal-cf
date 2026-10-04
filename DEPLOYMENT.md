@@ -30,7 +30,9 @@ Set these as GitHub Actions secrets, Cloudflare Worker secrets, or in `apps/serv
 | `ADMIN_USER_IDS` | Optional | Bootstrap admins before sign-up |
 | `STRIPE_SECRET_KEY` | **Missing** | Stripe API |
 | `STRIPE_WEBHOOK_SECRET` | **Missing** | Stripe webhook verification |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | **Broken in prod (verified 2026-10-02)** | AI extraction — the deployed key returns `AI_APICallError: invalid authentication credentials`; every AI ingestion fails until a valid key replaces it. Free-credit refunds now cover these failures. |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | **Removed** | Was AI extraction — replaced 2026-10-04 by GLM-OCR (z.ai) + GLM on Workers AI; delete the stale GitHub secret |
+| `ZAI_API_KEY` | **Needed for image/PDF** | GLM-OCR reads images/PDFs into text (z.ai, $0.03/M tokens). Without it: pasted-text ingestion works fully (extraction runs in-network); image/PDF uploads fail with a clear "OCR provider not configured" reason. Get a key at https://z.ai/manage-apikey/apikey-list |
+| `EXTRACTION_MODEL` | Optional var | Workers AI extraction model — defaults to `@cf/zai-org/glm-5.3-flash` |
 | `RESEND_API_KEY` | Set in GitHub Actions | Email delivery |
 | `RESEND_FROM_EMAIL` | Suggested: `QuickCalAI <noreply@extractions.quickcalai.com>` | Email sender |
 | `SENT_DM_API_KEY` | Set in GitHub Actions | SMS delivery |

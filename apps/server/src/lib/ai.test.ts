@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { classifyDocument, isDocumentCalendarClef, shouldUseClefGate } from "./ai";
+import {
+  extractEventsFromText,
+  isDocumentCalendarClef,
+  parseExtraction,
+  shouldUseClefGate,
+} from "./ai";
 
 const FOUR_MIB = 4 * 1024 * 1024;
 
@@ -15,14 +20,16 @@ function aiStub(result: unknown) {
   return { ai: ai as unknown as Ai, calls };
 }
 
-function geminiStub(result: boolean | Error) {
-  const calls: Array<{ apiKey: string; contentType: string }> = [];
-  const classifier = async (apiKey: string, _data: Uint8Array, contentType: string) => {
-    calls.push({ apiKey, contentType });
-    if (result instanceof Error) throw result;
-    return result;
+function textAiStub(result: unknown) {
+  const calls: Array<{ model: string; messages: unknown }> = [];
+  const ai = {
+    async run(model: string, input: unknown): Promise<unknown> {
+      calls.push({ model, messages: input });
+      if (result instanceof Error) throw result;
+      return result;
+    },
   };
-  return { classifier, calls };
+  return { ai: ai as unknown as Ai, calls };
 }
 
 describe("shouldUseClefGate", () => {
@@ -76,94 +83,99 @@ describe("isDocumentCalendarClef", () => {
     expect(input.images[0]?.content_type).toBe("image/png");
     expect(input.images[0]?.base64).toBe("AQID"); // bytes [1, 2, 3]
   });
+
+  test("propagates provider failures (no silent 'not a calendar')", async () => {
+    const { ai } = aiStub(new Error("429 rate limited"));
+    expect(isDocumentCalendarClef(ai, new Uint8Array(1), "image/png")).rejects.toThrow(
+      "429 rate limited",
+    );
+  });
 });
 
-describe("classifyDocument", () => {
-  const png = new Uint8Array([1, 2, 3]);
-
-  test("routes in-spec images to clef", async () => {
-    const { ai } = aiStub({ answers: { isCalendar: { type: "noul", noul: 0.95 } } });
-    const gemini = geminiStub(false);
-    const result = await classifyDocument({
-      ai,
-      geminiApiKey: "k",
-      data: png,
-      contentType: "image/png",
-      geminiClassifier: gemini.classifier,
-    });
-    expect(result).toBe(true);
-    expect(gemini.calls.length).toBe(0);
+describe("parseExtraction", () => {
+  test("parses a plain JSON array", () => {
+    const events = parseExtraction(
+      `[{"date":"2026-10-05","time":"09:00","description":"Biology 101","location":"Room 214","confidence":0.9,"sourceQuote":"Bio 101 9am"}]`,
+    );
+    expect(events.length).toBe(1);
+    expect(events[0]!.title).toBe("Biology 101");
+    expect(events[0]!.confidence).toBe(0.9);
   });
 
-  test("routes PDFs straight to Gemini", async () => {
-    const { ai, calls } = aiStub({ answers: { isCalendar: { type: "noul", noul: 0.95 } } });
-    const gemini = geminiStub(true);
-    const result = await classifyDocument({
-      ai,
-      geminiApiKey: "k",
-      data: png,
-      contentType: "application/pdf",
-      geminiClassifier: gemini.classifier,
-    });
-    expect(result).toBe(true);
-    expect(calls.length).toBe(0);
-    expect(gemini.calls.length).toBe(1);
+  test("strips markdown fences", () => {
+    const events = parseExtraction(
+      "```json\n[{\"date\":\"2026-10-05\",\"time\":\"\",\"description\":\"Holiday\"}]\n```",
+    );
+    expect(events.length).toBe(1);
+    expect(events[0]!.time).toBe(""); // no time = all-day event downstream
   });
 
-  test("falls back to Gemini when clef fails", async () => {
-    const { ai } = aiStub(new Error("429 rate limited"));
-    const gemini = geminiStub(true);
-    const result = await classifyDocument({
-      ai,
-      geminiApiKey: "k",
-      data: png,
-      contentType: "image/jpeg",
-      geminiClassifier: gemini.classifier,
-    });
-    expect(result).toBe(true);
-    expect(gemini.calls.length).toBe(1);
+  test("recovers the array from prose-wrapped replies", () => {
+    const events = parseExtraction(
+      `Here are the events I found:\n\n[{"date":"2026-10-06","time":"14:00","description":"Standup"}]\n\nLet me know if you need anything else.`,
+    );
+    expect(events.length).toBe(1);
+    expect(events[0]!.description).toBe("Standup");
   });
 
-  test("falls back to Gemini when clef returns a malformed answer", async () => {
-    const { ai } = aiStub({ answers: { isCalendar: "garbage" } });
-    const gemini = geminiStub(false);
-    const result = await classifyDocument({
-      ai,
-      geminiApiKey: "k",
-      data: png,
-      contentType: "image/webp",
-      geminiClassifier: gemini.classifier,
-    });
-    expect(result).toBe(false);
-    expect(gemini.calls.length).toBe(1);
+  test("falls back to description when the title is omitted", () => {
+    const events = parseExtraction(
+      `[{"date":"2026-10-05","time":"09:00","description":"Dentist"}]`,
+    );
+    expect(events[0]!.title).toBe("Dentist");
   });
 
-  test("routes oversized images to Gemini", async () => {
-    const { ai, calls } = aiStub({ answers: { isCalendar: { type: "noul", noul: 0.95 } } });
-    const gemini = geminiStub(true);
-    const result = await classifyDocument({
-      ai,
-      geminiApiKey: "k",
-      data: new Uint8Array(FOUR_MIB + 1),
-      contentType: "image/png",
-      geminiClassifier: gemini.classifier,
-    });
-    expect(result).toBe(true);
-    expect(calls.length).toBe(0);
-    expect(gemini.calls.length).toBe(1);
+  test("returns empty for empty model replies", () => {
+    expect(parseExtraction("")).toEqual([]);
+    expect(parseExtraction(undefined)).toEqual([]);
   });
 
-  test("rejects only when both providers fail", async () => {
-    const { ai } = aiStub(new Error("clef down"));
-    const gemini = geminiStub(new Error("gemini down"));
-    expect(
-      classifyDocument({
-        ai,
-        geminiApiKey: "k",
-        data: png,
-        contentType: "image/png",
-        geminiClassifier: gemini.classifier,
-      }),
-    ).rejects.toThrow("gemini down");
+  test("rejects arrays that exceed the event cap", () => {
+    const big = JSON.stringify(
+      Array.from({ length: 501 }, () => ({
+        date: "2026-10-05",
+        time: "",
+        description: "x",
+      })),
+    );
+    expect(() => parseExtraction(big)).toThrow("Too many events");
+  });
+});
+
+describe("extractEventsFromText (GLM on the Workers AI binding)", () => {
+  test("sends the prompt to the configured model and parses the reply", async () => {
+    const { ai, calls } = textAiStub({
+      response: `[{"date":"2026-10-05","time":"09:00","description":"Biology 101"}]`,
+    });
+    const events = await extractEventsFromText(ai, "Bio 101 9am Monday", "@cf/zai-org/glm-4.7-flash");
+    expect(events.length).toBe(1);
+    expect(events[0]!.description).toBe("Biology 101");
+
+    const call = calls[0]!;
+    expect(call.model).toBe("@cf/zai-org/glm-4.7-flash");
+    const input = call.messages as { messages: Array<{ role: string; content: string }> };
+    expect(input.messages[0]!.role).toBe("user");
+    expect(input.messages[0]!.content).toContain("<<<BEGIN DOCUMENT>>>");
+    expect(input.messages[0]!.content).toContain("Bio 101 9am Monday");
+  });
+
+  test("defaults to the GLM flash extraction model", async () => {
+    const { ai, calls } = textAiStub({ response: "[]" });
+    await extractEventsFromText(ai, "nothing here");
+    expect(calls[0]!.model).toBe("@cf/zai-org/glm-5.3-flash");
+  });
+
+  test("normalizes non-standard response shapes", async () => {
+    const choicesAi = textAiStub({
+      choices: [{ message: { content: `[{"date":"2026-10-05","time":"","description":"Holiday"}]` } }],
+    });
+    const events = await extractEventsFromText(choicesAi.ai, "Oct 5 holiday");
+    expect(events.length).toBe(1);
+    expect(events[0]!.time).toBe("");
+  });
+
+  test("propagates provider failures for workflow retry", async () => {
+    const { ai } = textAiStub(new Error("model overloaded"));
+    expect(extractEventsFromText(ai, "x")).rejects.toThrow("model overloaded");
   });
 });

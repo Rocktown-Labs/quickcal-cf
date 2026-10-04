@@ -6,7 +6,7 @@ import Logo from "../components/Logo.astro";
 const stats = [
   { value: "4", label: "File formats — JPEG, PNG, WebP, PDF" },
   { value: "10 MB", label: "Max upload size" },
-  { value: "Gemini 2.5", label: "Extraction engine" },
+  { value: "GLM-OCR", label: "Document engine" },
   { value: "$0", label: "Manual events, free forever" },
 ] as const;
 
@@ -19,7 +19,7 @@ const steps = [
   {
     number: "02",
     title: "AI reads every event",
-    body: "Gemini identifies dates, times, and event names across the whole document and turns them into structured calendar events.",
+    body: "OCR turns the document into clean text, then AI identifies dates, times, and event names across the whole thing — every event becomes structured calendar data.",
   },
   {
     number: "03",

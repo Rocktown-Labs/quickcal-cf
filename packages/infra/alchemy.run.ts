@@ -45,7 +45,19 @@ export const server = Cloudflare.Worker("server", {
       Config.String("STRIPE_PREMIUM_ANNUAL_PRICE_ID"),
       "",
     ),
-    GOOGLE_GENERATIVE_AI_API_KEY: Config.Redacted("GOOGLE_GENERATIVE_AI_API_KEY"),
+    // GLM-OCR (z.ai) reads images/PDFs into markdown — the OCR step. Optional:
+    // text ingestion works without it; image/PDF uploads fail with a clear
+    // "OCR provider not configured" until it's set.
+    ZAI_API_KEY: Config.withDefault(Config.Redacted("ZAI_API_KEY"), ""),
+    ZAI_LAYOUT_PARSING_URL: Config.withDefault(
+      Config.String("ZAI_LAYOUT_PARSING_URL"),
+      "https://api.z.ai/api/paas/v4/layout_parsing",
+    ),
+    // Event extraction runs in-network on Workers AI (GLM flash family).
+    EXTRACTION_MODEL: Config.withDefault(
+      Config.String("EXTRACTION_MODEL"),
+      "@cf/zai-org/glm-5.3-flash",
+    ),
     RESEND_API_KEY: Config.Redacted("RESEND_API_KEY"),
     RESEND_FROM_EMAIL: Config.withDefault(Config.String("RESEND_FROM_EMAIL"), ""),
     SENT_DM_API_KEY: Config.Redacted("SENT_DM_API_KEY"),
