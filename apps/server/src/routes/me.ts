@@ -28,6 +28,14 @@ const profileSchema = z.object({
 
 // Onboarding questionnaire answers — sent by the web app's /onboarding flow.
 const useCaseSchema = z.enum(["class", "work", "conference", "events", "other"]);
+// Step 1 is multi-select on web; a single value is still accepted for older
+// clients. Stored as a comma-separated list in canonical enum order.
+const useCaseInput = z
+  .union([useCaseSchema, z.array(useCaseSchema).min(1).max(useCaseSchema.options.length)])
+  .transform((value) => {
+    const picked = Array.isArray(value) ? value : [value];
+    return useCaseSchema.options.filter((option) => picked.includes(option)).join(",");
+  });
 const calendarAppSchema = z.enum(["google", "apple", "outlook", "other"]);
 
 const getMe = createRoute({
@@ -69,7 +77,7 @@ app.openapi(getMe, async (c) => {
 
 const updateMeBody = z.object({
   phoneNumber: z.string().trim().max(32).optional(),
-  useCase: useCaseSchema.optional(),
+  useCase: useCaseInput.optional(),
   calendarApp: calendarAppSchema.optional(),
   isOnboarded: z.boolean().optional(),
 });

@@ -99,7 +99,10 @@ import Uploader from "../components/Uploader.astro";
         other: "Turn any schedule into calendar events with one upload.",
       };
       const subtitle = document.getElementById("dash-subtitle");
-      if (subtitle && me?.useCase) subtitle.textContent = SUBTITLES[me.useCase] ?? subtitle.textContent;
+      // Use cases are stored as a comma-separated list (step 1 is
+      // multi-select) — personalize from the first one.
+      const primaryUseCase = me?.useCase?.split(",")[0];
+      if (subtitle && primaryUseCase) subtitle.textContent = SUBTITLES[primaryUseCase] ?? subtitle.textContent;
       document.getElementById("stat-uploads")!.textContent = String(stats.totalUploads);
       document.getElementById("stat-completed")!.textContent = String(stats.completedUploads);
       document.getElementById("stat-events")!.textContent = String(stats.totalEvents);

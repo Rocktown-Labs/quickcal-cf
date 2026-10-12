@@ -31,28 +31,28 @@ import Layout from "../layouts/Layout.astro";
 
       <p id="ob-error" class="mb-4 hidden text-sm text-danger"></p>
 
-      <!-- Step 1: primary use case -->
+      <!-- Step 1: primary use cases (multi-select) -->
       <div data-step="1" class="hidden space-y-3">
         <h2 class="text-lg font-bold">What will you turn into calendars?</h2>
-        <p class="-mt-1 text-sm text-muted-foreground">We'll tailor your dashboard to match.</p>
-        <div id="ob-usecase-grid" class="grid gap-2" role="radiogroup" aria-label="What will you turn into calendars?">
-          <button type="button" role="radio" data-usecase="class" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+        <p class="-mt-1 text-sm text-muted-foreground">Select all that apply — we'll tailor your dashboard to match.</p>
+        <div id="ob-usecase-grid" class="grid gap-2" role="group" aria-label="What will you turn into calendars?">
+          <button type="button" role="checkbox" aria-checked="false" data-usecase="class" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
             <span class="text-2xl">🎓</span>
             <span class="text-sm font-semibold">Class schedule</span>
           </button>
-          <button type="button" role="radio" data-usecase="work" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+          <button type="button" role="checkbox" aria-checked="false" data-usecase="work" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
             <span class="text-2xl">💼</span>
             <span class="text-sm font-semibold">Work shifts &amp; rosters</span>
           </button>
-          <button type="button" role="radio" data-usecase="conference" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+          <button type="button" role="checkbox" aria-checked="false" data-usecase="conference" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
             <span class="text-2xl">🎤</span>
             <span class="text-sm font-semibold">Conference agendas</span>
           </button>
-          <button type="button" role="radio" data-usecase="events" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+          <button type="button" role="checkbox" aria-checked="false" data-usecase="events" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
             <span class="text-2xl">🎟️</span>
             <span class="text-sm font-semibold">Events &amp; flyers</span>
           </button>
-          <button type="button" role="radio" data-usecase="other" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
+          <button type="button" role="checkbox" aria-checked="false" data-usecase="other" class="ob-choice flex w-full items-center gap-3 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-primary/50">
             <span class="text-2xl">✨</span>
             <span class="text-sm font-semibold">Something else</span>
           </button>
@@ -162,7 +162,7 @@ import Layout from "../layouts/Layout.astro";
   const phoneInput = document.getElementById("ob-phone") as HTMLInputElement;
   const phoneError = document.getElementById("ob-phone-error")!;
 
-  let useCase: UseCase | null = null;
+  let useCases = new Set<UseCase>();
   let calendarApp: CalendarApp | null = null;
   let firstName = "";
 
@@ -221,18 +221,29 @@ import Layout from "../layouts/Layout.astro";
     }
   }
 
-  // Step 1 — use case
+  // Step 1 — use cases (multi-select: tap to toggle)
   const usecaseGrid = document.getElementById("ob-usecase-grid")!;
   for (const card of usecaseGrid.querySelectorAll("[data-usecase]")) {
     card.addEventListener("click", () => {
-      useCase = card.getAttribute("data-usecase") as UseCase;
-      selectCard(usecaseGrid, card);
-      (document.getElementById("ob-usecase-next") as HTMLButtonElement).disabled = false;
+      const value = card.getAttribute("data-usecase") as UseCase;
+      if (useCases.has(value)) {
+        useCases.delete(value);
+        card.classList.remove("border-primary", "bg-primary/10");
+        card.classList.add("border-border", "bg-card");
+        card.setAttribute("aria-checked", "false");
+      } else {
+        useCases.add(value);
+        card.classList.remove("border-border", "bg-card");
+        card.classList.add("border-primary", "bg-primary/10");
+        card.setAttribute("aria-checked", "true");
+      }
+      (document.getElementById("ob-usecase-next") as HTMLButtonElement).disabled =
+        useCases.size === 0;
     });
   }
   document.getElementById("ob-usecase-next")!.addEventListener("click", async () => {
-    if (!useCase) return;
-    if (await save({ useCase })) showStep(2);
+    if (useCases.size === 0) return;
+    if (await save({ useCase: [...useCases] })) showStep(2);
   });
 
   // Step 2 — calendar app

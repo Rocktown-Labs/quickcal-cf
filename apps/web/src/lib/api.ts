@@ -244,7 +244,7 @@ export const api = {
   },
   updateMe(body: {
     phoneNumber?: string;
-    useCase?: UseCase;
+    useCase?: UseCase | UseCase[];
     calendarApp?: CalendarApp;
     isOnboarded?: boolean;
   }): Promise<Profile> {
