@@ -15,6 +15,7 @@
     "astro": "^7.3.1",
     "better-auth": "catalog:",
     "evlog": "catalog:",
+    "pdfjs-dist": "^6.4.299",
     "varlock": "catalog:",
     "zod": "catalog:"
   },

@@ -222,6 +222,7 @@
 <script>
   import { authClient } from "../lib/auth-client";
   import { api, ApiError } from "../lib/api";
+  import { preparePdfForUpload } from "../lib/pdf";
 
   const root = document.getElementById("uploader")!;
   const $ = <T extends Element = Element>(sel: string): T | null => root.querySelector(sel);
@@ -321,7 +322,21 @@
       return;
     }
     fileName = file.name;
-    await runIngestion(() => api.createUpload(file));
+    // Scanned PDFs (no text layer) get rasterized to a page image in the
+    // browser, so the server can take the normal vision path. Digital PDFs
+    // and unopenable files come back unchanged.
+    let uploadFile = file;
+    if (file.type === "application/pdf") {
+      const prepared = await preparePdfForUpload(file);
+      if (prepared) {
+        uploadFile = prepared;
+        fileName = prepared.name;
+        toast("Scanned PDF detected — converted to an image for reading.", true);
+      }
+    }
+    const nameEl = $("[data-file-name]");
+    if (nameEl) nameEl.textContent = fileName;
+    await runIngestion(() => api.createUpload(uploadFile));
   }
 
   async function startUrlUpload() {
