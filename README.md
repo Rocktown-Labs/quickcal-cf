@@ -1,6 +1,6 @@
 # QuickCalAI
 
-QuickCalAI turns schedules into calendar files. Give it a photo, PDF, **pasted text**, a **public URL**, or **structured JSON events** — GLM-OCR reads the document and GLM extracts every date and time (or skips AI entirely for structured input) into a standard `.ics` file that imports into Google Calendar, Apple Calendar, Outlook, and any other calendar app.
+QuickCalAI turns schedules into calendar files. Give it a photo, PDF, **pasted text**, a **public URL**, or **structured JSON events** — Clef checks the document for dated events, a single GLM vision call reads images directly (unpdf handles PDF text layers), and GLM extracts every date and time (or skips AI entirely for structured input) into a standard `.ics` file that imports into Google Calendar, Apple Calendar, Outlook, and any other calendar app.
 
 Free accounts get **one free AI extraction** plus unlimited manual/bulk event building. Premium accounts ($12.99/mo or $71.88/yr via Stripe) unlock unlimited AI extraction, email (Resend) and SMS (Sent.dm) delivery, and public share links.
 
@@ -18,14 +18,17 @@ image/PDF ──▶ POST /api/uploads ──▶ R2 (source file) ──▶ Cloud
                                                           │
                     ┌───────────────────────────────────┘
                     ▼
-            Clef "is this a calendar?" (@cf/cloudflare/clef — in-spec
-                    │    PNG/JPEG/WebP ≤ 4 MiB, in-network; no fallback —
-                    │    provider failures fail the upload, never mislabel it)
+            Clef "does this contain dated events?" (@cf/cloudflare/clef —
+                    │    in-spec PNG/JPEG/WebP ≤ 4 MiB, in-network; no
+                    │    fallback — provider failures fail the upload, never
+                    │    mislabel it)
                     │    PDFs + oversized images skip the pixel gate and go
-                    │    straight to OCR (extraction decides)
+                    │    straight to extraction (what it finds decides)
                     ▼
-            GLM-OCR (z.ai) — images/PDFs → markdown text
-                    │    (pasted-text and text-URL ingest join here directly)
+            GLM vision (images): one call, image → events JSON
+                    │    PDFs: unpdf reads the text layer, then the same
+                    │    text extractor runs; pasted-text and text-URL
+                    │    ingest join here directly
                     ▼
             GLM event extraction (@cf/zai-org/glm-5.3-flash on the
                     │    Workers AI binding — in-network)
@@ -38,10 +41,13 @@ image/PDF ──▶ POST /api/uploads ──▶ R2 (source file) ──▶ Cloud
 1. The browser uploads the file to the API (`multipart/form-data`, ≤ 10 MB, JPEG/PNG/WebP/PDF).
 2. The API stores the file in R2, records an upload row in D1, and starts a Cloudflare Workflow.
 3. In-spec images are classified by Clef (Cloudflare's decision model, in-network via the Workers
-   AI binding); PDFs and oversized images skip straight to reading. Every non-text source is OCR'd
-   to markdown by GLM-OCR (z.ai — reads the tables and handwriting schedules are made of), then
-   events are extracted as a validated JSON array (`date`, `time`, `endTime`, `title`, `location`,
-   per-event `confidence` + `sourceQuote`) by GLM running in-network on Workers AI.
+   AI binding); PDFs and oversized images skip straight to extraction. Images are read in a single
+   GLM vision call (image → events JSON, low reasoning effort); PDFs have their text layer read by
+   unpdf (serverless PDF.js — scanned PDFs without a text layer fail with a clear message) before
+   the same text extractor runs. Relative dates ("today", "this Saturday") resolve against the
+   upload timestamp. Events are returned as a validated JSON array (`date`, `time`, `endTime`,
+   `title`, `location`, per-event `confidence` + `sourceQuote`); undated events are dropped
+   before persisting (the model is told to leave a date empty rather than invent one).
 4. It writes an `.ics` to R2, inserts event rows, and marks the upload `completed` with a public
    share token (or `no_events` / `failed`).
 5. The dashboard polls status and offers review/edit, download, copy-link, device share, email, and
@@ -69,8 +75,8 @@ Bun + Turborepo monorepo, deployed entirely to Cloudflare via [Alchemy](https://
 - **Cloudflare D1** (SQLite, Drizzle ORM) — users, sessions, uploads, events, API keys, subscriptions, plans.
 - **Cloudflare R2** — source documents under `uploads/{userId}/…`, generated calendars under `ics/{shareToken}.ics`. Private; nothing is served except through the API.
 - **Cloudflare Workflows** — durable AI processing pipeline.
-- **Cloudflare Workers AI** — in-network models via the `AI` binding: `@cf/cloudflare/clef` classifies in-spec image uploads ("is this a calendar?"), and `@cf/zai-org/glm-5.3-flash` extracts the events from text. No external key for the gate or extraction.
-- **GLM-OCR on Z.ai** — the OCR step: images/PDFs → markdown ($0.03/M tokens; 94.62 on OmniDocBench V1.5). Set `ZAI_API_KEY` to enable image/PDF ingestion; `ZAI_LAYOUT_PARSING_URL` can point at a self-hosted GLM-OCR adapter later.
+- **Cloudflare Workers AI** — in-network models via the `AI` binding: `@cf/cloudflare/clef` gates in-spec image uploads ("does this contain dated events?"), and `@cf/zai-org/glm-5.3-flash` does the extraction — a single vision call for images, text input for PDFs/pasted text. No external key anywhere in the pipeline.
+- **unpdf** — serverless PDF.js text-layer extraction for PDF uploads (scanned PDFs without a text layer fail with a clear message; upload an image instead).
 - **Better-Auth** — sessions via cookies (SameSite=None for the split web/API origins) or `Authorization: Bearer qc_…` user API keys for agents/scripts. API keys are stored SHA-256-hashed; plaintext is shown once at creation.
 - **Security** — an Origin-check middleware guards all state-changing routes (CSRF defense for the `SameSite=None` cookies), rate limiting is backed by a `RateLimiter` Durable Object shared across isolates, uploads are validated by magic-byte signatures, and share links can be revoked from the Files screen. Password reset and email verification flow through Resend.
 

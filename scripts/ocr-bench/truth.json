@@ -1,0 +1,42 @@
+{
+  "ticket-concert.png": {
+    "events": [
+      {
+        "title": "The Midnight Ramblers",
+        "date": "2026-03-14",
+        "time": "19:30",
+        "location": "Rocktown Amphitheatre, Austin, TX"
+      }
+    ]
+  },
+  "class-schedule.png": {
+    "events": [
+      { "title": "Biology 101", "date": "2026-03-09", "time": "09:00", "endTime": "10:15", "location": "Science Hall 204" },
+      { "title": "Calculus II", "date": "2026-03-10", "time": "11:00", "endTime": "12:15", "location": "Math Building 110" },
+      { "title": "Chemistry Lab", "date": "2026-03-11", "time": "14:00", "endTime": "16:30", "location": "Science Hall 118" },
+      { "title": "English Literature", "date": "2026-03-12", "time": "10:30", "endTime": "11:45", "location": "Humanities 302" },
+      { "title": "Statistics", "date": "2026-03-13", "time": "13:00", "endTime": "14:15", "location": "Math Building 205" }
+    ]
+  },
+  "itinerary-email.png": {
+    "events": [
+      { "title": "Flight AA 1204", "date": "2026-03-22", "time": "08:15", "location": "Austin (AUS)" },
+      { "title": "Hotel check-in Summit Lodge", "date": "2026-03-22", "time": "15:00", "location": "Summit Lodge, Breckenridge, CO" },
+      { "title": "Hotel checkout Summit Lodge", "date": "2026-03-27", "time": "11:00", "location": "Summit Lodge, Breckenridge, CO" },
+      { "title": "Flight AA 1205", "date": "2026-03-27", "time": "17:20", "location": "Denver (DEN)" }
+    ]
+  },
+  "itinerary-email.pdf": {
+    "events": [
+      { "title": "Flight AA 1204", "date": "2026-03-22", "time": "08:15", "location": "Austin (AUS)" },
+      { "title": "Hotel check-in Summit Lodge", "date": "2026-03-22", "time": "15:00", "location": "Summit Lodge, Breckenridge, CO" },
+      { "title": "Hotel checkout Summit Lodge", "date": "2026-03-27", "time": "11:00", "location": "Summit Lodge, Breckenridge, CO" },
+      { "title": "Flight AA 1205", "date": "2026-03-27", "time": "17:20", "location": "Denver (DEN)" }
+    ]
+  },
+  "party-flyer.png": {
+    "events": [
+      { "title": "Jamie's Birthday Bash", "date": "2026-03-21", "time": "18:00", "location": "47 Cypress Lane" }
+    ]
+  }
+}

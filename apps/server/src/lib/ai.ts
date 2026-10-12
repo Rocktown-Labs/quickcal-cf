@@ -15,15 +15,17 @@ export interface ExtractedEvent {
 }
 
 const timeRegex = /^$|^([01]\d|2[0-3]):[0-5]\d$/;
+// Empty is allowed: the prompt tells the model to leave the date empty when
+// the document doesn't determine one, and the workflow drops undated events
+// before persisting (ICS generation would throw on them).
+const dateRegex = /^$|^\d{4}-\d{2}-\d{2}$/;
 
 const extractedEventSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be in YYYY-MM-DD format"),
-  time: z.string().regex(timeRegex, "Time must be in HH:MM format"),
-  endTime: z
+  date: z
     .string()
-    .regex(timeRegex, "End time must be in HH:MM format")
-    .optional()
-    .default(""),
+    .regex(dateRegex, "Date must be in YYYY-MM-DD format, or empty if undeterminable"),
+  time: z.string().regex(timeRegex, "Time must be in HH:MM format"),
+  endTime: z.string().regex(timeRegex, "End time must be in HH:MM format").optional().default(""),
   // Short event name — falls back to the description when omitted by the model.
   title: z.string().trim().max(200).optional().default(""),
   description: z.string().trim().min(1).max(1000),
@@ -49,6 +51,9 @@ const extractedEventsSchema = z
 // PDFs and oversized images are OCR'd instead (see lib/ocr.ts) — extraction
 // on that text decides, so they need no pixel gate at all.
 const CLEF_MODEL = "@cf/cloudflare/clef";
+// clef-flash must be called at its own endpoint — the clef endpoint rejects
+// model:"clef-flash" with 422 "Unsupported model".
+const CLEF_FLASH_MODEL = "@cf/cloudflare/clef-flash";
 const CLEF_PROBABILITY_THRESHOLD = 0.5;
 export const CLEF_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const CLEF_MAX_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -71,12 +76,43 @@ function toBase64(data: Uint8Array): string {
 // where noul ∈ [0, 1] is the probability the answer is yes. Accept a bare
 // number too, in case the API ever simplifies the shape.
 function clefYesProbability(response: unknown): number {
-  const answer = (response as { answers?: Record<string, unknown> } | null)?.answers
-    ?.isCalendar;
+  const answer = (response as { answers?: Record<string, unknown> } | null)?.answers?.isCalendar;
   if (typeof answer === "number") return answer;
   const noul = (answer as { noul?: unknown } | null)?.noul;
   if (typeof noul === "number") return noul;
   throw new Error("Clef returned an unexpected answer shape");
+}
+
+/**
+ * Runs the production "isCalendar" Clef question and returns the raw
+ * probability (0..1) that the document is calendar-like. `variant` selects
+ * the model: "clef" (27B, most accurate) or "clef-flash" (9B, ~5x faster).
+ */
+export async function getCalendarProbability(
+  ai: Ai,
+  fileData: Uint8Array,
+  fileType: string,
+  variant: "clef" | "clef-flash" = "clef",
+): Promise<number> {
+  const response = await ai.run(variant === "clef-flash" ? CLEF_FLASH_MODEL : CLEF_MODEL, {
+    model: variant,
+    state: "A document uploaded by a user who wants its schedule turned into a calendar file.",
+    questions: {
+      isCalendar: {
+        type: "noul",
+        instructions:
+          "Does this document contain one or more dated or timed events that the user might want to add to a calendar?",
+        criteria: {
+          true: "Documents built around upcoming events: calendars, class or school timetables, sports team game schedules, shift rosters, conference or event agendas, event flyers, concert or event tickets, invitations with a date or time, travel itineraries, booking or reservation confirmations, appointment reminders.",
+          false:
+            "Documents with no events to attend: scenery or people photos, articles and news screenshots, memes, product manuals, grocery or retail receipts, app or conversation screenshots without event information.",
+        },
+      },
+    },
+    images: [{ content_type: fileType, base64: toBase64(fileData) }],
+  });
+
+  return clefYesProbability(response);
 }
 
 /**
@@ -89,32 +125,15 @@ export async function isDocumentCalendarClef(
   fileData: Uint8Array,
   fileType: string,
 ): Promise<boolean> {
-  const response = await ai.run(CLEF_MODEL, {
-    model: "clef",
-    state: "A document uploaded by a user who wants its schedule turned into a calendar file.",
-    questions: {
-      isCalendar: {
-        type: "noul",
-        instructions:
-          "Does this document primarily represent a calendar, schedule, agenda, or a list of events with dates?",
-        criteria: {
-          true: "A calendar, class timetable, shift roster, conference agenda, event flyer, or similar schedule with dates and/or times.",
-          false:
-            "Any other document: photos, receipts, articles, forms, or content without schedule structure.",
-        },
-      },
-    },
-    images: [{ content_type: fileType, base64: toBase64(fileData) }],
-  });
-
-  return clefYesProbability(response) >= CLEF_PROBABILITY_THRESHOLD;
+  const probability = await getCalendarProbability(ai, fileData, fileType);
+  return probability >= CLEF_PROBABILITY_THRESHOLD;
 }
 
 // ─── The extraction: GLM on the Workers AI binding (in-network) ─────────────
 
 export const DEFAULT_EXTRACTION_MODEL = "@cf/zai-org/glm-5.3-flash";
 
-const EXTRACTION_PROMPT = `Analyze the provided calendar, schedule, or agenda document. Examine ALL pages and identify all distinct events, appointments, or line items across the entire document.
+export const EXTRACTION_PROMPT = `Analyze the provided calendar, schedule, or agenda document. Examine ALL pages and identify all distinct events, appointments, or line items across the entire document.
 
 For each item, extract:
 - "title": a short event name (e.g. "Biology 101", "Standup", "Dentist"). If no distinct name exists, use the description.
@@ -191,6 +210,17 @@ export function parseExtraction(text: string | undefined): ExtractedEvent[] {
 }
 
 /**
+ * Appends capture-date resolution to an extraction prompt. Screenshots and
+ * flyers often use relative dates ("today", "this Saturday"); the model is
+ * told not to invent dates, so it needs the date the document was captured —
+ * in production that's the upload timestamp.
+ */
+function withCaptureDate(prompt: string, capturedOn?: string): string {
+  if (!capturedOn) return prompt;
+  return `${prompt}\n\nThe document was captured on ${capturedOn}. Resolve relative dates like "today", "tonight", or "this Saturday" to actual dates based on ${capturedOn}. Never use a purchase, booking, or print timestamp as an event time.`;
+}
+
+/**
  * Extracts events from schedule text (OCR markdown, pasted text, CSV) using
  * GLM on the Workers AI binding — in-network, no external key. Throws on
  * provider errors so the workflow's retry policy applies.
@@ -199,15 +229,55 @@ export async function extractEventsFromText(
   ai: Ai,
   content: string,
   model = DEFAULT_EXTRACTION_MODEL,
+  capturedOn?: string,
 ): Promise<ExtractedEvent[]> {
   const response = await ai.run(model, {
     messages: [
       {
         role: "user",
-        content: `${EXTRACTION_PROMPT}\n\nThe schedule content follows between the markers. Ignore the markers themselves.\n\n<<<BEGIN DOCUMENT>>>\n${content}\n<<<END DOCUMENT>>>`,
+        content: `${withCaptureDate(EXTRACTION_PROMPT, capturedOn)}\n\nThe schedule content follows between the markers. Ignore the markers themselves.\n\n<<<BEGIN DOCUMENT>>>\n${content}\n<<<END DOCUMENT>>>`,
       },
     ],
     stream: false,
+  });
+
+  return parseExtraction(workersAiText(response));
+}
+
+/**
+ * Extracts events directly from an image (PNG/JPEG/WebP) in a single vision
+ * call — replaces the old OCR-then-extract pipeline for images. Validated by
+ * scripts/ocr-bench: 100% recall and field accuracy on schedule documents,
+ * ~3-10s and ~$0.0004 per image at reasoning_effort "low".
+ */
+export async function extractEventsFromImage(
+  ai: Ai,
+  imageData: Uint8Array,
+  contentType: string,
+  model = DEFAULT_EXTRACTION_MODEL,
+  capturedOn?: string,
+): Promise<ExtractedEvent[]> {
+  const response = await ai.run(model, {
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `${withCaptureDate(EXTRACTION_PROMPT, capturedOn)}\n\nThe schedule content is provided as an attached image. Read every line of it carefully, including small print.`,
+          },
+          {
+            type: "image_url",
+            image_url: { url: `data:${contentType};base64,${toBase64(imageData)}` },
+          },
+        ],
+      },
+    ],
+    // "low" matched default-reasoning accuracy in the bench at a third of
+    // the latency and cost.
+    reasoning_effort: "low",
+    stream: false,
+    max_tokens: 4096,
   });
 
   return parseExtraction(workersAiText(response));

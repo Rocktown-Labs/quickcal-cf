@@ -56,3 +56,10 @@ coverage
 .cache
 tmp
 temp
+
+# OCR bench outputs
+scripts/ocr-bench/results
+scripts/ocr-bench/run*.log
+scripts/ocr-bench/samples/*.png
+scripts/ocr-bench/samples/*.pdf
+scripts/ocr-bench/samples/html

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  extractEventsFromImage,
   extractEventsFromText,
   isDocumentCalendarClef,
   parseExtraction,
@@ -75,11 +76,15 @@ describe("isDocumentCalendarClef", () => {
     await isDocumentCalendarClef(ai, new Uint8Array([1, 2, 3]), "image/png");
     const input = calls[0] as {
       model: string;
-      questions: Record<string, { type: string }>;
+      questions: Record<string, { type: string; instructions: string }>;
       images: Array<{ content_type: string; base64: string }>;
     };
     expect(input.model).toBe("clef");
     expect(input.questions.isCalendar?.type).toBe("noul");
+    // The gate asks whether the document contains dated events a user might
+    // want on a calendar — not just whether it looks like a calendar document
+    // (which rejects single-event uploads like concert tickets).
+    expect(input.questions.isCalendar?.instructions).toContain("dated or timed events");
     expect(input.images[0]?.content_type).toBe("image/png");
     expect(input.images[0]?.base64).toBe("AQID"); // bytes [1, 2, 3]
   });
@@ -104,7 +109,7 @@ describe("parseExtraction", () => {
 
   test("strips markdown fences", () => {
     const events = parseExtraction(
-      "```json\n[{\"date\":\"2026-10-05\",\"time\":\"\",\"description\":\"Holiday\"}]\n```",
+      '```json\n[{"date":"2026-10-05","time":"","description":"Holiday"}]\n```',
     );
     expect(events.length).toBe(1);
     expect(events[0]!.time).toBe(""); // no time = all-day event downstream
@@ -130,6 +135,14 @@ describe("parseExtraction", () => {
     expect(parseExtraction(undefined)).toEqual([]);
   });
 
+  test("accepts an empty date (undeterminable) — the workflow drops it later", () => {
+    const events = parseExtraction(
+      `[{"date":"","time":"19:30","description":"Show time visible but no date"}]`,
+    );
+    expect(events.length).toBe(1);
+    expect(events[0]!.date).toBe("");
+  });
+
   test("rejects arrays that exceed the event cap", () => {
     const big = JSON.stringify(
       Array.from({ length: 501 }, () => ({
@@ -147,7 +160,11 @@ describe("extractEventsFromText (GLM on the Workers AI binding)", () => {
     const { ai, calls } = textAiStub({
       response: `[{"date":"2026-10-05","time":"09:00","description":"Biology 101"}]`,
     });
-    const events = await extractEventsFromText(ai, "Bio 101 9am Monday", "@cf/zai-org/glm-4.7-flash");
+    const events = await extractEventsFromText(
+      ai,
+      "Bio 101 9am Monday",
+      "@cf/zai-org/glm-4.7-flash",
+    );
     expect(events.length).toBe(1);
     expect(events[0]!.description).toBe("Biology 101");
 
@@ -167,7 +184,9 @@ describe("extractEventsFromText (GLM on the Workers AI binding)", () => {
 
   test("normalizes non-standard response shapes", async () => {
     const choicesAi = textAiStub({
-      choices: [{ message: { content: `[{"date":"2026-10-05","time":"","description":"Holiday"}]` } }],
+      choices: [
+        { message: { content: `[{"date":"2026-10-05","time":"","description":"Holiday"}]` } },
+      ],
     });
     const events = await extractEventsFromText(choicesAi.ai, "Oct 5 holiday");
     expect(events.length).toBe(1);
@@ -177,5 +196,56 @@ describe("extractEventsFromText (GLM on the Workers AI binding)", () => {
   test("propagates provider failures for workflow retry", async () => {
     const { ai } = textAiStub(new Error("model overloaded"));
     expect(extractEventsFromText(ai, "x")).rejects.toThrow("model overloaded");
+  });
+
+  test("includes the capture date for relative-date resolution", async () => {
+    const { ai, calls } = textAiStub({ response: "[]" });
+    await extractEventsFromText(ai, "Show tonight", undefined, "2026-10-12");
+    const input = calls[0]!.messages as { messages: Array<{ content: string }> };
+    expect(input.messages[0]!.content).toContain("captured on 2026-10-12");
+    expect(input.messages[0]!.content).toContain("this Saturday");
+  });
+});
+
+describe("extractEventsFromImage (single vision call)", () => {
+  test("sends the image as a data URI with the extraction prompt", async () => {
+    const { ai, calls } = textAiStub({
+      response: `[{"date":"2026-03-14","time":"19:30","description":"The Midnight Ramblers"}]`,
+    });
+    const events = await extractEventsFromImage(ai, new Uint8Array([1, 2, 3]), "image/png");
+    expect(events.length).toBe(1);
+
+    const call = calls[0]!;
+    expect(call.model).toBe("@cf/zai-org/glm-5.3-flash");
+    const input = call.messages as {
+      messages: Array<{
+        content: Array<{ type: string; text?: string; image_url?: { url: string } }>;
+      }>;
+    };
+    expect(input.messages[0]!.content[0]!.type).toBe("text");
+    expect(input.messages[0]!.content[0]!.text).toContain("Analyze the provided calendar");
+    expect(input.messages[0]!.content[1]!.type).toBe("image_url");
+    expect(input.messages[0]!.content[1]!.image_url?.url).toBe("data:image/png;base64,AQID");
+  });
+
+  test("uses low reasoning effort to cut latency and cost", async () => {
+    const { ai, calls } = textAiStub({ response: "[]" });
+    await extractEventsFromImage(ai, new Uint8Array(1), "image/webp");
+    const input = calls[0]!.messages as Record<string, unknown>;
+    expect(input.reasoning_effort).toBe("low");
+  });
+
+  test("resolves relative dates against the capture date", async () => {
+    const { ai, calls } = textAiStub({ response: "[]" });
+    await extractEventsFromImage(ai, new Uint8Array(1), "image/jpeg", undefined, "2026-10-12");
+    const input = calls[0]!.messages as {
+      messages: Array<{ content: Array<{ text?: string }> }>;
+    };
+    expect(input.messages[0]!.content[0]!.text).toContain("captured on 2026-10-12");
+  });
+
+  test("propagates provider failures for workflow retry", async () => {
+    const { ai } = textAiStub(new Error("429"));
+    expect(extractEventsFromImage(ai, new Uint8Array(1), "image/png")).rejects.toThrow("429");
   });
 });

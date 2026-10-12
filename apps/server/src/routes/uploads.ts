@@ -38,7 +38,10 @@ app.use("/", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:u
 app.use("/text", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
 app.use("/from-url", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
 // Structured events are free (no AI) — a slightly looser cap.
-app.use("/events", rateLimit({ windowMs: 60_000, maxRequests: 30, keyPrefix: "eventsdirect:user" }));
+app.use(
+  "/events",
+  rateLimit({ windowMs: 60_000, maxRequests: 30, keyPrefix: "eventsdirect:user" }),
+);
 
 const uploadStatusEnum = z.enum(["pending", "processing", "completed", "failed", "no_events"]);
 
@@ -192,7 +195,13 @@ app.openapi(createUpload, async (c) => {
       const result = await startIngestionWorkflow(
         db,
         userId,
-        { fileName: file.name, fileType: detectedType, storageKey, sourceType: "file", creditUsed: access === "credit" },
+        {
+          fileName: file.name,
+          fileType: detectedType,
+          storageKey,
+          sourceType: "file",
+          creditUsed: access === "credit",
+        },
         callbackUrl,
         (params) => ENV.CALENDAR_WORKFLOW.create({ params }),
       );

@@ -1,16 +1,12 @@
 {
   "name": "@quickcal-cf/auth",
+  "type": "module",
   "exports": {
     ".": "./src/index.ts",
     "./*": "./src/*.ts"
   },
-  "type": "module",
   "scripts": {
     "check-types": "tsc --noEmit"
-  },
-  "devDependencies": {
-    "typescript": "^6.0.3",
-    "@quickcal-cf/config": "workspace:*"
   },
   "dependencies": {
     "@better-auth/drizzle-adapter": "1.7.5",
@@ -22,5 +18,9 @@
     "resend": "^6.30.0",
     "stripe": "^22.6.2",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@quickcal-cf/config": "workspace:*",
+    "typescript": "^6.0.3"
   }
 }

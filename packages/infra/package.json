@@ -12,12 +12,12 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "typescript": "^6.0.3",
+    "@effect/platform-bun": "4.0.0-rc.115",
+    "@effect/platform-node": "4.0.0-rc.115",
     "@quickcal-cf/config": "workspace:*",
     "alchemy": "2.0.0-beta.79",
     "effect": "4.0.0-rc.115",
-    "@effect/platform-node": "4.0.0-rc.115",
-    "@effect/platform-bun": "4.0.0-rc.115",
+    "typescript": "^6.0.3",
     "varlock": "catalog:"
   }
 }

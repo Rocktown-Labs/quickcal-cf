@@ -11,18 +11,18 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate:deploy": "drizzle-kit migrate"
   },
-  "devDependencies": {
-    "@quickcal-cf/config": "workspace:*",
-    "bun-types": "^1.4.2",
-    "drizzle-kit": "1.0.0-rc.4",
-    "typescript": "^6.0.3",
-    "varlock": "catalog:"
-  },
   "dependencies": {
     "@libsql/client": "0.18.0",
     "drizzle-orm": "catalog:",
     "ics": "^3.12.0",
     "libsql": "0.5.29",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@quickcal-cf/config": "workspace:*",
+    "bun-types": "^1.4.2",
+    "drizzle-kit": "1.0.0-rc.4",
+    "typescript": "^6.0.3",
+    "varlock": "catalog:"
   }
 }

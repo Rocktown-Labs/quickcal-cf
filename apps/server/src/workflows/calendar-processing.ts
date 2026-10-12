@@ -10,12 +10,13 @@ import {
   type Database,
 } from "@quickcal-cf/db";
 import {
+  extractEventsFromImage,
   extractEventsFromText,
   isDocumentCalendarClef,
   shouldUseClefGate,
   type ExtractedEvent,
 } from "../lib/ai";
-import { ocrDocument } from "../lib/ocr";
+import { extractPdfText } from "../lib/pdf-text";
 import { sendWebhook, webhookSecretFor } from "../lib/webhook";
 
 export interface CalendarProcessingInput {
@@ -79,9 +80,9 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
 
       // The gate runs only where it's free and in-network: in-spec images,
       // via Clef on the Workers AI binding. PDFs and oversized images skip
-      // the pixel gate entirely — they're OCR'd first and extraction decides
-      // (see the "ocr" step), which answers "is this a calendar?" implicitly
-      // for the formats Clef can't read.
+      // the pixel gate entirely — extraction decides on what it finds, which
+      // answers "is this a calendar?" implicitly for the formats Clef can't
+      // read.
       if (sourceType !== "text") {
         const { data, contentType } = await this.getSourceFile(storageKey, fileType);
 
@@ -96,8 +97,7 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
           );
 
           if (!isCalendar) {
-            const failureReason =
-              "The uploaded file did not appear to contain a calendar or schedule.";
+            const failureReason = "The uploaded file did not appear to contain any dated events.";
             await step.do("mark-no-events", async () => {
               await updateUploadRecord(db, uploadId, {
                 status: "no_events",
@@ -110,41 +110,48 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
         }
       }
 
-      // Every non-text source becomes text first: images and PDFs are OCR'd
-      // by GLM-OCR (z.ai), which also handles what Clef cannot read. The
-      // workflow retries transient provider failures; hard OcrErrors surface
-      // as the upload's failureReason (e.g. WebP, missing key).
-      let scheduleText: string;
-      if (sourceType === "text") {
-        const source = await this.getSourceFile(storageKey, fileType);
-        scheduleText = source.text;
-      } else {
-        scheduleText = await step.do(
-          "ocr",
-          { retries: { limit: 3, delay: "10 seconds", backoff: "exponential" } },
-          async () => {
-            const { data, contentType } = await this.getSourceFile(storageKey, fileType);
-            return ocrDocument(
-              {
-                apiKey: this.env.ZAI_API_KEY,
-                url: this.env.ZAI_LAYOUT_PARSING_URL,
-              },
-              data,
-              contentType,
-            );
-          },
-        );
-      }
+      // Screenshots and flyers often use relative dates ("today", "this
+      // Saturday"). The extraction prompt is told never to invent dates, so
+      // it needs the date the document was captured — the upload timestamp,
+      // which for schedule photos is effectively the same day.
+      const upload = await step.do("get-upload", async () => getUploadById(db, uploadId));
+      const capturedOn = (upload?.createdAt ? new Date(upload.createdAt) : new Date())
+        .toISOString()
+        .slice(0, 10);
 
       const extractedEvents = await step.do(
         "extract-events",
         { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" } },
-        () =>
-          extractEventsFromText(
+        async () => {
+          if (sourceType === "text") {
+            const source = await this.getSourceFile(storageKey, fileType);
+            return extractEventsFromText(
+              this.env.AI,
+              source.text,
+              this.env.EXTRACTION_MODEL ?? undefined,
+              capturedOn,
+            );
+          }
+
+          const { data, contentType } = await this.getSourceFile(storageKey, fileType);
+          if (contentType.startsWith("image/")) {
+            return extractEventsFromImage(
+              this.env.AI,
+              data,
+              contentType,
+              this.env.EXTRACTION_MODEL ?? undefined,
+              capturedOn,
+            );
+          }
+
+          const pdfText = await extractPdfText(data);
+          return extractEventsFromText(
             this.env.AI,
-            scheduleText,
+            pdfText,
             this.env.EXTRACTION_MODEL ?? undefined,
-          ),
+            capturedOn,
+          );
+        },
       );
 
       if (extractedEvents.length === 0) {
