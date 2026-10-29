@@ -1,8 +1,8 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { z } from "zod";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import {
-  deleteUserEvent,
   getUploadById,
   getUploadEventCount,
   getUploadEventsForReview,
@@ -10,7 +10,6 @@ import {
   getUserUploadByWorkflowRunId,
   getUserUploads,
   updateUploadRecord,
-  updateUserEvent,
 } from "@quickcal-cf/db";
 import { ENV } from "./env.server";
 import { getDb } from "./services";
@@ -24,6 +23,7 @@ import {
   validateCallbackUrl,
 } from "./lib/ingest";
 import { fetchIngestDocument } from "./lib/fetch-document";
+import { deleteEventAndRefreshIcs, updateEventAndRefreshIcs } from "./lib/event-mutations";
 
 /**
  * QuickCalAI MCP server — a stateless streamable-HTTP JSON-RPC endpoint so
@@ -34,7 +34,21 @@ import { fetchIngestDocument } from "./lib/fetch-document";
  */
 
 const PROTOCOL_VERSION = "2025-06-18";
-const SERVER_ORIGIN = "https://quickcal-server.rocktown-labs.workers.dev";
+// One JSON-RPC POST may batch several messages. Cap the batch so a single
+// request cannot fan out into hundreds of AI calls or DB inserts and bypass
+// the per-request rate limit.
+const MAX_BATCH_MESSAGES = 20;
+// MCP arguments are small; a 1MB ceiling keeps a huge body from being
+// buffered just to be rejected by tool validation.
+const MAX_MCP_BODY_BYTES = 1024 * 1024;
+
+/** The web app origin — share links must land on the UI, not the API worker. */
+function webOrigin(): string {
+  return (
+    ENV.CORS_ORIGIN.split(",")[0]?.trim().replace(/\/+$/, "") ||
+    ENV.BETTER_AUTH_URL.replace(/\/+$/, "")
+  );
+}
 
 interface ToolContext {
   userId: string;
@@ -92,7 +106,7 @@ const tools: McpToolDef[] = [
       if (args.callbackUrl && !callbackUrl) {
         return JSON.stringify({ message: "callbackUrl must be an https:// URL." });
       }
-      const storageKey = `uploads/${ctx.userId}/${Date.now()}-agent-text.txt`;
+      const storageKey = `uploads/${ctx.userId}/${Date.now()}-${crypto.randomUUID()}-agent-text.txt`;
       try {
         await ENV.FILES.put(storageKey, new TextEncoder().encode(args.content), {
           httpMetadata: { contentType: "text/plain" },
@@ -133,7 +147,7 @@ const tools: McpToolDef[] = [
       const callbackUrl = validateCallbackUrl(args.callbackUrl) ?? null;
       try {
         const doc = await fetchIngestDocument(args.url);
-        const storageKey = `uploads/${ctx.userId}/${Date.now()}-${doc.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120)}`;
+        const storageKey = `uploads/${ctx.userId}/${Date.now()}-${crypto.randomUUID()}-${doc.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120)}`;
         await ENV.FILES.put(storageKey, doc.bytes, {
           httpMetadata: { contentType: doc.contentType },
         });
@@ -180,7 +194,7 @@ const tools: McpToolDef[] = [
       });
       return JSON.stringify({
         ...result,
-        shareUrl: `${SERVER_ORIGIN}/s/${result.shareToken}`,
+        shareUrl: `${webOrigin()}/s/${result.shareToken}`,
       });
     },
   }),
@@ -277,7 +291,7 @@ const tools: McpToolDef[] = [
       const date = args.date ?? existingDate;
       const time = args.time !== undefined ? args.time : existingTime;
 
-      const updated = await updateUserEvent(db, ctx.userId, args.eventId, {
+      const updated = await updateEventAndRefreshIcs(db, ENV.FILES, ctx.userId, args.eventId, {
         ...(args.title !== undefined ? { title: args.title } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),
         ...(args.location !== undefined ? { location: args.location } : {}),
@@ -293,7 +307,8 @@ const tools: McpToolDef[] = [
     description: "Delete one of your events. Regenerates the parent upload's .ics automatically.",
     inputSchema: z.object({ eventId: z.string() }),
     handler: async (args, ctx) => {
-      const deleted = await deleteUserEvent(getDb(), ctx.userId, args.eventId);
+      const db = getDb();
+      const deleted = await deleteEventAndRefreshIcs(db, ENV.FILES, ctx.userId, args.eventId);
       if (!deleted) return JSON.stringify({ message: "Event not found" });
       return JSON.stringify({ deleted: true, eventId: args.eventId });
     },
@@ -401,20 +416,48 @@ async function handleMessage(
         };
     }
   } catch (error) {
+    console.error("[mcp] tool error", error);
+    const isProd = ENV.NODE_ENV === "production";
     return {
       ...base,
       error: {
         code: -32603,
-        message: error instanceof Error ? error.message : "Internal error",
+        message: isProd || !(error instanceof Error) ? "Internal error" : error.message,
       },
     };
   }
 }
 
 export const mcpApp = new Hono<AuthEnv>();
+mcpApp.use(
+  bodyLimit({
+    maxSize: MAX_MCP_BODY_BYTES,
+    onError: (c) =>
+      c.json(
+        {
+          jsonrpc: "2.0",
+          id: null,
+          error: { code: -32600, message: "Request body too large" },
+        },
+        HttpStatusCodes.REQUEST_TOO_LONG,
+      ),
+  }),
+);
 
 mcpApp.post("/", async (c) => {
   const userId = c.get("userId");
+
+  const declaredLength = Number(c.req.header("content-length") ?? "0");
+  if (declaredLength > MAX_MCP_BODY_BYTES) {
+    return c.json(
+      {
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: -32600, message: "Request body too large" },
+      },
+      HttpStatusCodes.REQUEST_TOO_LONG,
+    );
+  }
 
   let body: unknown;
   try {
@@ -427,6 +470,19 @@ mcpApp.post("/", async (c) => {
   }
 
   const messages: JsonRpcRequest[] = Array.isArray(body) ? body : [body];
+  if (messages.length > MAX_BATCH_MESSAGES) {
+    return c.json(
+      {
+        jsonrpc: "2.0",
+        id: null,
+        error: {
+          code: -32600,
+          message: `Batch too large (max ${MAX_BATCH_MESSAGES} messages)`,
+        },
+      },
+      HttpStatusCodes.BAD_REQUEST,
+    );
+  }
   const responses: JsonRpcResponse[] = [];
 
   for (const message of messages) {
@@ -440,15 +496,25 @@ mcpApp.post("/", async (c) => {
 });
 
 // Human/agent discovery surface.
-mcpApp.get("/", (c) =>
-  c.json(
+mcpApp.get("/", (c) => {
+  const baseUrl = ENV.BETTER_AUTH_URL.replace(/\/+$/, "");
+  return c.json(
     {
       server: "quickcalai-mcp",
       transport: "streamable-http (stateless)",
       endpoint: "POST /mcp",
-      auth: "Authorization: Bearer qc_… (user API key) or session cookie",
+      authentication: {
+        apiKey: "Authorization: Bearer qc_… (user API key generated in Settings)",
+        oauth2: {
+          type: "OAuth 2.1 (RFC 9728)",
+          resource: `${baseUrl}/mcp`,
+          authorizationEndpoint: `${baseUrl}/api/auth/oauth2/authorize`,
+          tokenEndpoint: `${baseUrl}/api/auth/oauth2/token`,
+          jwksEndpoint: `${baseUrl}/api/auth/jwks`,
+        },
+      },
       tools: tools.map((t) => t.name),
     },
     HttpStatusCodes.OK,
-  ),
-);
+  );
+});

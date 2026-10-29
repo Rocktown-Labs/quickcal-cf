@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { bodyLimit } from "hono/body-limit";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import jsonContent from "stoker/openapi/helpers/json-content";
 import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
@@ -8,6 +9,7 @@ import { ENV } from "../env.server";
 import { getDb } from "../services";
 import { type AuthEnv } from "../lib/auth";
 import { isPremium } from "../lib/premium";
+import { rateLimit } from "../middleware/rate-limit";
 import {
   NotificationConfigurationError,
   NotificationInputError,
@@ -16,6 +18,10 @@ import {
 } from "../lib/notifications";
 
 const app = new OpenAPIHono<AuthEnv>();
+app.use(bodyLimit({ maxSize: 16 * 1024 }));
+// Outbound email/SMS costs money and can be abused as a relay. Premium is a
+// billing gate, not an abuse gate — cap sends per user per minute too.
+app.use(rateLimit({ windowMs: 60_000, maxRequests: 5, keyPrefix: "delivery:user" }));
 
 const idParams = z.object({ id: z.string().uuid() });
 

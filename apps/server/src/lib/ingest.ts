@@ -70,7 +70,7 @@ export async function createDirectEventsRecord(
   const upload = await createUploadRecord(db, {
     fileName: input.name || `Manual events (${valid.length})`,
     fileType: "application/json",
-    storageKey: `uploads/${userId}/${Date.now()}-manual-events.json`,
+    storageKey: `uploads/${userId}/${Date.now()}-${crypto.randomUUID()}-manual-events.json`,
     userId,
     status: "completed",
     icsKey,
@@ -123,7 +123,11 @@ export function ingestionForbiddenResponse() {
   };
 }
 
-/** Refund the free credit when ingestion fails after it was taken. */
+/**
+ * Refund the one-time free credit only when the AI run never started
+ * (validation, storage, or workflow-start failure). Once the workflow starts,
+ * the credit is spent; see `startIngestionWorkflow`.
+ */
 export async function refundIngestion(
   db: Database,
   userId: string,
@@ -145,6 +149,17 @@ export function validateCallbackUrl(raw: string | undefined | null): string | nu
   try {
     url = new URL(raw);
   } catch {
+    return null;
+  }
+  // Never send the signed payload to a URL carrying credentials or to a
+  // non-public hostname. (Cloudflare has no RFC1918 egress, but a self-hosted
+  // deployment would; keep the validation correct on its own.)
+  if (url.username || url.password) return null;
+  const host = url.hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, "")
+    .replace(/\.+$/, "");
+  if (host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".localhost")) {
     return null;
   }
   if (url.protocol === "https:") return url.toString();
@@ -179,8 +194,12 @@ interface StartWorkflowFn {
 }
 
 /**
- * Creates the upload record and kicks off the processing workflow. Throws
- * on failure so callers can refund the free credit.
+ * Creates the upload record and kicks off the processing workflow.
+ *
+ * Throws only when the workflow never started, so callers can refund the
+ * one-time free credit. Once `startWorkflow` succeeds the credit is spent:
+ * a failure to persist the run id is logged and retried by the status
+ * reconciler, never turned into a refund.
  */
 export async function startIngestionWorkflow(
   db: Database,
@@ -198,8 +217,9 @@ export async function startIngestionWorkflow(
     callbackUrl,
   });
 
+  let instance: { id: string };
   try {
-    const instance = await startWorkflow({
+    instance = await startWorkflow({
       uploadId: upload.id,
       storageKey: source.storageKey,
       fileName: source.fileName,
@@ -208,12 +228,6 @@ export async function startIngestionWorkflow(
       sourceType: source.sourceType,
       creditUsed: source.creditUsed,
     });
-    await updateUploadRecord(db, upload.id, {
-      workflowRunId: instance.id,
-      status: "processing",
-      failureReason: null,
-    });
-    return { uploadId: upload.id, runId: instance.id, status: "processing" as const };
   } catch (error) {
     await updateUploadRecord(db, upload.id, {
       status: "failed",
@@ -222,12 +236,65 @@ export async function startIngestionWorkflow(
     });
     throw error;
   }
+
+  // The workflow is already running. Do not throw (and trigger a refund) if
+  // this bookkeeping write fails; the workflow's mark-processing step writes
+  // the same run id from event.instanceId, so /by-run/{runId}/status still
+  // resolves once the workflow starts.
+  await updateUploadRecord(db, upload.id, {
+    workflowRunId: instance.id,
+    status: "processing",
+    failureReason: null,
+  }).catch((error) => {
+    console.error("[ingest] failed to persist workflow run id", error);
+  });
+
+  return { uploadId: upload.id, runId: instance.id, status: "processing" as const };
+}
+
+interface StoredIdempotentResponse {
+  status: number;
+  body: string;
+  contentType: string | null;
+}
+
+/** Serializes a handler Response (status + body) for replay. */
+async function serializeIdempotentResponse(res: Response): Promise<string | null> {
+  try {
+    const body = await res.clone().text();
+    const stored: StoredIdempotentResponse = {
+      status: res.status,
+      body,
+      contentType: res.headers.get("content-type"),
+    };
+    return JSON.stringify(stored);
+  } catch {
+    return null;
+  }
+}
+
+/** Rebuilds a Response from a stored envelope, or null for legacy rows. */
+function deserializeIdempotentResponse(raw: string): Response | null {
+  try {
+    const parsed = JSON.parse(raw) as Partial<StoredIdempotentResponse>;
+    if (typeof parsed.status !== "number" || typeof parsed.body !== "string") return null;
+    const headers = new Headers();
+    if (parsed.contentType) headers.set("content-type", parsed.contentType);
+    headers.set("Idempotency-Replayed", "true");
+    return new Response(parsed.body, { status: parsed.status, headers });
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Wraps an ingestion handler with Idempotency-Key replay: when the same
  * user retries the same key within the TTL, the stored response is replayed
  * verbatim instead of creating a second upload.
+ *
+ * Stores the status and body of the `Response` — serializing the Response
+ * object itself produced `{}`, so retries previously received an empty 200
+ * instead of the original uploadId/runId.
  */
 export async function withIdempotency<T>(
   c: Context,
@@ -243,11 +310,28 @@ export async function withIdempotency<T>(
   const keyHash = await hashIdempotencyKey(rawKey);
   const stored = await findIdempotentResponse(db, userId, keyHash);
   if (stored) {
-    c.header("Idempotency-Replayed", "true");
-    return JSON.parse(stored) as T;
+    const replay = deserializeIdempotentResponse(stored);
+    if (replay) return replay as unknown as T;
+
+    // Legacy rows stored a plain JSON body (and an empty `{}` for Response
+    // results). Replay what we have as JSON so old keys don't 500.
+    return new Response(stored, {
+      status: 200,
+      headers: { "content-type": "application/json", "Idempotency-Replayed": "true" },
+    }) as unknown as T;
   }
 
   const result = await produce();
-  await storeIdempotentResponse(db, userId, keyHash, JSON.stringify(result)).catch(() => undefined);
+  if (result instanceof Response) {
+    const serialized = await serializeIdempotentResponse(result);
+    if (serialized) {
+      await storeIdempotentResponse(db, userId, keyHash, serialized).catch(() => undefined);
+    }
+  } else {
+    // Non-Response handlers (none today) keep the original JSON behavior.
+    await storeIdempotentResponse(db, userId, keyHash, JSON.stringify(result)).catch(
+      () => undefined,
+    );
+  }
   return result;
 }

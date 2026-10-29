@@ -1,0 +1,11 @@
+{
+  "extends": "@quickcal-cf/config/tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": ["ESNext", "DOM"],
+    "types": ["node", "react", "react-dom"]
+  },
+  "include": ["src"]
+}

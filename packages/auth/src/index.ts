@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import type { BetterAuthPlugin } from "better-auth";
-import { admin } from "better-auth/plugins";
+import { admin, jwt } from "better-auth/plugins";
+import { mcp } from "@better-auth/mcp";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
 import { stripe } from "@better-auth/stripe";
 import Stripe from "stripe";
@@ -9,7 +10,7 @@ import * as authSchema from "@quickcal-cf/db/schema/auth";
 import * as billingSchema from "@quickcal-cf/db/schema/billing";
 import type { Database } from "@quickcal-cf/db";
 import { expo } from "@better-auth/expo";
-import { sendAuthEmail } from "./emails";
+import { sendAuthEmail, sendWelcomeEmail } from "./emails";
 
 export type AuthConfig = {
   BETTER_AUTH_URL: string;
@@ -30,6 +31,18 @@ function webOriginFrom(env: AuthConfig): string {
   return env.CORS_ORIGIN.split(",")[0]?.trim().replace(/\/+$/, "") || env.BETTER_AUTH_URL;
 }
 
+/**
+ * The issuer Better-Auth puts in its JWTs. Better-Auth appends its default
+ * `/api/auth` base path to a bare origin, so the issuer must include it or
+ * `verifyJWT` (which checks `iss`) rejects every token the OAuth provider
+ * mints.
+ */
+export function authIssuerFor(baseURL: string): string {
+  const trimmed = baseURL.replace(/\/+$/, "");
+  const url = new URL(trimmed);
+  return url.pathname && url.pathname !== "/" ? trimmed : `${trimmed}/api/auth`;
+}
+
 export function createAuth(
   env: AuthConfig,
   database: Database,
@@ -41,7 +54,26 @@ export function createAuth(
         .filter(Boolean)
     : undefined;
 
-  const plugins: BetterAuthPlugin[] = [expo(), admin({ adminUserIds })];
+  // The web app and the auth server are separate origins in production, so
+  // the OAuth pages must be absolute web URLs, not paths on the API worker.
+  const webOrigin = webOriginFrom(env);
+  const mcpResource = `${env.BETTER_AUTH_URL.replace(/\/+$/, "")}/mcp`;
+  // Bind every JWT this server signs (and verifies) to the MCP resource.
+  // Without an explicit audience, `verifyJWT` falls back to the bare auth
+  // origin while the OAuth provider signs tokens with `aud = <resource>`, so
+  // every OAuth 2.1 access token would be rejected at /mcp. The issuer is
+  // pinned for the same reason (Better-Auth's base path is part of `iss`).
+  const jwtIssuer = authIssuerFor(env.BETTER_AUTH_URL);
+  const plugins: BetterAuthPlugin[] = [
+    expo(),
+    admin({ adminUserIds }),
+    jwt({ jwt: { issuer: jwtIssuer, audience: mcpResource } }),
+    mcp({
+      loginPage: `${webOrigin}/login`,
+      consentPage: `${webOrigin}/consent`,
+      resource: mcpResource,
+    }),
+  ];
 
   const stripeKey = env.STRIPE_SECRET_KEY;
   const hasLiveStripeKey =
@@ -115,7 +147,6 @@ export function createAuth(
     typeof googleClientSecret === "string" &&
     googleClientSecret.length > 0;
 
-  const webOrigin = webOriginFrom(env);
   const emailConfig = {
     RESEND_API_KEY: env.RESEND_API_KEY,
     RESEND_FROM_EMAIL: env.RESEND_FROM_EMAIL,
@@ -131,7 +162,9 @@ export function createAuth(
       },
     }),
     trustedOrigins: [
-      env.CORS_ORIGIN,
+      ...env.CORS_ORIGIN.split(",")
+        .map((origin) => origin.trim().replace(/\/+$/, ""))
+        .filter(Boolean),
       ...desktopOrigins,
       "quickcal-cf://",
       "exp://",
@@ -183,6 +216,31 @@ export function createAuth(
         if (!sent) {
           console.warn("[auth] RESEND_API_KEY not configured — skipping verification email");
         }
+      },
+    },
+    databaseHooks: {
+      user: {
+        create: {
+          // The old Clerk app sent a welcome email from its user.created
+          // webhook. Better-Auth's create hook is the equivalent seam. A
+          // provider failure must never roll back or block account creation.
+          after: async (user) => {
+            try {
+              await sendWelcomeEmail(emailConfig, {
+                to: user.email,
+                name: user.name,
+              });
+            } catch (error) {
+              console.warn("[auth] welcome email failed", error);
+            }
+          },
+        },
+      },
+    },
+    account: {
+      accountLinking: {
+        enabled: true,
+        trustedProviders: ["google"],
       },
     },
     socialProviders: hasGoogleOAuth

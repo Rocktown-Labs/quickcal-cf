@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { bodyLimit } from "hono/body-limit";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import jsonContent from "stoker/openapi/helpers/json-content";
 import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
@@ -16,6 +17,7 @@ app.use(
   "/manual-event",
   rateLimit({ windowMs: 60_000, maxRequests: 20, keyPrefix: "manual:user" }),
 );
+app.use("/manual-event", bodyLimit({ maxSize: 16 * 1024 }));
 
 const createManualEvent = createRoute({
   method: "post",
@@ -59,7 +61,7 @@ app.openapi(createManualEvent, async (c) => {
       title,
       description: description || null,
       startTime,
-      isAllDay: false,
+      isAllDay: !time,
       uploadId: null,
       userId,
     })

@@ -2,6 +2,12 @@ import { authClient } from "./auth-client";
 import { ENV } from "../src/env";
 
 const BASE = ENV.EXPO_PUBLIC_SERVER_URL;
+const WEB_BASE = ENV.EXPO_PUBLIC_WEB_URL;
+
+/** The web app origin (public share pages, auth emails) — not the API origin. */
+export function webUrl(): string {
+  return WEB_BASE.replace(/\/+$/, "");
+}
 
 export class ApiError extends Error {
   status: number;
@@ -101,6 +107,9 @@ export interface Profile {
   calendarFeedPath: string | null;
   webhookSecret: string;
 }
+
+export type UseCase = "class" | "work" | "conference" | "events" | "other";
+export type CalendarApp = "google" | "apple" | "outlook" | "other";
 
 export interface DirectEvent {
   title: string;
@@ -213,7 +222,12 @@ export const api = {
   me(): Promise<Profile> {
     return request("/api/user/me");
   },
-  updateMe(body: { phoneNumber?: string; isOnboarded?: boolean }): Promise<Profile> {
+  updateMe(body: {
+    phoneNumber?: string;
+    useCase?: UseCase | UseCase[];
+    calendarApp?: CalendarApp;
+    isOnboarded?: boolean;
+  }): Promise<Profile> {
     return request("/api/user/me", { method: "PATCH", json: body });
   },
   emailUpload(uploadId: string, email: string): Promise<{ message: string }> {

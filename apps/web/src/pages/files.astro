@@ -108,7 +108,7 @@ import DashLayout from "../layouts/DashLayout.astro";
       }
       panel.innerHTML = events.map(reviewRow).join("");
     } catch (err) {
-      panel.innerHTML = `<p class="text-sm text-danger">${err instanceof Error ? err.message : "Could not load events."}</p>`;
+      panel.innerHTML = `<p class="text-sm text-danger">${escapeHtml(err instanceof Error ? err.message : "Could not load events.")}</p>`;
     }
   }
 
