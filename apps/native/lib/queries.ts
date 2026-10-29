@@ -57,6 +57,8 @@ export function useCreateUpload() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.uploads });
       void qc.invalidateQueries({ queryKey: queryKeys.stats });
+      // The one-time credit is consumed when the run starts.
+      void qc.invalidateQueries({ queryKey: queryKeys.me });
     },
   });
 }
