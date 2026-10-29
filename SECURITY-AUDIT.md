@@ -167,9 +167,10 @@ filters).
 - **Mobile reliability:** safe-area top padding, status-polling 404 retries and
   an error state instead of an infinite spinner, files/stats/API-key error +
   retry states, and wall-clock-correct event date/time pickers.
-- Expo SDK patch updates, `eas.json` preview/production profiles with the
-  production `EXPO_PUBLIC_*` origins, and an app description were added.
-  `expo export` and `expo prebuild` both succeed.
+- Expo SDK patch updates, `eas.json` preview/production profiles that select
+  the EAS `preview`/`production` environments (the `EXPO_PUBLIC_*` origins are
+  created with `eas env:create`, not baked into `eas.json`), and an app
+  description were added. `expo export` and `expo prebuild` both succeed.
 
 ### 15. Hardening
 
