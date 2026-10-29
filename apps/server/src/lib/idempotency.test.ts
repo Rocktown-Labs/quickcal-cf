@@ -24,7 +24,7 @@ function createTestDb(): Database {
       expires_at integer not null
     );
   `);
-  return drizzle(sqlite) as unknown as Database;
+  return (drizzle as any)({ client: sqlite }) as Database;
 }
 
 function contextWithKey(key: string | null): Context {

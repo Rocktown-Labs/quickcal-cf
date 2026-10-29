@@ -47,7 +47,7 @@ function createTestDb(): { db: Database; sqlite: BunSqlite } {
       updated_at integer not null
     );
   `);
-  return { db: drizzle(sqlite) as unknown as Database, sqlite };
+  return { db: (drizzle as any)({ client: sqlite }) as Database, sqlite };
 }
 
 function fakeFiles() {
