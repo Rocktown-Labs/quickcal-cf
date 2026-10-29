@@ -33,7 +33,7 @@ jobs:
         working-directory: .
 
       - name: Run tests
-        run: bun test ./packages/db ./apps/server ./packages/auth
+        run: bun test ./packages/db ./apps/server ./packages/auth ./scripts
         working-directory: .
 
       - name: Deploy production
