@@ -251,7 +251,19 @@ The Expo app is in `apps/native`. It needs two public build-time values:
 - `EXPO_PUBLIC_WEB_URL` — the web origin (`https://quickcalai.com`), used for public share links
   and auth emails.
 
-Local dev defaults are `http://localhost:3000` and `http://localhost:4321`. For store builds:
+Local dev defaults are `http://localhost:3000` and `http://localhost:4321`. The `preview` and
+`production` profiles in `eas.json` inject the production origins, so store builds do not bake in
+the localhost defaults. To point a preview build at a staging API/web, override them with EAS
+environment variables:
+
+```bash
+bunx eas-cli env:create --environment preview \
+  --name EXPO_PUBLIC_SERVER_URL --value https://api-staging.example.com
+bunx eas-cli env:create --environment preview \
+  --name EXPO_PUBLIC_WEB_URL --value https://staging.example.com
+```
+
+For store builds:
 
 ```bash
 cd apps/native

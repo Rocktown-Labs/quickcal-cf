@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Share, Text as RNText, View } from "react-native";
 import { Button, Input, Label, Spinner, Text, TextArea, TextField, useToast } from "heroui-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import { api, webUrl, type DirectEvent, type RnFilePart, type StatusResponse } from "@/lib/api";
+import { webUrl, type DirectEvent, type RnFilePart, type StatusResponse } from "@/lib/api";
 import {
   useCreateDirectEvents,
   useCreateTextUpload,

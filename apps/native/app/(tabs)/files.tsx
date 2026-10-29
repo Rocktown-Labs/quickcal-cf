@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { Button, Input, Spinner, TextField, useToast } from "heroui-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { api, webUrl, type ReviewEvent } from "@/lib/api";
+import { webUrl, type ReviewEvent } from "@/lib/api";
 import {
   useDeleteEvent,
   useDeleteUpload,
