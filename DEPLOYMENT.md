@@ -260,15 +260,15 @@ them, so none is used):
 ```bash
 # Production values
 bunx eas-cli env:create --environment production \
-  --name EXPO_PUBLIC_SERVER_URL --value https://api.quickcalai.com
+  --name EXPO_PUBLIC_SERVER_URL --value https://api.quickcalai.com --visibility plaintext
 bunx eas-cli env:create --environment production \
-  --name EXPO_PUBLIC_WEB_URL --value https://quickcalai.com
+  --name EXPO_PUBLIC_WEB_URL --value https://quickcalai.com --visibility plaintext
 
 # Preview can point at production or a staging pair
 bunx eas-cli env:create --environment preview \
-  --name EXPO_PUBLIC_SERVER_URL --value https://api.quickcalai.com
+  --name EXPO_PUBLIC_SERVER_URL --value https://api.quickcalai.com --visibility plaintext
 bunx eas-cli env:create --environment preview \
-  --name EXPO_PUBLIC_WEB_URL --value https://quickcalai.com
+  --name EXPO_PUBLIC_WEB_URL --value https://quickcalai.com --visibility plaintext
 ```
 
 For store builds:

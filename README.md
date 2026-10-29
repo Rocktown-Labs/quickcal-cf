@@ -173,9 +173,9 @@ signed-in user changes.
   (the `eas.json` profiles select them via `environment`):
   ```bash
   bunx eas-cli env:create --environment preview \
-    --name EXPO_PUBLIC_SERVER_URL --value https://api.quickcalai.com
+    --name EXPO_PUBLIC_SERVER_URL --value https://api.quickcalai.com --visibility plaintext
   bunx eas-cli env:create --environment preview \
-    --name EXPO_PUBLIC_WEB_URL --value https://quickcalai.com
+    --name EXPO_PUBLIC_WEB_URL --value https://quickcalai.com --visibility plaintext
   # repeat with --environment production (or use staging origins for preview)
   ```
   This avoids the localhost schema defaults in remote builds and keeps the EAS environment as the
