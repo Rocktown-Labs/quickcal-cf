@@ -24,6 +24,7 @@ export const server = Cloudflare.Worker("server", {
     flags: ["nodejs_compat"],
   },
   env: {
+    NODE_ENV: Config.withDefault(Config.String("NODE_ENV"), "production"),
     DB: db,
     FILES: files,
     CALENDAR_WORKFLOW: calendarWorkflow,

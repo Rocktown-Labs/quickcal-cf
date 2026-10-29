@@ -222,6 +222,7 @@
 <script>
   import { authClient } from "../lib/auth-client";
   import { api, ApiError } from "../lib/api";
+  import { escapeHtml } from "../lib/html";
   import { preparePdfForUpload } from "../lib/pdf";
 
   const root = document.getElementById("uploader")!;
@@ -569,8 +570,8 @@
     list.innerHTML = manualRows.map((row, i) => `
       <div class="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-2.5">
         <div class="min-w-0 flex-1">
-          <p class="text-sm font-semibold truncate">${row.title.replace(/</g, "&lt;")}</p>
-          <p class="text-xs text-muted-foreground">${row.date}${row.time ? ` · ${row.time}` : ""}${row.endTime ? `–${row.endTime}` : ""}${row.location ? ` · ${row.location}` : ""}</p>
+          <p class="text-sm font-semibold truncate">${escapeHtml(row.title)}</p>
+          <p class="text-xs text-muted-foreground">${escapeHtml(row.date)}${row.time ? ` · ${escapeHtml(row.time)}` : ""}${row.endTime ? `–${escapeHtml(row.endTime)}` : ""}${row.location ? ` · ${escapeHtml(row.location)}` : ""}</p>
         </div>
         <button data-remove-row="${i}" class="shrink-0 text-xs font-bold text-danger border border-danger/40 rounded-lg px-2.5 py-1">Remove</button>
       </div>`).join("");

@@ -30,9 +30,7 @@ Set these as GitHub Actions secrets, Cloudflare Worker secrets, or in `apps/serv
 | `ADMIN_USER_IDS` | Optional | Bootstrap admins before sign-up |
 | `STRIPE_SECRET_KEY` | **Missing** | Stripe API |
 | `STRIPE_WEBHOOK_SECRET` | **Missing** | Stripe webhook verification |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | **Removed** | Was AI extraction — replaced 2026-10-04 by GLM-OCR (z.ai) + GLM on Workers AI; delete the stale GitHub secret |
-| `ZAI_API_KEY` | **Needed for image/PDF** | GLM-OCR reads images/PDFs into text (z.ai, $0.03/M tokens). Without it: pasted-text ingestion works fully (extraction runs in-network); image/PDF uploads fail with a clear "OCR provider not configured" reason. Get a key at https://z.ai/manage-apikey/apikey-list |
-| `EXTRACTION_MODEL` | Optional var | Workers AI extraction model — defaults to `@cf/zai-org/glm-5.3-flash` |
+| `EXTRACTION_MODEL` | Optional var | Workers AI extraction model (in-network via `env.AI`) — defaults to `@cf/zai-org/glm-5.3-flash` |
 | `RESEND_API_KEY` | Set in GitHub Actions | Email delivery |
 | `RESEND_FROM_EMAIL` | Suggested: `QuickCalAI <noreply@extractions.quickcalai.com>` | Email sender |
 | `SENT_DM_API_KEY` | Set in GitHub Actions | SMS delivery |
@@ -101,15 +99,16 @@ After custom DNS is configured, these should become `https://quickcalai.com` and
 ## Skipped for now
 
 - **Resend webhooks.** `RESEND_WEBHOOK_SECRET` is not being used. Can be added later if you want to track bounces, complaints, opens, or clicks.
+- **PostHog and Sentry.** The old Vercel app had both. The Cloudflare app does not yet. Wire these after the domain cutover so the first sessions and errors are captured on the real hostname.
 
 ## Still needed before launch
 
 1. Add remaining secrets (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`).
 2. Configure Stripe and Google dashboards with the URLs above.
 3. Configure Cloudflare DNS for `quickcalai.com` to point to the deployed web Worker.
-4. Deploy (first preview, then production).
-5. Sign up the first user, make them admin (`ADMIN_USER_IDS`), then visit `/admin` and run **Sync Stripe products**.
-6. Migrate users from Clerk to Better-Auth.
+4. Deploy the latest changes (preview, then production).
+5. Confirm the owner account is in `ADMIN_USER_IDS`, then visit `/admin` and run **Sync Stripe products** once real Stripe keys are set.
+6. Finish the auth cutover: add real Google OAuth credentials, verify one Google-only user and one password-only user, then send the announcement.
 
 ## Deploy with GitHub Actions
 
@@ -130,7 +129,6 @@ Create these in GitHub before the first deploy:
 | Secret | Status | Notes |
 | --- | --- | --- |
 | `BETTER_AUTH_SECRET` | ✅ set | Real random secret generated |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | ✅ set | User-provided |
 | `RESEND_API_KEY` | ✅ set | User-provided |
 | `SENT_DM_API_KEY` | ✅ set | User-provided |
 | `GOOGLE_CLIENT_ID` | ⚠️ dummy | Replace with real values when ready |
@@ -149,11 +147,21 @@ Replace dummy values with real ones in the GitHub Actions secrets page. The app 
 # Deploy preview from a PR automatically
 ```
 
-Plan this separately from launch unless launch is gated on existing users:
+### User migration (Clerk -> Better-Auth)
 
-- Export Clerk users (email, hashed password if available, name, user ID).
-- For users with passwords, Better-Auth does not allow importing hashes; options are:
-  - Password reset emails,
-  - Magic-link login,
-  - Import accounts and force password reset on next login.
-- Preserve old user IDs or map Clerk ID → Better-Auth ID in a lookup table so existing data links remain valid.
+The live importer is `bun run migrate:clerk-users`. It fetches Clerk users, preserves Clerk IDs, skips emails that already exist in D1, and never imports password hashes. Password users complete the Better-Auth reset flow on first sign-in.
+
+Production D1 has the 18 non-overlapping Clerk users imported. The owner account already existed and was matched by email. See `scripts/README.md` for the offline JSON-export variant.
+
+Before announcing:
+
+- Add real Google OAuth credentials and verify one migrated Google-only user can sign in. Account linking for Google is enabled in `packages/auth`.
+- Verify one password-only user can use "Forgot password" and set a credential account.
+- Run one MCP OAuth connection end to end (Claude or Cursor) against `/mcp`. The consent page is at `/consent`; the login and signup pages preserve the OAuth query.
+- Cut `quickcalai.com` over to the new web Worker and update `CORS_ORIGIN`, the Google redirect URI, and the Stripe webhook URL.
+
+### Email templates and announcement
+
+`packages/email` contains React Email templates for welcome, processing complete, and the product announcement. `bun run email:announcement` renders a dry-run preview; `--apply` sends through Resend. A mailing address is required with `--apply`.
+
+Do not send the announcement until Google OAuth and the domain cutover are live. If the email advertises Premium, confirm Stripe checkout works first. Set `--reply-to` so replies reach a real inbox. The script excludes test accounts by default and adds a `List-Unsubscribe` header.

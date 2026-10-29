@@ -13,6 +13,7 @@
     "@hono/zod-openapi": "^1.6.3",
     "@quickcal-cf/auth": "workspace:*",
     "@quickcal-cf/db": "workspace:*",
+    "@quickcal-cf/email": "workspace:*",
     "@sentdm/sentdm": "^0.39.0",
     "better-auth": "catalog:",
     "evlog": "catalog:",

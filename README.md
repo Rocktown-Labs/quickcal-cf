@@ -66,8 +66,9 @@ Bun + Turborepo monorepo, deployed entirely to Cloudflare via [Alchemy](https://
 
 | Package | What it is |
 | --- | --- |
-| `packages/db` | Drizzle schema (uploads, events, api keys, Better-Auth tables, Stripe billing tables), query helpers, ICS generation, D1 migrations. |
-| `packages/auth` | Better-Auth factory: email/password + Google OAuth, admin + Expo + Stripe subscription plugins. |
+| `packages/db` | Drizzle schema (uploads, events, api keys, Better-Auth and MCP OAuth tables, Stripe billing tables), query helpers, ICS generation, D1 migrations. |
+| `packages/auth` | Better-Auth factory: email/password + Google OAuth, admin + Expo + Stripe + MCP OAuth plugins. |
+| `packages/email` | React Email templates for welcome, processing complete, and the product announcement. |
 | `packages/infra` | Alchemy IaC — D1 database, R2 bucket, Workflow, both Workers, and deploy-time env wiring (Varlock). |
 
 ### Storage & bindings
@@ -112,9 +113,11 @@ bun run db:generate
 | `bun run dev` | Start web + API in dev mode (Alchemy) |
 | `bun run build` | Build the server bundle (web is built at deploy time by Alchemy) |
 | `bun run check-types` | TypeScript / Astro type check across all packages |
-| `bun run test` | Unit tests (`packages/db`, `apps/server`) |
+| `bun run test` | Unit tests (`packages/db`, `apps/server`, `packages/auth`, `scripts`) |
 | `bun run dev:native` | Expo dev server |
 | `bun run db:generate` | Generate a Drizzle migration |
+| `bun run migrate:clerk-users` | Import Clerk users into D1 (dry run by default) |
+| `bun run email:announcement` | Render or send the product announcement |
 | `bun run env:generate` | Regenerate Varlock env accessors |
 | `bun run deploy` / `destroy` | Alchemy deploy/destroy (interactive) |
 | `bun run check` | Oxlint + oxfmt over the server, web, and packages |
@@ -158,6 +161,7 @@ quickcal-cf/
 │   ├── auth/          # Better-Auth factory
 │   ├── config/        # Shared tsconfig
 │   ├── db/            # Drizzle schema, queries, ICS, migrations
+│   ├── email/         # React Email templates
 │   └── infra/         # Alchemy IaC for all Cloudflare resources
 └── .github/workflows/deploy.yml
 ```
@@ -168,4 +172,7 @@ quickcal-cf/
   uploads, extraction, share links with revocation, admin Stripe sync). Google OAuth and Stripe
   checkout are dormant until real keys replace the placeholders. The native app mirrors the mobile
   web app (auth, uploader, files, settings) and needs a device build pass before store submission.
+  Clerk users have been imported into D1 (18 non-overlapping accounts); Google OAuth still needs
+  real credentials before the Google-only accounts can sign in. Transactional emails (welcome,
+  processing complete) and the product announcement live in `packages/email`.
   See [DEPLOYMENT.md](./DEPLOYMENT.md) for the launch checklist and the security work already done.

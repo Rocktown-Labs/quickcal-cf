@@ -4,60 +4,60 @@ import Navbar from "../components/Navbar.astro";
 import Logo from "../components/Logo.astro";
 
 const stats = [
-  { value: "4", label: "File formats — JPEG, PNG, WebP, PDF" },
-  { value: "10 MB", label: "Max upload size" },
-  { value: "GLM-OCR", label: "Document engine" },
-  { value: "$0", label: "Manual events, free forever" },
+  { value: "4 Ways In", label: "Photos, PDFs, text, or links" },
+  { value: "Agent-Native", label: "Model Context Protocol (MCP)" },
+  { value: "Review First", label: "Exact quotes and confidence scores" },
+  { value: "$0 Forever", label: "Manual events and 1 free AI test" },
 ] as const;
 
 const steps = [
   {
     number: "01",
-    title: "Upload any schedule",
-    body: "Drag in a screenshot, PDF, event flyer, or a photo of a whiteboard. We accept JPEG, PNG, WebP, and PDF documents with dates.",
+    title: "Ingest any schedule",
+    body: "Drag in a photo or syllabus PDF, paste raw schedule text, enter a public URL, or let Claude and Cursor push events directly via MCP.",
   },
   {
     number: "02",
-    title: "AI reads every event",
-    body: "OCR turns the document into clean text, then AI identifies dates, times, and event names across the whole thing — every event becomes structured calendar data.",
+    title: "AI extracts and verifies",
+    body: "In-network AI identifies dates, times, titles, and locations. Every event includes the exact snippet from your document and a confidence score.",
   },
   {
     number: "03",
-    title: "Export or share",
-    body: "Download an .ics file, send it by email or SMS, or share a link others can open without an account.",
+    title: "Sync everywhere",
+    body: "Download universal .ics files, share private web links, or subscribe once to a personal calendar feed that stays updated automatically.",
   },
 ] as const;
 
 const features = [
   {
-    title: "Smart upload",
-    body: "Screenshots, photos of whiteboards, PDFs, scanned papers — if it has dates, we can read it.",
-    icon: "upload",
+    title: "Multi-modal input",
+    body: "Photos of whiteboards, syllabi PDFs, pasted text, public URLs, or raw JSON. If it has schedule info, QuickCalAI can read it.",
+    tag: "Flexible",
   },
   {
-    title: "AI extraction",
-    body: "Every date, time, and event name is pulled out and converted into structured calendar data.",
-    icon: "sparkles",
+    title: "Agent-native with MCP",
+    body: "Connect QuickCalAI to Claude, Cursor, or your autonomous agent via Model Context Protocol. Check status, review events, and rotate feeds.",
+    tag: "Agent-Ready",
   },
   {
-    title: "Free manual events",
-    body: "Create single events by hand and download the .ics for free — no AI, no credit card required.",
-    icon: "checklist",
+    title: "Review, do not guess",
+    body: "Every extracted event displays its source quote and confidence score. Edit any field and your .ics file regenerates in real time.",
+    tag: "Verification",
   },
   {
-    title: "Universal export",
-    body: "Generate .ics files that import directly into Google Calendar, Apple Calendar, Outlook, and any calendar app.",
-    icon: "calendar",
+    title: "Subscribe-once feed",
+    body: "Add your private webcal URL to Apple Calendar, Google Calendar, or Outlook. Every event you or your agents create syncs automatically.",
+    tag: "Universal Sync",
   },
   {
-    title: "Email & SMS delivery",
-    body: "Send calendar files straight to an inbox or phone. Share a schedule with a team in seconds.",
-    icon: "send",
+    title: "Instant delivery",
+    body: "Send calendar files straight to an email address or mobile phone. Share a tournament schedule with a team in seconds.",
+    tag: "Sharing",
   },
   {
-    title: "Private by default",
-    body: "Files stay private to your account and are never shared unless you create a share link — which you can revoke anytime.",
-    icon: "shield",
+    title: "Private and durable",
+    body: "Files are stored securely in your account and never used for model training. Durable workflows guarantee no uploads stay stuck in limbo.",
+    tag: "Security",
   },
 ] as const;
 
@@ -66,11 +66,12 @@ const plans = [
     name: "Free",
     price: "$0",
     period: "",
-    description: "Build calendars by hand",
+    description: "Manual events and first AI extraction",
     featured: false,
     features: [
-      "Manual event creation",
-      "Unlimited .ics downloads",
+      "1 free AI extraction included",
+      "Unlimited manual event creation",
+      "Universal .ics downloads",
       "No credit card required",
     ],
   },
@@ -78,13 +79,14 @@ const plans = [
     name: "Premium",
     price: "$12.99",
     period: "/mo",
-    description: "AI extraction on demand",
+    description: "Unlimited AI extraction on demand",
     featured: true,
     features: [
       "Unlimited AI extractions",
-      "Email & SMS delivery",
-      "Public share links",
-      "All calendar integrations",
+      "Subscribe-once calendar feed (webcal)",
+      "Full MCP server and REST API access",
+      "Email and SMS calendar delivery",
+      "Public share links with one-click revoke",
       "Cancel anytime",
     ],
   },
@@ -92,107 +94,102 @@ const plans = [
     name: "Annual",
     price: "$5.99",
     period: "/mo",
-    description: "$71.88 billed annually · Save 54%",
+    description: "$71.88 billed annually (Save 54%)",
     featured: false,
     features: [
       "Everything in Premium",
-      "2 months free",
-      "Priority processing",
-      "White-label options",
+      "2 months free included",
+      "Priority processing queue",
+      "Annual billing simplicity",
     ],
   },
 ] as const;
 
 const useCases = [
   {
-    initials: "🎓",
-    title: "Students",
-    body: "Turn a semester timetable PDF or a photo of the syllabus whiteboard into a calendar you actually keep.",
+    role: "Students & Academics",
+    headline: "Never retype a syllabus again",
+    body: "Drop your multi-page course syllabus or exam timetable. Turn 30 lecture dates, assignment due dates, and office hours into a calendar in 5 seconds.",
+    badge: "Syllabi & Timetables",
   },
   {
-    initials: "🗂",
-    title: "Executive assistants",
-    body: "Process conference agendas and event lists in seconds instead of retyping them line by line.",
+    role: "Executive Assistants",
+    headline: "Turn messy agendas into clean calendar invites",
+    body: "Itineraries arrive as screenshots, conference websites, and PDF attachments. QuickCalAI pulls every session with its exact room and time, ready to import.",
+    badge: "Conferences & Travel",
   },
   {
-    initials: "🧑‍🍳",
-    title: "Shift workers & teams",
-    body: "Snap the rota pinned to the break-room wall, then share the .ics with the whole team by link, email, or SMS.",
+    role: "Shift Workers & Team Leads",
+    headline: "Share rotas with the entire crew in one tap",
+    body: "Snap a photo of the weekly schedule pinned on the wall. Share a private link or SMS the .ics file directly so everyone stays on the same page.",
+    badge: "Work Rotas & Leagues",
   },
 ] as const;
 
 const faqs = [
   {
-    question: "What file types can I upload?",
+    question: "What formats can QuickCalAI process?",
     answer:
-      "JPEG, PNG, WebP, and PDF files up to 10 MB. Screenshots, event flyers, scanned papers, and photos of whiteboards work well. Clear, readable dates and times produce the best results.",
+      "You can upload images (JPEG, PNG, WebP) and PDFs up to 10 MB, paste raw schedule text directly into the uploader, or provide a public URL. Developers and AI agents can also send structured JSON or call our MCP server.",
   },
   {
-    question: "Is there a free plan?",
+    question: "Is there a free trial?",
     answer:
-      "Yes. You can create single events and download .ics files for free. AI-powered extraction from images and PDFs requires a Premium plan.",
+      "Yes. Every new account gets 1 free AI extraction to test the full pipeline with no credit card required. You can also create single events by hand and export .ics files for free forever.",
   },
   {
-    question: "How accurate is the AI extraction?",
+    question: "How does the AI ensure accuracy?",
     answer:
-      "Treat extraction as a starting point, not a guarantee. AI can misread ambiguous or low-resolution schedules, so review dates, times, and titles before importing. You can always delete an upload and try again.",
+      "QuickCalAI extracts events alongside confidence scores and the exact source quote from the original document. You can verify every single date and time before importing. If you edit an event, the .ics file updates immediately.",
   },
   {
-    question: "Which calendar apps work with the .ics files?",
+    question: "How does the aggregate calendar feed work?",
     answer:
-      "Any app that supports the iCalendar format — Google Calendar, Apple Calendar, Outlook, Fantastical, Notion, and many more.",
+      "Instead of importing individual files, you can subscribe to your private calendar URL in Apple Calendar, Google Calendar, or Outlook. Whenever you or your AI agents process a new schedule, the events appear on your devices automatically.",
   },
   {
-    question: "Is my data private?",
+    question: "How do I connect Claude or Cursor?",
     answer:
-      "Files are stored privately in your account and are never shared unless you create a share link — and you can revoke any link at any time. We don't train on your content or share it with third parties. Delete an upload and its source file, events, and calendar are removed.",
+      "QuickCalAI includes a native Model Context Protocol (MCP) server. Generate an API key in your Settings page, add the QuickCalAI MCP configuration to Claude Desktop or Cursor, and your agent can create events, inspect schedules, and manage calendars directly.",
+  },
+  {
+    question: "Is my schedule data private?",
+    answer:
+      "Yes. Your documents and calendar events remain private to your account. We never use your data for AI training or sell it to third parties. If you create a share link, you can revoke it at any time, and deleting an upload purges the source file and events completely.",
   },
 ] as const;
 
 const currentYear = new Date().getFullYear();
-
-function iconPath(name: string) {
-  switch (name) {
-    case "upload":
-      return "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M17 8l-5-5-5 5 M12 3v12";
-    case "sparkles":
-      return "M12 2l2.4 7.2h7.6l-6 4.8 2.4 7.2-6-4.8-6 4.8 2.4-7.2-6-4.8h7.6z";
-    case "checklist":
-      return "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z";
-    case "calendar":
-      return "M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M9 16l2 2 4-4";
-    case "send":
-      return "M22 2L11 13 M22 2l-7 20-4-9-9-4 20-7z";
-    case "shield":
-      return "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z";
-    default:
-      return "";
-  }
-}
 ---
 
 <Layout>
   <div class="relative overflow-hidden pb-16 md:pb-0">
     <Navbar />
 
-    <!-- Hero -->
+    <!-- Hero Section -->
     <section id="hero" class="relative min-h-[92vh] flex items-center border-b border-border/40">
       <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 w-full">
-        <div class="grid lg:grid-cols-2 gap-16 items-center">
-          <div class="max-w-xl">
-            <p class="eyebrow mb-6 reveal">AI calendar extraction</p>
+        <div class="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+          
+          <!-- Left Column: Copy & CTAs -->
+          <div class="lg:col-span-6 max-w-xl">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-semibold uppercase tracking-wider mb-6 reveal">
+              <span class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></span>
+              Agent-Ready Calendar Engine
+            </div>
 
             <h1 class="font-heading text-5xl sm:text-6xl md:text-7xl tracking-tight leading-[1.05] reveal reveal-delay-1">
-              Image to<br />calendar,<span class="accent-text"> in seconds.</span>
+              From any schedule to your calendar,<br />
+              <span class="accent-text italic">in seconds.</span>
             </h1>
 
             <p class="mt-7 text-lg text-muted-foreground leading-relaxed reveal reveal-delay-2">
-              Upload any screenshot, PDF, or photo of a schedule. QuickCalAI extracts every event and builds an .ics file you can drop into Google Calendar, Apple Calendar, or Outlook.
+              Drop a photo or PDF, paste schedule text, or connect Claude and Cursor. QuickCalAI turns messy dates into verified calendar events with exact source quotes and universal feeds.
             </p>
 
             <div class="mt-9 flex flex-col sm:flex-row gap-3 reveal reveal-delay-3">
               <a href="/signup" class="btn-solid group">
-                Get started free
+                Start free (1 AI extraction included)
                 <svg
                   class="ml-2 w-4 h-4 transition-transform group-hover:translate-x-0.5"
                   viewBox="0 0 24 24"
@@ -205,49 +202,220 @@ function iconPath(name: string) {
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </a>
-              <a href="#how-it-works" class="btn-ghost">How it works</a>
+              <a href="#mcp-demo" class="btn-ghost">
+                View MCP agent tools
+              </a>
             </div>
 
-            <div class="mt-8 flex flex-wrap items-center gap-5 text-sm text-muted-foreground reveal reveal-delay-4">
+            <div class="mt-8 flex flex-wrap items-center gap-5 text-xs font-medium text-muted-foreground reveal reveal-delay-4">
               <span class="flex items-center gap-2">
                 <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
                 No credit card required
               </span>
               <span class="flex items-center gap-2">
                 <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
-                Free manual events
+                Free manual events forever
+              </span>
+              <span class="flex items-center gap-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                Universal .ics export
               </span>
             </div>
           </div>
 
-          <div class="relative reveal reveal-delay-2">
-            <div class="hero-frame rounded-lg overflow-hidden bg-card">
-              <div class="absolute inset-x-0 top-0 h-px bg-primary/80"></div>
-              <img
-                src="/quickcalai-hero-image.png"
-                alt="QuickCalAI dashboard showing an uploaded schedule and extracted calendar events"
-                width="800"
-                height="600"
-                class="w-full h-auto"
-                loading="eager"
-              />
+          <!-- Right Column: Interactive Engine Showcase (Replaces static hero image) -->
+          <div class="lg:col-span-6 reveal reveal-delay-2">
+            <div class="hero-frame rounded-xl border border-border/70 bg-card overflow-hidden shadow-2xl">
+              
+              <!-- Window Chrome -->
+              <div class="border-b border-border/50 bg-secondary/40 px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="w-3 h-3 rounded-full bg-primary/80"></div>
+                  <div class="w-3 h-3 rounded-full bg-muted-foreground/30"></div>
+                  <div class="w-3 h-3 rounded-full bg-muted-foreground/30"></div>
+                  <span class="ml-2 text-xs font-mono text-muted-foreground">quickcal-engine // live-demo</span>
+                </div>
+                
+                <!-- Input Switcher Tabs -->
+                <div class="flex items-center gap-1 bg-background/60 border border-border/60 rounded-lg p-0.5" id="hero-tabs">
+                  <button type="button" data-hero-tab="visual" class="hero-tab-btn active px-2.5 py-1 text-xs font-medium rounded-md transition-colors bg-primary text-primary-foreground">
+                    Photo / PDF
+                  </button>
+                  <button type="button" data-hero-tab="text" class="hero-tab-btn px-2.5 py-1 text-xs font-medium rounded-md transition-colors text-muted-foreground hover:text-foreground">
+                    Pasted Text
+                  </button>
+                  <button type="button" data-hero-tab="agent" class="hero-tab-btn px-2.5 py-1 text-xs font-medium rounded-md transition-colors text-muted-foreground hover:text-foreground">
+                    Agent (MCP)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tab Panel 1: Visual / Document Extraction -->
+              <div id="panel-visual" class="hero-tab-panel p-5 space-y-4">
+                <div class="rounded-lg border border-border/60 bg-secondary/20 p-3.5 flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-mono text-xs font-bold">
+                      PDF
+                    </div>
+                    <div>
+                      <div class="text-sm font-semibold">CS101_Fall_Syllabus.pdf</div>
+                      <div class="text-xs text-muted-foreground">3 pages · 24 dated sessions detected</div>
+                    </div>
+                  </div>
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                    <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                    Extracted in 1.4s
+                  </span>
+                </div>
+
+                <!-- Verified Event Rows with Confidence & Quote -->
+                <div class="space-y-2.5">
+                  <div class="rounded-lg border border-border/50 bg-background/50 p-3 hover:border-primary/40 transition-colors">
+                    <div class="flex items-start justify-between gap-2">
+                      <div>
+                        <div class="text-sm font-semibold flex items-center gap-2">
+                          <span>Lecture: Algorithmic Complexity</span>
+                          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-primary font-medium">99% confidence</span>
+                        </div>
+                        <div class="text-xs text-muted-foreground mt-0.5 font-mono">
+                          Oct 26, 2026 · 10:00 AM to 11:30 AM · Hall B
+                        </div>
+                      </div>
+                      <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-primary/10 text-primary">MW Slot</span>
+                    </div>
+                    <div class="mt-2 text-[11px] text-muted-foreground/90 bg-secondary/30 px-2 py-1 rounded border border-border/30 font-mono">
+                      Source: &quot;Mon/Wed 10:00-11:30am in Lecture Hall B&quot;
+                    </div>
+                  </div>
+
+                  <div class="rounded-lg border border-border/50 bg-background/50 p-3 hover:border-primary/40 transition-colors">
+                    <div class="flex items-start justify-between gap-2">
+                      <div>
+                        <div class="text-sm font-semibold flex items-center gap-2">
+                          <span>Midterm Examination</span>
+                          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-secondary text-primary font-medium">98% confidence</span>
+                        </div>
+                        <div class="text-xs text-muted-foreground mt-0.5 font-mono">
+                          Nov 4, 2026 · 1:00 PM to 3:00 PM · Science Center 102
+                        </div>
+                      </div>
+                      <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-primary/10 text-primary">Exam</span>
+                    </div>
+                    <div class="mt-2 text-[11px] text-muted-foreground/90 bg-secondary/30 px-2 py-1 rounded border border-border/30 font-mono">
+                      Source: &quot;Midterm Exam: Wednesday Nov 4 at 1pm in SC 102&quot;
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Live Result Actions -->
+                <div class="pt-2 flex items-center justify-between border-t border-border/40 text-xs">
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-muted-foreground">Universal Feed:</span>
+                    <span class="font-mono text-foreground/80 bg-secondary px-2 py-0.5 rounded">webcal://.../feed</span>
+                  </div>
+                  <span class="font-semibold text-primary">Instant .ics ready</span>
+                </div>
+              </div>
+
+              <!-- Tab Panel 2: Pasted Text -->
+              <div id="panel-text" class="hero-tab-panel hidden p-5 space-y-4">
+                <div class="rounded-lg border border-border/60 bg-secondary/20 p-3 font-mono text-xs text-muted-foreground leading-relaxed">
+                  <span class="text-foreground font-semibold block mb-1">// Raw email pasted into QuickCalAI:</span>
+                  &quot;Team offsite next Tuesday Oct 27 starting at 9:00 AM at Downtown Loft. Strategy review at 2:00 PM followed by team dinner at 6:30 PM.&quot;
+                </div>
+
+                <div class="space-y-2">
+                  <div class="rounded-lg border border-border/50 bg-background/50 p-2.5 flex items-center justify-between">
+                    <div>
+                      <div class="text-xs font-semibold">Team Strategy Review</div>
+                      <div class="text-[11px] text-muted-foreground font-mono">Oct 27, 2026 · 2:00 PM to 4:00 PM · Downtown Loft</div>
+                    </div>
+                    <span class="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">Parsed</span>
+                  </div>
+                  <div class="rounded-lg border border-border/50 bg-background/50 p-2.5 flex items-center justify-between">
+                    <div>
+                      <div class="text-xs font-semibold">Offsite Team Dinner</div>
+                      <div class="text-[11px] text-muted-foreground font-mono">Oct 27, 2026 · 6:30 PM to 8:30 PM</div>
+                    </div>
+                    <span class="text-[10px] font-mono bg-primary/10 text-primary px-2 py-0.5 rounded">Parsed</span>
+                  </div>
+                </div>
+
+                <div class="text-xs text-muted-foreground text-center">
+                  Works with messy group chats, emails, and unformatted lists.
+                </div>
+              </div>
+
+              <!-- Tab Panel 3: Agent & MCP -->
+              <div id="panel-agent" class="hero-tab-panel hidden p-5 space-y-4">
+                <div class="rounded-lg bg-black/90 p-3.5 font-mono text-xs text-muted-foreground border border-border/40">
+                  <div class="text-primary font-bold mb-1.5">// Claude Desktop / Cursor MCP Config</div>
+                  <div class="text-[#888888]">
+                    &#123;<br />
+                    &nbsp;&nbsp;&quot;mcpServers&quot;: &#123;<br />
+                    &nbsp;&nbsp;&nbsp;&nbsp;&quot;quickcal&quot;: &#123;<br />
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;url&quot;: &quot;https://quickcalai.com/mcp&quot;,<br />
+                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&quot;headers&quot;: &#123; &quot;Authorization&quot;: &quot;Bearer qc_live_...&quot; &#125;<br />
+                    &nbsp;&nbsp;&nbsp;&nbsp;&#125;<br />
+                    &nbsp;&nbsp;&#125;<br />
+                    &#125;
+                  </div>
+                </div>
+
+                <div class="rounded-lg border border-primary/30 bg-primary/5 p-3 flex items-start gap-2.5">
+                  <span class="text-lg">🤖</span>
+                  <div class="text-xs leading-relaxed text-foreground">
+                    <strong class="text-primary">Agent workflow:</strong> Claude calls <code class="bg-secondary px-1 py-0.5 rounded font-mono">create_events</code>, checks status via <code class="bg-secondary px-1 py-0.5 rounded font-mono">get_status</code>, and hands you an aggregate calendar feed.
+                  </div>
+                </div>
+              </div>
+
             </div>
-            <p class="absolute -bottom-6 left-0 text-[10px] tracking-widest uppercase text-muted-foreground">
-              Dashboard preview
-            </p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Compatibility Bar -->
+    <section class="border-b border-border/40 py-8 bg-secondary/10">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-left">
+          <div class="text-xs uppercase font-mono tracking-widest text-muted-foreground">
+            Universal Sync &amp; Agent Protocol:
+          </div>
+          <div class="flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-sm font-semibold text-foreground/75">
+            <span class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+              <span class="text-primary">✦</span> Apple Calendar
+            </span>
+            <span class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+              <span class="text-primary">✦</span> Google Calendar
+            </span>
+            <span class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+              <span class="text-primary">✦</span> Microsoft Outlook
+            </span>
+            <span class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+              <span class="text-primary">✦</span> Claude Desktop
+            </span>
+            <span class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+              <span class="text-primary">✦</span> Cursor
+            </span>
+            <span class="flex items-center gap-1.5 hover:text-foreground transition-colors">
+              <span class="text-primary">✦</span> Raycast
+            </span>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Stats -->
+    <!-- Metrics / Proof Points Bar -->
     <section class="border-b border-border/40">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-2 md:grid-cols-4 divide-x divide-border/40">
+        <div class="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-border/40">
           {stats.map(({ value, label }) => (
-            <div class="py-10 px-4 text-center reveal">
-              <div class="text-3xl md:text-4xl font-bold tracking-tight">{value}</div>
-              <div class="mt-1 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+            <div class="py-10 px-6 text-center reveal">
+              <div class="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">{value}</div>
+              <div class="mt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-mono">
                 {label}
               </div>
             </div>
@@ -256,43 +424,43 @@ function iconPath(name: string) {
       </div>
     </section>
 
-    <!-- Problem / promise -->
+    <!-- The Problem Section -->
     <section class="py-28 border-b border-border/40">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid md:grid-cols-2 gap-12 items-start">
           <div class="reveal">
-            <p class="eyebrow mb-4">The problem</p>
+            <p class="eyebrow mb-4">The manual entry problem</p>
             <h2 class="font-heading text-4xl md:text-5xl tracking-tight leading-[1.08]">
-              Schedules live everywhere<br />except your calendar.
+              Schedules live everywhere<br />except in your calendar.
             </h2>
           </div>
-          <div class="md:pt-10 space-y-6 text-muted-foreground leading-relaxed reveal reveal-delay-1">
+          <div class="md:pt-6 space-y-6 text-muted-foreground leading-relaxed reveal reveal-delay-1">
             <p>
-              Class timetables arrive as PDFs. Conference agendas are hidden in screenshots. Shift rotors are pinned to a whiteboard. Re-typing them by hand is slow, tedious, and full of mistakes.
+              Class timetables arrive in multi-page PDFs. Conference itineraries are trapped in screenshot graphics. Shift rotas are pinned to break room notice boards.
             </p>
             <p>
-              QuickCalAI reads the document for you, turns the dates into structured events, and gives you a calendar file that just works.
+              Typing every meeting, lab section, and speaker session line by line takes 45 minutes of painful copy-pasting. One typo leads to a missed flight or forgotten exam.
             </p>
-            <div class="pt-2">
-              <a href="#features" class="text-sm font-semibold text-primary hover:underline">See the features</a>
-            </div>
+            <p>
+              QuickCalAI reads the source directly, identifies every date and time, and generates clean calendar entries that import anywhere without the busywork.
+            </p>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- How it works -->
-    <section id="how-it-works" class="py-28">
+    <!-- How It Works -->
+    <section id="how-it-works" class="py-28 border-b border-border/40">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-16 reveal">
-          <p class="eyebrow mb-3">How it works</p>
-          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Three steps to a usable calendar</h2>
+          <p class="eyebrow mb-3">Workflow</p>
+          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Three steps from paper to calendar</h2>
         </div>
 
-        <div class="grid md:grid-cols-3 gap-px bg-border/40 border border-border/40 rounded-lg overflow-hidden">
+        <div class="grid md:grid-cols-3 gap-6">
           {steps.map(({ number, title, body }, i) => (
-            <div class="surface-subtle p-8 md:p-10 reveal" class:list={[`reveal-delay-${i + 1}`]}>
-              <span class="text-5xl font-bold text-primary/30">{number}</span>
+            <div class="surface-subtle rounded-xl p-8 card-minimal reveal" class:list={[`reveal-delay-${i + 1}`]}>
+              <div class="text-4xl font-bold font-mono text-primary/40">{number}</div>
               <h3 class="mt-6 text-lg font-semibold">{title}</h3>
               <p class="mt-3 text-sm text-muted-foreground leading-relaxed">{body}</p>
             </div>
@@ -301,24 +469,23 @@ function iconPath(name: string) {
       </div>
     </section>
 
-    <!-- Features -->
-    <section id="features" class="py-28 border-t border-border/40">
+    <!-- Features Grid -->
+    <section id="features" class="py-28 border-b border-border/40">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-16 max-w-2xl reveal">
           <div class="rule-red mb-6"></div>
-          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Built for every kind of schedule</h2>
+          <p class="eyebrow mb-3">Capabilities</p>
+          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Rebuilt for speed and precision</h2>
           <p class="mt-4 text-muted-foreground leading-relaxed">
-            From a single meeting invite to a hundred-event semester plan, QuickCalAI handles the messy work so you don't have to.
+            Everything you need to convert, review, sync, and distribute schedules without friction.
           </p>
         </div>
 
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-px bg-border/40 border border-border/40 rounded-lg overflow-hidden">
-          {features.map(({ title, body, icon }, i) => (
-            <div class="surface-subtle p-8 card-minimal reveal" class:list={[`reveal-delay-${(i % 3) + 1}`]}>
-              <div class="w-10 h-10 rounded-md border border-primary/20 flex items-center justify-center text-primary mb-6">
-                <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d={iconPath(icon)} />
-                </svg>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {features.map(({ title, body, tag }, i) => (
+            <div class="surface-subtle rounded-xl p-8 card-minimal reveal" class:list={[`reveal-delay-${(i % 3) + 1}`]}>
+              <div class="inline-block text-[11px] font-mono font-semibold uppercase tracking-wider text-primary bg-primary/10 border border-primary/20 px-2.5 py-1 rounded-md mb-6">
+                {tag}
               </div>
               <h3 class="text-base font-semibold">{title}</h3>
               <p class="mt-2 text-sm text-muted-foreground leading-relaxed">{body}</p>
@@ -328,28 +495,115 @@ function iconPath(name: string) {
       </div>
     </section>
 
+    <!-- MCP & Agent Protocol Deep Dive -->
+    <section id="mcp-demo" class="py-28 border-b border-border/40 bg-secondary/10">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid lg:grid-cols-12 gap-12 items-center">
+          
+          <div class="lg:col-span-5 reveal">
+            <p class="eyebrow mb-4">Model Context Protocol</p>
+            <h2 class="font-heading text-4xl md:text-5xl tracking-tight leading-[1.08]">
+              Connect QuickCalAI directly to your agents.
+            </h2>
+            <p class="mt-6 text-muted-foreground leading-relaxed">
+              QuickCalAI ships with an MCP server built right in. Claude, Cursor, and custom autonomous agents can read schedules, create events, inspect processing statuses, and revoke share links using standard tool calls.
+            </p>
+            <div class="mt-6 space-y-3 font-mono text-xs">
+              <div class="flex items-center gap-2 text-foreground/80">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                <span>qc_ API key authentication</span>
+              </div>
+              <div class="flex items-center gap-2 text-foreground/80">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                <span>Stateless streamable HTTP JSON-RPC at POST /mcp</span>
+              </div>
+              <div class="flex items-center gap-2 text-foreground/80">
+                <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                <span>9 specialized tools including create_events and get_status</span>
+              </div>
+            </div>
+            <div class="mt-8">
+              <a href="/signup" class="btn-solid">
+                Get your API key
+              </a>
+            </div>
+          </div>
+
+          <div class="lg:col-span-7 reveal reveal-delay-2">
+            <div class="rounded-xl border border-border/80 bg-black/90 p-6 font-mono text-xs shadow-xl">
+              <div class="flex items-center justify-between pb-4 border-b border-border/40 text-muted-foreground">
+                <span class="font-bold text-foreground">claude_desktop_config.json</span>
+                <span class="text-[11px] text-primary">MCP Standard v1</span>
+              </div>
+              <div class="pt-4 text-[#888888] overflow-x-auto leading-relaxed">
+                <pre><code>&#123;
+  &quot;mcpServers&quot;: &#123;
+    &quot;quickcal&quot;: &#123;
+      &quot;url&quot;: &quot;https://quickcalai.com/mcp&quot;,
+      &quot;headers&quot;: &#123;
+        &quot;Authorization&quot;: &quot;Bearer qc_live_your_api_key&quot;
+      &#125;
+    &#125;
+  &#125;
+&#125;</code></pre>
+              </div>
+              <div class="mt-4 pt-4 border-t border-border/40 bg-secondary/30 rounded-lg p-3 text-xs text-foreground/90 leading-relaxed font-sans">
+                <strong class="text-primary font-mono text-xs">Example Prompt:</strong> &quot;Claude, read this event schedule from the email, extract all speaker sessions, and add them to my QuickCal calendar.&quot;
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Personas / Who It Is For -->
+    <section class="py-28 border-b border-border/40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="mb-16 max-w-xl reveal">
+          <p class="eyebrow mb-3">Audiences</p>
+          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Built for people who value their time</h2>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-6">
+          {useCases.map((u) => (
+            <div class="surface-subtle rounded-xl p-8 card-minimal reveal">
+              <span class="inline-block text-[10px] font-mono uppercase tracking-wider text-primary border border-primary/20 bg-primary/10 px-2 py-0.5 rounded mb-4">
+                {u.badge}
+              </span>
+              <h3 class="text-lg font-bold text-foreground mb-2">{u.headline}</h3>
+              <p class="text-sm text-muted-foreground leading-relaxed mb-6">{u.body}</p>
+              <div class="text-xs font-semibold text-foreground/70 font-mono">
+                {u.role}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
     <!-- Pricing -->
-    <section id="pricing" class="py-28 border-t border-border/40">
+    <section id="pricing" class="py-28 border-b border-border/40">
       <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center mb-14 max-w-xl mx-auto reveal">
+        <div class="text-center mb-16 max-w-xl mx-auto reveal">
           <p class="eyebrow mb-3">Pricing</p>
-          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Simple, transparent plans</h2>
-          <p class="mt-4 text-sm text-muted-foreground">Start free. Upgrade only when you want AI extraction.</p>
+          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Simple, honest pricing</h2>
+          <p class="mt-4 text-sm text-muted-foreground">Start free. Upgrade only when you want unlimited AI extractions and feed sync.</p>
         </div>
 
         <div class="grid md:grid-cols-3 gap-6 items-start">
           {plans.map((plan) => (
-            <div class="card-minimal rounded-xl p-7 relative reveal" class:list={{ featured: plan.featured }}>
+            <div class="card-minimal rounded-xl p-8 relative reveal" class:list={{ featured: plan.featured }}>
               <div class="text-center pb-6 border-b border-border/40">
                 {plan.featured && (
-                  <span class="inline-block mb-4 px-2.5 py-1 text-[10px] font-bold tracking-widest uppercase rounded-full bg-primary text-primary-foreground">
-                    Most popular
+                  <span class="inline-block mb-4 px-3 py-1 text-[10px] font-bold tracking-widest uppercase rounded-full bg-primary text-primary-foreground font-mono">
+                    Most Popular
                   </span>
                 )}
                 <div class="text-base font-semibold">{plan.name}</div>
                 <div class="mt-4">
                   <span class="text-4xl font-bold tracking-tight">{plan.price}</span>
-                  {plan.period && <span class="text-muted-foreground text-sm">{plan.period}</span>}
+                  {plan.period && <span class="text-muted-foreground text-sm font-mono">{plan.period}</span>}
                 </div>
                 <div class="text-xs text-muted-foreground mt-2">{plan.description}</div>
               </div>
@@ -366,7 +620,7 @@ function iconPath(name: string) {
               </ul>
 
               <a href="/signup" class:list={[
-                "block w-full text-center text-sm rounded-md py-2.5 font-semibold transition-colors",
+                "block w-full text-center text-sm rounded-md py-2.5 font-semibold transition-all",
                 plan.featured
                   ? "bg-primary text-primary-foreground hover:bg-primary/90"
                   : "border border-border hover:bg-secondary",
@@ -379,41 +633,12 @@ function iconPath(name: string) {
       </div>
     </section>
 
-    <!-- Testimonials -->
-    <section id="testimonials" class="py-28 border-t border-border/40 bg-secondary/20">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="mb-14 max-w-xl reveal">
-          <p class="eyebrow mb-3">Who it's for</p>
-          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Built for people who hate busywork</h2>
-        </div>
-
-        <div class="grid md:grid-cols-3 gap-6">
-          {useCases.map((t) => (
-            <div class="card-minimal rounded-xl p-7 reveal">
-              <div class="flex gap-1 mb-5 text-primary">
-                <span class="text-3xl">{t.initials}</span>
-              </div>
-              <p class="text-sm text-foreground/80 leading-relaxed mb-6">{t.body}</p>
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-full border border-border flex items-center justify-center">
-                  <span class="text-[10px] font-bold text-primary">QC</span>
-                </div>
-                <div>
-                  <p class="text-sm font-semibold">{t.title}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-
     <!-- FAQ -->
-    <section class="py-28 border-t border-border/40">
+    <section class="py-28 border-b border-border/40">
       <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="mb-14 reveal">
           <p class="eyebrow mb-3">FAQ</p>
-          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Questions, answered</h2>
+          <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Frequently asked questions</h2>
         </div>
 
         <div class="divide-y divide-border/40 border-t border-b border-border/40">
@@ -434,27 +659,27 @@ function iconPath(name: string) {
       </div>
     </section>
 
-    <!-- CTA -->
+    <!-- Final Call to Action -->
     <section class="py-28 border-t-2 border-primary bg-black">
       <div class="max-w-3xl mx-auto text-center px-4 sm:px-6 lg:px-8 reveal">
         <h2 class="font-heading text-4xl md:text-5xl tracking-tight text-white mb-4">
           Stop typing schedules by hand.
         </h2>
-        <p class="text-base text-white/50 mb-9 max-w-lg mx-auto">
-          Join the professionals who use QuickCalAI to turn screenshots and PDFs into real calendar events.
+        <p class="text-base text-white/60 mb-9 max-w-lg mx-auto">
+          Join students, assistants, teams, and autonomous agents using QuickCalAI to turn messy dates into verified calendar files.
         </p>
         <div class="flex flex-col sm:flex-row gap-3 justify-center">
           <a href="/signup" class="btn-white group">
-            Get started free
+            Start free (1 AI extraction included)
             <svg class="ml-2 w-4 h-4 transition-transform group-hover:translate-x-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </a>
-          <a href="#pricing" class="inline-flex items-center justify-center rounded-md border border-white/20 text-white hover:bg-white/5 h-11 px-7 text-sm font-semibold transition-colors">
+          <a href="#pricing" class="inline-flex items-center justify-center rounded-md border border-white/20 text-white hover:bg-white/10 h-11 px-7 text-sm font-semibold transition-colors">
             View pricing
           </a>
         </div>
-        <p class="text-white/30 text-xs mt-6">Free to start · No credit card required · Cancel anytime</p>
+        <p class="text-white/40 text-xs mt-6 font-mono">1 free AI extraction · No credit card required · Cancel anytime</p>
       </div>
     </section>
 
@@ -468,13 +693,14 @@ function iconPath(name: string) {
               <span class="text-base font-semibold tracking-tight">QuickCalAI</span>
             </div>
             <p class="text-sm text-muted-foreground leading-relaxed max-w-xs">
-              AI-powered calendar extraction that saves you time and eliminates scheduling errors. Built by Rocktown Labs.
+              Agent-ready calendar extraction that saves you hours and eliminates transcription errors. Built by Rocktown Labs.
             </p>
           </div>
           <div>
             <h4 class="eyebrow mb-4">Product</h4>
             <ul class="space-y-3">
               <li><a href="#features" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Features</a></li>
+              <li><a href="#mcp-demo" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Agent MCP</a></li>
               <li><a href="#pricing" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Pricing</a></li>
               <li><a href="/dashboard" class="text-sm text-foreground/60 hover:text-foreground transition-colors">Dashboard</a></li>
             </ul>
@@ -505,6 +731,35 @@ function iconPath(name: string) {
   </div>
 
   <script>
+    // Tab switcher in hero demo card
+    const heroTabs = document.getElementById("hero-tabs");
+    if (heroTabs) {
+      const tabButtons = heroTabs.querySelectorAll<HTMLButtonElement>("[data-hero-tab]");
+      const panels = {
+        visual: document.getElementById("panel-visual"),
+        text: document.getElementById("panel-text"),
+        agent: document.getElementById("panel-agent"),
+      };
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const target = btn.getAttribute("data-hero-tab") as keyof typeof panels;
+          tabButtons.forEach((b) => {
+            b.classList.remove("bg-primary", "text-primary-foreground", "active");
+            b.classList.add("text-muted-foreground");
+          });
+          btn.classList.add("bg-primary", "text-primary-foreground", "active");
+          btn.classList.remove("text-muted-foreground");
+
+          Object.entries(panels).forEach(([key, panel]) => {
+            if (panel) {
+              panel.classList.toggle("hidden", key !== target);
+            }
+          });
+        });
+      });
+    }
+
     // Intersection observer for scroll-triggered reveals
     if (typeof IntersectionObserver !== "undefined") {
       const observer = new IntersectionObserver(

@@ -61,6 +61,21 @@ export async function deleteUpload(db: Database, uploadId: string) {
   return db.delete(uploads).where(eq(uploads.id, uploadId));
 }
 
+/** True when the account is currently banned (admin moderation control). */
+export async function isUserBanned(db: Database, userId: string): Promise<boolean> {
+  const rows = await db
+    .select({ banned: user.banned, banExpires: user.banExpires })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  const row = rows[0];
+  if (row?.banned !== true) return false;
+  // A temporary ban lifts itself once the expiry passes, matching the admin
+  // plugin's session-create behavior.
+  if (row.banExpires && row.banExpires.getTime() < Date.now()) return false;
+  return true;
+}
+
 export async function getUserProfile(db: Database, userId: string) {
   const rows = await db
     .select({

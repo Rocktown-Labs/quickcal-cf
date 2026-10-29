@@ -1,10 +1,12 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import {
   createDb,
+  deleteEventsForUpload,
   events,
   generateICSForAI,
   generateShareToken,
   getUploadById,
+  getUserProfile,
   refundFreeCredit,
   updateUploadRecord,
   type Database,
@@ -17,6 +19,7 @@ import {
   type ExtractedEvent,
 } from "../lib/ai";
 import { extractPdfText } from "../lib/pdf-text";
+import { sendProcessingCompleteEmail } from "../lib/notifications";
 import { sendWebhook, webhookSecretFor } from "../lib/webhook";
 
 export interface CalendarProcessingInput {
@@ -202,6 +205,9 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
           httpMetadata: { contentType: "text/calendar" },
         });
 
+        // The step may retry after a partial failure. Clear any rows from the
+        // previous attempt so a retry cannot duplicate events in the .ics.
+        await deleteEventsForUpload(db, uploadId);
         await this.insertEvents(db, uploadId, userId, uniqueEvents);
 
         await updateUploadRecord(db, uploadId, {
@@ -287,8 +293,48 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
           },
         );
       } catch (err) {
+        // Log only the origin: callback URLs may carry secret query tokens.
+        let callbackOrigin = "invalid";
+        try {
+          callbackOrigin = new URL(upload.callbackUrl).origin;
+        } catch {
+          // keep the placeholder
+        }
         console.warn(
-          `[webhook] delivery abandoned for upload ${uploadId} (${upload.callbackUrl}): ${
+          `[webhook] delivery abandoned for upload ${uploadId} (${callbackOrigin}): ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
+    // Automatic completion email for browser uploads. Agent/API uploads that
+    // supplied a callback already get their result through the signed webhook,
+    // so skip the inbox noise for those.
+    const shareToken = upload?.shareToken;
+    if (result.status === "completed" && shareToken && !upload?.callbackUrl) {
+      try {
+        await step.do("send-completion-email", async () => {
+          const profile = await getUserProfile(db, userId);
+          if (!profile?.email) return;
+
+          const webOrigin =
+            (this.env.CORS_ORIGIN ?? "").split(",")[0]?.trim().replace(/\/+$/, "") ||
+            this.env.BETTER_AUTH_URL;
+
+          await sendProcessingCompleteEmail({
+            uploadId,
+            userId,
+            to: profile.email,
+            fileName: upload.fileName,
+            eventCount: result.eventCount,
+            shareUrl: `${webOrigin}/s/${shareToken}`,
+            icsUrl: `${this.env.BETTER_AUTH_URL}/api/share/${shareToken}/ics`,
+          });
+        });
+      } catch (err) {
+        console.warn(
+          `[email] completion email abandoned for upload ${uploadId}: ${
             err instanceof Error ? err.message : String(err)
           }`,
         );

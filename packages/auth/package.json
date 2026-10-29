@@ -9,10 +9,13 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "1.7.5",
+    "@better-auth/drizzle-adapter": "1.7.14",
     "@better-auth/expo": "catalog:",
-    "@better-auth/stripe": "^1.7.6",
+    "@better-auth/mcp": "1.7.14",
+    "@better-auth/oauth-provider": "1.7.14",
+    "@better-auth/stripe": "1.7.14",
     "@quickcal-cf/db": "workspace:*",
+    "@quickcal-cf/email": "workspace:*",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "resend": "^6.30.0",

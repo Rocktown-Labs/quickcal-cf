@@ -411,28 +411,37 @@
   box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.12);
 }
 
-/* Minimal buttons */
+/* Minimal buttons with responsive tactile active states */
 .btn-solid {
-  @apply inline-flex items-center justify-center rounded-md bg-primary px-6 h-11 text-sm font-semibold text-primary-foreground transition-all duration-200;
+  @apply inline-flex items-center justify-center rounded-md bg-primary px-6 h-11 text-sm font-semibold text-primary-foreground transition-all duration-150;
 }
 .btn-solid:hover {
   @apply bg-primary/90;
   transform: translateY(-1px);
 }
+.btn-solid:active {
+  transform: scale(0.97);
+}
 
 .btn-ghost {
-  @apply inline-flex items-center justify-center rounded-md border border-border bg-transparent px-6 h-11 text-sm font-semibold transition-all duration-200;
+  @apply inline-flex items-center justify-center rounded-md border border-border bg-transparent px-6 h-11 text-sm font-semibold transition-all duration-150;
 }
 .btn-ghost:hover {
   @apply bg-secondary;
 }
+.btn-ghost:active {
+  transform: scale(0.97);
+}
 
 .btn-white {
-  @apply inline-flex items-center justify-center rounded-md bg-white text-black px-6 h-11 text-sm font-semibold transition-all duration-200;
+  @apply inline-flex items-center justify-center rounded-md bg-white text-black px-6 h-11 text-sm font-semibold transition-all duration-150;
 }
 .btn-white:hover {
   @apply bg-white/90;
   transform: translateY(-1px);
+}
+.btn-white:active {
+  transform: scale(0.97);
 }
 
 /* FAQ details reset */

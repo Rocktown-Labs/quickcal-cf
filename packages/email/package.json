@@ -1,0 +1,41 @@
+{
+  "name": "@quickcal-cf/email",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./templates/*": "./src/templates/*.tsx"
+  },
+  "scripts": {
+    "build": "tsc --declaration --emitDeclarationOnly --noEmit false --rootDir src --outDir dist",
+    "dev": "email dev --dir src/templates --port 3001",
+    "export": "email export --dir src/templates --outDir dist",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@react-email/body": "0.3.0",
+    "@react-email/button": "0.2.1",
+    "@react-email/container": "0.0.16",
+    "@react-email/head": "0.0.13",
+    "@react-email/html": "0.0.12",
+    "@react-email/link": "0.0.13",
+    "@react-email/preview": "0.0.14",
+    "@react-email/render": "2.1.1",
+    "@react-email/section": "0.0.17",
+    "@react-email/text": "0.1.6",
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@quickcal-cf/config": "workspace:*",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.3",
+    "react-email": "6.11.3",
+    "typescript": "^6.0.3"
+  }
+}

@@ -86,6 +86,17 @@ import Logo from "./Logo.astro";
 
 <script>
   import { authClient } from "../lib/auth-client";
+  import { oauthAuthorizeUrl } from "../lib/oauth-continuation";
+
+  const oauthDestination = oauthAuthorizeUrl();
+  if (oauthDestination) {
+    authClient
+      .getSession()
+      .then(({ data }) => {
+        if (data?.session) window.location.href = oauthDestination;
+      })
+      .catch(() => undefined);
+  }
 
   const form = document.getElementById("signin-form") as HTMLFormElement;
   const emailInput = document.getElementById("email") as HTMLInputElement;
@@ -108,7 +119,7 @@ import Logo from "./Logo.astro";
         },
         {
           onSuccess: () => {
-            window.location.href = "/dashboard";
+            window.location.href = oauthDestination ?? "/dashboard";
           },
           onError: (ctx) => {
             formError.textContent = ctx.error.message || "Sign in failed. Please try again.";
@@ -128,7 +139,7 @@ import Logo from "./Logo.astro";
   document.getElementById("google-signin")?.addEventListener("click", () => {
     authClient.signIn.social({
       provider: "google",
-      callbackURL: "/dashboard",
+      callbackURL: oauthDestination ? window.location.href : "/dashboard",
     });
   });
 </script>

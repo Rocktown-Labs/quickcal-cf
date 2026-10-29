@@ -1,9 +1,9 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import defaultHook from "stoker/openapi/default-hook";
 import notFound from "stoker/middlewares/not-found";
-import onError from "stoker/middlewares/on-error";
 import serveEmojiFavicon from "stoker/middlewares/serve-emoji-favicon";
 import { ENV } from "./env.server";
 import { createAuth } from "./services";
@@ -25,6 +25,17 @@ import { originCheck } from "./middleware/csrf";
 const app = new OpenAPIHono({ defaultHook });
 
 app.use(logger());
+app.use(async (c, next) => {
+  await next();
+  // Defense-in-depth for JSON/ICS responses (and the API reference page).
+  c.header("X-Content-Type-Options", "nosniff");
+  c.header("Referrer-Policy", "no-referrer");
+  // Authenticated responses carry API keys/secrets/feed tokens; never let a
+  // browser or intermediary cache them.
+  if (c.req.path.startsWith("/api/")) {
+    c.header("Cache-Control", "no-store");
+  }
+});
 app.use(
   "/*",
   cors({
@@ -76,6 +87,18 @@ app.use("/api/calendar/rotate", requireAuth);
 
 app.on(["POST", "GET"], "/api/auth/*", async (c) => (await createAuth()).handler(c.req.raw));
 
+// RFC 9728 / OAuth 2.1 Discovery (.well-known) for MCP clients
+app.on(["GET", "HEAD"], "/.well-known/*", async (c) => {
+  const auth = await createAuth();
+  const res = await auth.handler(c.req.raw);
+  if (res.status === 404 && c.req.path === "/.well-known/oauth-authorization-server") {
+    const url = new URL(c.req.url);
+    url.pathname = "/api/auth/.well-known/oauth-authorization-server";
+    return auth.handler(new Request(url.toString(), c.req.raw));
+  }
+  return res;
+});
+
 app.route("/api/uploads", uploads);
 app.route("/api/uploads", delivery);
 app.route("/api", manualEvent);
@@ -119,6 +142,21 @@ export { CalendarProcessingWorkflow } from "./workflows/calendar-processing";
 export { RateLimiter } from "./do/rate-limiter";
 
 app.notFound(notFound);
-app.onError(onError);
+app.onError((err, c) => {
+  const status = (err as { status?: number }).status ?? 500;
+  if (status >= 500) {
+    // Full detail stays in server logs; never echo provider/DB internals to
+    // an unauthenticated caller in production.
+    console.error("[server] unhandled error", err);
+  }
+  const isProd = ENV.NODE_ENV === "production";
+  return c.json(
+    {
+      message: isProd && status >= 500 ? "Internal server error" : err.message,
+      ...(isProd ? {} : { stack: err.stack }),
+    },
+    status as ContentfulStatusCode,
+  );
+});
 
 export default app;

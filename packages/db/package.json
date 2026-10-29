@@ -3,6 +3,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./schema/auth": "./src/schema/auth.ts",
+    "./schema/billing": "./src/schema/billing.ts",
     "./*": "./src/*.ts"
   },
   "scripts": {
