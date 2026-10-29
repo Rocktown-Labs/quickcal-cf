@@ -56,7 +56,7 @@ jobs:
           PUBLIC_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
           WEB_CUSTOM_DOMAIN: ${{ vars.WEB_CUSTOM_DOMAIN }}
           SERVER_CUSTOM_DOMAIN: ${{ vars.SERVER_CUSTOM_DOMAIN }}
-          RESEND_FROM_EMAIL: "QuickCalAI <noreply@extractions.quickcalai.com>"
+          RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL || 'QuickCalAI <noreply@extractions.quickcalai.com>' }}
 
           # Secrets (replace placeholders in GitHub after first deploy)
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}

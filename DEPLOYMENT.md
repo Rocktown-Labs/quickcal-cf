@@ -224,7 +224,7 @@ GitHub Actions secrets:
 | `BETTER_AUTH_SECRET` | Auth/JWT signing |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_IOS_CLIENT_ID` | Google OAuth |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_PREMIUM_PRICE_ID` / `STRIPE_PREMIUM_ANNUAL_PRICE_ID` | Billing |
-| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Email |
+| `RESEND_API_KEY` | Email |
 | `SENT_DM_API_KEY` | SMS |
 | `ADMIN_USER_IDS` | Better-Auth admin allowlist |
 
@@ -239,6 +239,7 @@ GitHub Actions variables:
 | `SERVER_CUSTOM_DOMAIN` | `api.quickcalai.com` |
 | `ENABLE_PREVIEW_DEPLOY` | `true` only when preview env is configured |
 | `PREVIEW_CORS_ORIGIN` | The preview web origin, if preview deploys are enabled |
+| `RESEND_FROM_EMAIL` | `QuickCalAI <noreply@extractions.quickcalai.com>` |
 
 The deploy workflow falls back to the workers.dev URLs when the domain variables are unset.
 

@@ -78,6 +78,10 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
     try {
       await step.do("mark-processing", async () => {
         await updateUploadRecord(db, uploadId, {
+          // The ingestion route normally writes this immediately after
+          // starting the workflow. Writing it here too reconciles the row if
+          // that best-effort write failed, so /by-run/{runId}/status works.
+          workflowRunId: event.instanceId,
           status: "processing",
           failureReason: null,
         });
@@ -245,6 +249,7 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
     } catch (error) {
       await step.do("mark-failed", async () => {
         await updateUploadRecord(db, uploadId, {
+          workflowRunId: event.instanceId,
           status: "failed",
           failureReason: error instanceof Error ? error.message : "Unknown workflow failure.",
         });

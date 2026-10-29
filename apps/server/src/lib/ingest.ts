@@ -238,8 +238,9 @@ export async function startIngestionWorkflow(
   }
 
   // The workflow is already running. Do not throw (and trigger a refund) if
-  // this bookkeeping write fails; the workflow's own persist step updates the
-  // row and the status endpoint reconciles from the workflow handle.
+  // this bookkeeping write fails; the workflow's mark-processing step writes
+  // the same run id from event.instanceId, so /by-run/{runId}/status still
+  // resolves once the workflow starts.
   await updateUploadRecord(db, upload.id, {
     workflowRunId: instance.id,
     status: "processing",

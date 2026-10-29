@@ -4,7 +4,7 @@
 - **Scope:** `apps/server`, `apps/web`, `apps/native`, `packages/auth`, `packages/db`, `packages/email`, `packages/infra`, `scripts`, `.github/workflows`
 - **Source:** current worktree (includes the uncommitted MCP/OAuth feature)
 - **Method:** source review plus local unit tests and `bun audit`. No deployed endpoint, live credential, or third-party account was probed.
-- **Baseline:** full `bun test` — 83 passing tests; `bun run check-types` — 0 errors.
+- **Baseline:** full `bun test` — 84 passing tests; `bun run check-types` — 0 errors.
 
 ## Fixed and verified
 
@@ -156,6 +156,11 @@ banned accounts by default.
   `SERVER_CUSTOM_DOMAIN`, `PUBLIC_SERVER_URL`) and documented the AWS DNS →
   Cloudflare cutover, Clerk import, announcement, and Vercel retirement steps
   in `README.md` / `DEPLOYMENT.md`.
+- The workflow now writes its own run id from `event.instanceId` during
+  `mark-processing`, so `/by-run/{runId}/status` resolves even if the
+  ingestion route's best-effort bookkeeping write failed.
+- `RESEND_FROM_EMAIL` is a repository variable (with the previous address as a
+  fallback) instead of a hardcoded workflow value.
 - Production 5xx responses no longer echo internal error messages/stacks; MCP
   unexpected tool errors return a generic message.
 - Added a 5/min per-user cap on premium email/SMS delivery (abuse/cost).
