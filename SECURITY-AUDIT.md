@@ -4,7 +4,7 @@
 - **Scope:** `apps/server`, `apps/web`, `apps/native`, `packages/auth`, `packages/db`, `packages/email`, `packages/infra`, `scripts`, `.github/workflows`
 - **Source:** current worktree (includes the uncommitted MCP/OAuth feature)
 - **Method:** source review plus local unit tests and `bun audit`. No deployed endpoint, live credential, or third-party account was probed.
-- **Baseline:** full `bun test` — 84 passing tests; `bun run check-types` — 0 errors.
+- **Baseline:** full `bun test` — 89 passing tests; `bun run check-types` — 0 errors.
 
 ## Fixed and verified
 
@@ -130,7 +130,8 @@ Both Clerk importers hard-coded `email_verified = 1`. That would let an
 unverified address link to a Google account with the same email. The importers
 now preserve Clerk’s per-address `verification.status`; only verified addresses
 are imported verified. The announcement sender also excludes unverified and
-banned accounts by default.
+banned accounts by default (`scripts/send-announcement.test.ts` covers the
+filters).
 
 ### 13. Dependency advisories (runtime)
 

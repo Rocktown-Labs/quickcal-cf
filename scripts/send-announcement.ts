@@ -39,7 +39,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 
-interface Recipient {
+export interface Recipient {
   id: string;
   email: string;
   name: string;
@@ -186,6 +186,49 @@ function isTestEmail(email: string): boolean {
   );
 }
 
+export interface RecipientFilters {
+  includeTest: boolean;
+  includeUnverified: boolean;
+  to?: string;
+  exclude: string[];
+  limit?: number;
+}
+
+/**
+ * Pure recipient filtering, kept separate from the D1/Resend I/O so the
+ * exclusion rules (banned, unverified, test, explicit to/exclude/limit) are
+ * testable. Banned accounts are always excluded.
+ */
+export function filterRecipients(
+  allRecipients: Recipient[],
+  options: RecipientFilters,
+): { recipients: Recipient[]; skippedBanned: number; skippedUnverified: number } {
+  let recipients = allRecipients;
+  const skippedBanned = recipients.filter((recipient) => recipient.banned).length;
+  recipients = recipients.filter((recipient) => !recipient.banned);
+
+  const skippedUnverified = recipients.filter((recipient) => !recipient.emailVerified).length;
+  if (!options.includeUnverified) {
+    recipients = recipients.filter((recipient) => recipient.emailVerified === 1);
+  }
+  if (!options.includeTest && !options.to) {
+    recipients = recipients.filter((recipient) => !isTestEmail(recipient.email));
+  }
+  if (options.to) {
+    const target = options.to.trim().toLowerCase();
+    recipients = recipients.filter((recipient) => recipient.email.toLowerCase() === target);
+  }
+  if (options.exclude.length > 0) {
+    const excluded = new Set(options.exclude);
+    recipients = recipients.filter((recipient) => !excluded.has(recipient.email.toLowerCase()));
+  }
+  if (options.limit !== undefined) {
+    recipients = recipients.slice(0, Math.max(0, options.limit));
+  }
+
+  return { recipients, skippedBanned, skippedUnverified };
+}
+
 async function runWrangler(args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("bunx", ["wrangler", ...args], {
     maxBuffer: 16 * 1024 * 1024,
@@ -281,27 +324,10 @@ async function main() {
   const database = await resolveDatabase(options.database);
   const allRecipients = await fetchRecipients(database);
 
-  let recipients = allRecipients;
-  const skippedBanned = recipients.filter((recipient) => recipient.banned).length;
-  recipients = recipients.filter((recipient) => !recipient.banned);
-  const skippedUnverified = recipients.filter((recipient) => !recipient.emailVerified).length;
-  if (!options.includeUnverified) {
-    recipients = recipients.filter((recipient) => recipient.emailVerified === 1);
-  }
-  if (!options.includeTest && !options.to) {
-    recipients = recipients.filter((recipient) => !isTestEmail(recipient.email));
-  }
-  if (options.to) {
-    const target = options.to.trim().toLowerCase();
-    recipients = recipients.filter((recipient) => recipient.email.toLowerCase() === target);
-  }
-  if (options.exclude.length > 0) {
-    const excluded = new Set(options.exclude);
-    recipients = recipients.filter((recipient) => !excluded.has(recipient.email.toLowerCase()));
-  }
-  if (options.limit !== undefined) {
-    recipients = recipients.slice(0, Math.max(0, options.limit));
-  }
+  const { recipients, skippedBanned, skippedUnverified } = filterRecipients(
+    allRecipients,
+    options,
+  );
 
   const previewRecipient = recipients[0];
   const workDir = await mkdtemp(join(tmpdir(), "quickcal-announcement-"));
@@ -413,7 +439,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-});
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  });
+}
