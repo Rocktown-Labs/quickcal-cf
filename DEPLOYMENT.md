@@ -271,6 +271,11 @@ bunx eas-cli env:create --environment preview \
   --name EXPO_PUBLIC_WEB_URL --value https://quickcalai.com --visibility plaintext
 ```
 
+`EXPO_PUBLIC_WEB_URL` must match the deployed web origin (`CORS_ORIGIN`) for the current stage —
+Stripe validates the `/billing/return` URL against the auth server's trusted origins, and native
+share links use this origin. Before the domain cutover, point a test build at the workers.dev web
+URL; after cutover, use `https://quickcalai.com`.
+
 For store builds:
 
 ```bash

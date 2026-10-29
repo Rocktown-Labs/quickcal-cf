@@ -179,8 +179,9 @@ signed-in user changes.
   # repeat with --environment production (or use staging origins for preview)
   ```
   This avoids the localhost schema defaults in remote builds and keeps the EAS environment as the
-  single source of truth. Signing credentials and store listings are managed in EAS/App Store
-  Connect/Google Play.
+  single source of truth. `EXPO_PUBLIC_WEB_URL` must match the deployed web origin
+  (`CORS_ORIGIN`) — Stripe validates the `/billing/return` URL against it, and share links use it.
+  Signing credentials and store listings are managed in EAS/App Store Connect/Google Play.
 - **Share links:** the app opens/copies the **web** `/s/{token}` page, not the API host. The
   `.ics` download still comes from the API.
 - **Stripe:** checkout, billing portal, and cancellation open in the in-app browser. Stripe returns
