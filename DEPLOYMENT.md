@@ -251,16 +251,24 @@ The Expo app is in `apps/native`. It needs two public build-time values:
 - `EXPO_PUBLIC_WEB_URL` — the web origin (`https://quickcalai.com`), used for public share links
   and auth emails.
 
-Local dev defaults are `http://localhost:3000` and `http://localhost:4321`. The `preview` and
-`production` profiles in `eas.json` inject the production origins, so store builds do not bake in
-the localhost defaults. To point a preview build at a staging API/web, override them with EAS
-environment variables:
+Local dev defaults are `http://localhost:3000` and `http://localhost:4321`. Remote EAS builds do
+**not** get `apps/native/.env` (it is gitignored), so create the public origins as EAS environment
+variables. The `eas.json` profiles select the `preview` / `production` environment, and EAS
+environment variables are the single source of truth (a profile-level `env` block would override
+them, so none is used):
 
 ```bash
+# Production values
+bunx eas-cli env:create --environment production \
+  --name EXPO_PUBLIC_SERVER_URL --value https://api.quickcalai.com
+bunx eas-cli env:create --environment production \
+  --name EXPO_PUBLIC_WEB_URL --value https://quickcalai.com
+
+# Preview can point at production or a staging pair
 bunx eas-cli env:create --environment preview \
-  --name EXPO_PUBLIC_SERVER_URL --value https://api-staging.example.com
+  --name EXPO_PUBLIC_SERVER_URL --value https://api.quickcalai.com
 bunx eas-cli env:create --environment preview \
-  --name EXPO_PUBLIC_WEB_URL --value https://staging.example.com
+  --name EXPO_PUBLIC_WEB_URL --value https://quickcalai.com
 ```
 
 For store builds:

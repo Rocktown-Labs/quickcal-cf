@@ -9,17 +9,11 @@
       "android": {
         "buildType": "apk"
       },
-      "env": {
-        "EXPO_PUBLIC_SERVER_URL": "https://api.quickcalai.com",
-        "EXPO_PUBLIC_WEB_URL": "https://quickcalai.com"
-      }
+      "environment": "preview"
     },
     "production": {
       "autoIncrement": true,
-      "env": {
-        "EXPO_PUBLIC_SERVER_URL": "https://api.quickcalai.com",
-        "EXPO_PUBLIC_WEB_URL": "https://quickcalai.com"
-      }
+      "environment": "production"
     }
   },
   "submit": {

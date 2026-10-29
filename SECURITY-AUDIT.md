@@ -144,7 +144,34 @@ filters).
 - `bun audit` no longer reports either package's advisories (the package names
   still appear as dependency paths for unrelated build-tool advisories).
 
-### 14. Hardening
+### 14. Mobile app parity and shared-device privacy
+
+- **Share links used the API origin.** The native uploader/files screens copied
+  `${EXPO_PUBLIC_SERVER_URL}/s/{token}`, but the public share page is served by
+  the web app. Added `EXPO_PUBLIC_WEB_URL` and routed all share/copy links
+  through it.
+- **Native Stripe buttons were no-ops.** Better-Auth’s redirect plugin is
+  browser-only, so `subscription.upgrade`/`billingPortal`/`cancel` returned a
+  URL the app ignored. The app now disables the server redirect, opens the
+  Stripe URL in the in-app browser, returns through the public
+  `/billing/return` page, deep-links to `quickcal-cf://settings`, and refetches
+  the profile. Annual billing was added.
+- **Auth screens didn’t navigate after success.** Login/signup now redirect on
+  success and when already authenticated; Google signup is available; the
+  verification banner defaults to visible until the email is confirmed.
+- **First-run onboarding** mirrors the web questionnaire (use cases, calendar
+  app, optional phone, skip); un-onboarded users are redirected from the tabs.
+- **Shared-device cache leak.** The React Query cache is cleared when the
+  signed-in user changes (including sign-out), so a second user cannot briefly
+  see the previous profile/premium state/uploads/API keys.
+- **Mobile reliability:** safe-area top padding, status-polling 404 retries and
+  an error state instead of an infinite spinner, files/stats/API-key error +
+  retry states, and wall-clock-correct event date/time pickers.
+- Expo SDK patch updates, `eas.json` preview/production profiles with the
+  production `EXPO_PUBLIC_*` origins, and an app description were added.
+  `expo export` and `expo prebuild` both succeed.
+
+### 15. Hardening
 
 - Added baseline response headers on the web app (`X-Content-Type-Options`,
   `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`) and on the

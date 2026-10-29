@@ -168,12 +168,19 @@ signed-in user changes.
 - **Local dev:** `bun run dev:native` (Metro). Set `EXPO_PUBLIC_SERVER_URL` to the API origin and
   `EXPO_PUBLIC_WEB_URL` to the web origin; the schema defaults are `http://localhost:3000` and
   `http://localhost:4321`.
-- **Production builds:** run `bunx eas-cli init` once to link an Expo project, then use the
-  `preview` / `production` profiles in `apps/native/eas.json`. Those profiles inject the
-  production `EXPO_PUBLIC_SERVER_URL` / `EXPO_PUBLIC_WEB_URL` so a store build never bakes in the
-  localhost defaults. For a staging/preview API, override them with EAS environment variables
-  (`bunx eas-cli env:create --environment preview --name EXPO_PUBLIC_SERVER_URL --value …`).
-  Signing credentials and store listings are managed in EAS/App Store Connect/Google Play.
+- **Production builds:** run `bunx eas-cli init` once to link an Expo project, then create the
+  public origins as EAS environment variables for the `preview` and `production` environments
+  (the `eas.json` profiles select them via `environment`):
+  ```bash
+  bunx eas-cli env:create --environment preview \
+    --name EXPO_PUBLIC_SERVER_URL --value https://api.quickcalai.com
+  bunx eas-cli env:create --environment preview \
+    --name EXPO_PUBLIC_WEB_URL --value https://quickcalai.com
+  # repeat with --environment production (or use staging origins for preview)
+  ```
+  This avoids the localhost schema defaults in remote builds and keeps the EAS environment as the
+  single source of truth. Signing credentials and store listings are managed in EAS/App Store
+  Connect/Google Play.
 - **Share links:** the app opens/copies the **web** `/s/{token}` page, not the API host. The
   `.ics` download still comes from the API.
 - **Stripe:** checkout, billing portal, and cancellation open in the in-app browser. Stripe returns
