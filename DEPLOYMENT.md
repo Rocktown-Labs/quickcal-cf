@@ -267,6 +267,7 @@ auto-incremented) profiles. Apple Developer, App Store Connect, Google Play, and
 credentials are external setup. Before submitting, device-test:
 
 - email/password + Google sign-in, sign-out, password reset (web link) and verification;
+- first-run onboarding (use cases, calendar app, phone), skip, and the dashboard redirect;
 - file/URL/text/manual ingestion, review/edit/delete, .ics download/share;
 - share link opens the **web** `/s/{token}` page, not the API;
 - email/SMS delivery, API key create/revoke, calendar feed rotate;

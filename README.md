@@ -159,10 +159,11 @@ After the first production deploy, set `CORS_ORIGIN` to the exact deployed web o
 
 ## Native app (Expo)
 
-The native app mirrors the web flows: email/password + Google sign-in, the AI uploader (file,
-URL, pasted text), manual event building, files/review/edit, download/share, email/SMS delivery,
-API keys, the calendar feed, and settings. Sessions live in SecureStore via the Better-Auth Expo
-plugin.
+The native app mirrors the web flows: email/password + Google sign-in, first-run onboarding (use
+cases, calendar app, phone), the AI uploader (file, URL, pasted text), manual event building,
+files/review/edit, download/share, email/SMS delivery, API keys, the calendar feed, and settings.
+Sessions live in SecureStore via the Better-Auth Expo plugin; the query cache is cleared when the
+signed-in user changes.
 
 - **Local dev:** `bun run dev:native` (Metro). Set `EXPO_PUBLIC_SERVER_URL` to the API origin and
   `EXPO_PUBLIC_WEB_URL` to the web origin; the schema defaults are `http://localhost:3000` and

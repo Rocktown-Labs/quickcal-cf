@@ -2,6 +2,7 @@ import { Redirect, Tabs } from "expo-router";
 import { ActivityIndicator, Text, View } from "react-native";
 import { useColorScheme } from "react-native";
 import { authClient } from "@/lib/auth-client";
+import { useMe } from "@/lib/queries";
 
 const TABS = [
   { name: "index", title: "Home", icon: "📤" },
@@ -11,6 +12,7 @@ const TABS = [
 
 export default function TabsLayout() {
   const { data: session, isPending } = authClient.useSession();
+  const me = useMe(Boolean(session?.user));
   const colorScheme = useColorScheme();
   const isDark = colorScheme !== "light";
 
@@ -23,6 +25,16 @@ export default function TabsLayout() {
   }
   if (!session?.user) {
     return <Redirect href="/login" />;
+  }
+  if (me.isPending) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
+  if (me.data && !me.data.isOnboarded) {
+    return <Redirect href="/onboarding" />;
   }
 
   return (

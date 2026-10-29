@@ -19,10 +19,11 @@ export const queryKeys = {
 
 const TERMINAL: ReadonlySet<UploadStatus> = new Set(["completed", "failed", "no_events"]);
 
-export function useMe() {
+export function useMe(enabled = true) {
   return useQuery({
     queryKey: queryKeys.me,
     queryFn: api.me,
+    enabled,
   });
 }
 
@@ -229,7 +230,10 @@ export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: api.updateMe,
-    onSuccess: () => {
+    onSuccess: (profile) => {
+      // Write the server response straight into the cache so navigation after
+      // onboarding doesn't bounce back on a stale isOnboarded=false value.
+      qc.setQueryData(queryKeys.me, profile);
       void qc.invalidateQueries({ queryKey: queryKeys.me });
     },
   });

@@ -108,6 +108,9 @@ export interface Profile {
   webhookSecret: string;
 }
 
+export type UseCase = "class" | "work" | "conference" | "events" | "other";
+export type CalendarApp = "google" | "apple" | "outlook" | "other";
+
 export interface DirectEvent {
   title: string;
   date: string;
@@ -219,7 +222,12 @@ export const api = {
   me(): Promise<Profile> {
     return request("/api/user/me");
   },
-  updateMe(body: { phoneNumber?: string; isOnboarded?: boolean }): Promise<Profile> {
+  updateMe(body: {
+    phoneNumber?: string;
+    useCase?: UseCase | UseCase[];
+    calendarApp?: CalendarApp;
+    isOnboarded?: boolean;
+  }): Promise<Profile> {
     return request("/api/user/me", { method: "PATCH", json: body });
   },
   emailUpload(uploadId: string, email: string): Promise<{ message: string }> {
