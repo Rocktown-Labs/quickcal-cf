@@ -167,7 +167,7 @@ Cloudflare Workers custom domains require the `quickcalai.com` zone to be active
    - `PUBLIC_SERVER_URL=https://api.quickcalai.com`
    - `WEB_CUSTOM_DOMAIN=quickcalai.com`
    - `SERVER_CUSTOM_DOMAIN=api.quickcalai.com`
-7. Redeploy production. Alchemy attaches the custom domains when the variables are set.
+7. Redeploy production. Alchemy attaches the custom domains when the variables are set. If `CORS_ORIGIN`/`BETTER_AUTH_URL`/`PUBLIC_SERVER_URL` are unset, the workflow derives them from `WEB_CUSTOM_DOMAIN`/`SERVER_CUSTOM_DOMAIN`; setting them explicitly is still preferred when you use `www` or a same-origin API.
 8. Update the Google redirect URI to `https://api.quickcalai.com/api/auth/callback/google`.
 9. Update the Stripe webhook to `https://api.quickcalai.com/api/auth/stripe/webhook`.
 10. The MCP resource becomes `https://api.quickcalai.com/mcp`; re-run one MCP OAuth connection and confirm discovery.

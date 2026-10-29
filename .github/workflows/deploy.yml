@@ -51,9 +51,9 @@ jobs:
           #   PUBLIC_SERVER_URL=https://api.quickcalai.com
           #   WEB_CUSTOM_DOMAIN=quickcalai.com
           #   SERVER_CUSTOM_DOMAIN=api.quickcalai.com
-          CORS_ORIGIN: ${{ vars.CORS_ORIGIN || 'https://quickcal-web.rocktown-labs.workers.dev' }}
-          BETTER_AUTH_URL: ${{ vars.BETTER_AUTH_URL || 'https://quickcal-server.rocktown-labs.workers.dev' }}
-          PUBLIC_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
+          CORS_ORIGIN: ${{ vars.CORS_ORIGIN || (vars.WEB_CUSTOM_DOMAIN != '' && format('https://{0}', vars.WEB_CUSTOM_DOMAIN)) || 'https://quickcal-web.rocktown-labs.workers.dev' }}
+          BETTER_AUTH_URL: ${{ vars.BETTER_AUTH_URL || (vars.SERVER_CUSTOM_DOMAIN != '' && format('https://{0}', vars.SERVER_CUSTOM_DOMAIN)) || 'https://quickcal-server.rocktown-labs.workers.dev' }}
+          PUBLIC_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL || (vars.SERVER_CUSTOM_DOMAIN != '' && format('https://{0}', vars.SERVER_CUSTOM_DOMAIN)) || '' }}
           WEB_CUSTOM_DOMAIN: ${{ vars.WEB_CUSTOM_DOMAIN }}
           SERVER_CUSTOM_DOMAIN: ${{ vars.SERVER_CUSTOM_DOMAIN }}
           RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL || 'QuickCalAI <noreply@extractions.quickcalai.com>' }}
