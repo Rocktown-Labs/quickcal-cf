@@ -5,6 +5,15 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import "varlock/auto-load";
 
+// Optional custom-domain wiring. The zone must already be active in the
+// Cloudflare account; leave these unset for the workers.dev deployment.
+const serverCustomDomain = process.env.SERVER_CUSTOM_DOMAIN?.trim() || undefined;
+const webCustomDomain = process.env.WEB_CUSTOM_DOMAIN?.trim() || undefined;
+// When the API is served from a custom domain, the auth issuer and the web
+// bundle's API base must use it instead of the workers.dev URL.
+const configuredAuthUrl = process.env.BETTER_AUTH_URL?.trim() || undefined;
+const configuredPublicServerUrl = process.env.PUBLIC_SERVER_URL?.trim() || undefined;
+
 export const db = Cloudflare.D1.Database("database", {
   migrations: "../../packages/db/src/migrations",
 });
@@ -20,6 +29,7 @@ export const calendarWorkflow = Cloudflare.Workflows.Workflow("calendar-workflow
 export const server = Cloudflare.Worker("server", {
   name: "quickcal-server",
   main: "../../apps/server/src/index.ts",
+  ...(serverCustomDomain ? { domain: serverCustomDomain } : {}),
   compatibility: {
     flags: ["nodejs_compat"],
   },
@@ -34,7 +44,7 @@ export const server = Cloudflare.Worker("server", {
     }),
     CORS_ORIGIN: Config.String("CORS_ORIGIN"),
     BETTER_AUTH_SECRET: Config.Redacted("BETTER_AUTH_SECRET"),
-    BETTER_AUTH_URL: Cloudflare.Worker.URL,
+    BETTER_AUTH_URL: configuredAuthUrl ?? Cloudflare.Worker.URL,
     GOOGLE_CLIENT_ID: Config.withDefault(Config.String("GOOGLE_CLIENT_ID"), ""),
     GOOGLE_CLIENT_SECRET: Config.withDefault(Config.Redacted("GOOGLE_CLIENT_SECRET"), ""),
     GOOGLE_IOS_CLIENT_ID: Config.withDefault(Config.String("GOOGLE_IOS_CLIENT_ID"), ""),
@@ -51,9 +61,9 @@ export const server = Cloudflare.Worker("server", {
       Config.String("EXTRACTION_MODEL"),
       "@cf/zai-org/glm-5.3-flash",
     ),
-    RESEND_API_KEY: Config.Redacted("RESEND_API_KEY"),
+    RESEND_API_KEY: Config.withDefault(Config.Redacted("RESEND_API_KEY"), ""),
     RESEND_FROM_EMAIL: Config.withDefault(Config.String("RESEND_FROM_EMAIL"), ""),
-    SENT_DM_API_KEY: Config.Redacted("SENT_DM_API_KEY"),
+    SENT_DM_API_KEY: Config.withDefault(Config.Redacted("SENT_DM_API_KEY"), ""),
   },
   dev: {
     port: 3000,
@@ -73,10 +83,11 @@ export default Alchemy.Stack(
     const webWorker = yield* Cloudflare.Website.Astro("web", {
       name: "quickcal-web",
       rootDir: "../../apps/web",
+      ...(webCustomDomain ? { domain: webCustomDomain } : {}),
       env: {
         SESSION: Cloudflare.KV.Namespace("session"),
         IMAGES: Cloudflare.Images.Images(),
-        PUBLIC_SERVER_URL: serverWorker.url.as<string>(),
+        PUBLIC_SERVER_URL: configuredPublicServerUrl ?? serverWorker.url.as<string>(),
       },
       dev: {
         port: 4321,

@@ -4,7 +4,10 @@
  *
  * Clerk user IDs are preserved so any legacy foreign keys stay valid. Existing
  * D1 users are matched by lowercased email and skipped, which keeps an account
- * that already signed up in the new app on its Better-Auth ID.
+ * that already signed up in the new app on its Better-Auth ID. Clerk's
+ * per-address verification status is preserved: only verified addresses are
+ * imported as verified, so an unverified address cannot be used to link a
+ * Google account with the same email.
  *
  * Password hashes are never imported. Clerk does not expose them, and
  * Better-Auth creates a credential account the first time a user completes the
@@ -64,6 +67,8 @@ interface ImportRow {
   id: string;
   name: string;
   email: string;
+  /** Clerk's verification status, not an assumption. */
+  emailVerified: number;
   image: string | null;
   phoneNumber: string | null;
   isOnboarded: number;
@@ -114,8 +119,10 @@ Options:
                          single production database Wrangler can see.
   --help                 Show this help.
 
-The importer preserves Clerk IDs, skips emails that already exist in D1, and
-never imports password hashes.`;
+The importer preserves Clerk IDs and Clerk's email-verification status, skips
+emails that already exist in D1, and never imports password hashes. Unverified
+addresses must complete the Better-Auth verification flow before they can link
+to Google.`;
 }
 
 function maskEmail(email: string): string {
@@ -227,7 +234,7 @@ function buildSql(rows: ImportRow[]): string {
           sqlString(row.id),
           sqlString(row.name),
           sqlString(row.email),
-          "1", // email_verified
+          sqlInt(row.emailVerified),
           sqlString(row.image),
           "NULL", // stripe_customer_id
           sqlString(row.phoneNumber),
@@ -312,6 +319,10 @@ async function main() {
       id: user.id,
       name: displayName(user, email),
       email,
+      // Only mark verified when Clerk says the address is verified. Marking
+      // unverified addresses verified would let them link to a Google account
+      // with the same address (Better-Auth's requireLocalEmailVerified gate).
+      emailVerified: emailAddress?.verification?.status === "verified" ? 1 : 0,
       image: user.image_url || null,
       phoneNumber: primaryPhone(user),
       isOnboarded: user.public_metadata?.onboardingComplete === true ? 1 : 0,

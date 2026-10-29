@@ -7,7 +7,6 @@ import {
   generateShareToken,
   getUploadById,
   getUserProfile,
-  refundFreeCredit,
   updateUploadRecord,
   type Database,
 } from "@quickcal-cf/db";
@@ -30,7 +29,10 @@ export interface CalendarProcessingInput {
   userId: string;
   /** "text" extracts from the stored text directly; "file" OCRs first. */
   sourceType: "file" | "text";
-  /** True when a free-trial credit paid for this ingestion — refunded if the run fails. */
+  /**
+   * Retained for in-flight payload compatibility. The one-time credit is
+   * refunded only before the run starts; a running/failed workflow consumes it.
+   */
   creditUsed?: boolean;
 }
 
@@ -247,10 +249,11 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
           failureReason: error instanceof Error ? error.message : "Unknown workflow failure.",
         });
       });
-      // A failed run delivered nothing — don't keep the free-trial credit.
-      if (event.payload.creditUsed) {
-        await refundFreeCredit(db, userId);
-      }
+      // The free trial credit is one-time. It is refunded only if the run
+      // never started (validation/storage/workflow-start failure, handled by
+      // the ingestion route). Once the workflow is running, an AI failure or
+      // an unparseable document consumes it — otherwise a user could force
+      // failures and get unlimited free AI work.
       result = { uploadId, eventCount: 0, status: "failed" };
       return this.finish(step, db, uploadId, userId, result);
     }

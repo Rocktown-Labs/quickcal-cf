@@ -24,6 +24,7 @@
  *   --unsubscribe-url <url>   Unsubscribe link. Defaults to a mailto address.
  *   --mailing-address <text>  Required with --apply for CAN-SPAM compliance.
  *   --include-test            Include @example.com / @quickcalai.test accounts.
+ *   --include-unverified      Include accounts whose email is not verified.
  *   --help                    Show this help.
  */
 import { execFile } from "node:child_process";
@@ -42,6 +43,8 @@ interface Recipient {
   id: string;
   email: string;
   name: string;
+  emailVerified: number;
+  banned: number;
 }
 
 interface Options {
@@ -57,6 +60,7 @@ interface Options {
   unsubscribeUrl: string;
   mailingAddress?: string;
   includeTest: boolean;
+  includeUnverified: boolean;
   help: boolean;
 }
 
@@ -78,6 +82,7 @@ function parseArgs(argv: string[]): Options {
     "mailto:unsubscribe@quickcalai.com?subject=Unsubscribe";
   let mailingAddress = process.env.MAILING_ADDRESS?.trim();
   let includeTest = false;
+  let includeUnverified = false;
   let help = false;
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -118,6 +123,7 @@ function parseArgs(argv: string[]): Options {
       mailingAddress = argv[i + 1];
       i += 1;
     } else if (arg === "--include-test") includeTest = true;
+    else if (arg === "--include-unverified") includeUnverified = true;
     else if (arg === "--help" || arg === "-h") help = true;
     else throw new Error(`Unknown option: ${arg}`);
   }
@@ -135,6 +141,7 @@ function parseArgs(argv: string[]): Options {
     unsubscribeUrl,
     mailingAddress,
     includeTest,
+    includeUnverified,
     help,
   };
 }
@@ -158,6 +165,7 @@ Options:
   --unsubscribe-url <url>   Unsubscribe link.
   --mailing-address <text>  Required with --apply.
   --include-test            Include test accounts.
+  --include-unverified      Include accounts whose email is not verified.
   --help                    Show this help.`;
 }
 
@@ -208,7 +216,7 @@ async function fetchRecipients(database: string): Promise<Recipient[]> {
     "--remote",
     "--json",
     "--command",
-    "select id, lower(email) as email, name from user order by created_at;",
+    "select id, lower(email) as email, name, email_verified as emailVerified, banned from user order by created_at;",
   ]);
   const parsed = JSON.parse(output) as Array<{ results?: Recipient[] }>;
   return parsed[0]?.results ?? [];
@@ -274,6 +282,12 @@ async function main() {
   const allRecipients = await fetchRecipients(database);
 
   let recipients = allRecipients;
+  const skippedBanned = recipients.filter((recipient) => recipient.banned).length;
+  recipients = recipients.filter((recipient) => !recipient.banned);
+  const skippedUnverified = recipients.filter((recipient) => !recipient.emailVerified).length;
+  if (!options.includeUnverified) {
+    recipients = recipients.filter((recipient) => recipient.emailVerified === 1);
+  }
   if (!options.includeTest && !options.to) {
     recipients = recipients.filter((recipient) => !isTestEmail(recipient.email));
   }
@@ -309,6 +323,10 @@ async function main() {
 
   console.log(`Database: ${database}`);
   console.log(`Users in D1: ${allRecipients.length}`);
+  console.log(`Skipped banned: ${skippedBanned}`);
+  console.log(
+    `Skipped unverified: ${skippedUnverified}${options.includeUnverified ? " (included by flag)" : ""}`,
+  );
   console.log(`Recipients after filters: ${recipients.length}`);
   console.log(`Subject: ${ANNOUNCEMENT_SUBJECT}`);
   console.log(`Preview: ${htmlPath}`);

@@ -6,7 +6,7 @@ These are one-off operational scripts. None of them run during a deploy.
 
 ### `migrate-clerk-users.ts` (recommended)
 
-Fetches users directly from the Clerk Backend API and writes them to D1. It preserves Clerk IDs, skips emails that already exist in D1, sets `email_verified = 1` for Google account linking, and never imports password hashes.
+Fetches users directly from the Clerk Backend API and writes them to D1. It preserves Clerk IDs and Clerk’s per-address verification status, skips emails/IDs that already exist in D1, and never imports password hashes. Only Clerk-verified addresses are imported as verified — that flag gates Google account linking.
 
 ```bash
 CLERK_SECRET_KEY=sk_... bun run migrate:clerk-users -- --dry-run
@@ -19,7 +19,7 @@ Options:
 - `--apply` executes the generated SQL against remote D1.
 - `--database <name>` selects a D1 database. Defaults to `D1_DATABASE_NAME` or the single production database Wrangler can see.
 
-Password users complete the Better-Auth reset flow on first sign-in. Google users sign in with Google after the OAuth credentials are configured.
+Password users complete the Better-Auth reset flow on first sign-in. Google users sign in with Google after the OAuth credentials are configured; an address Clerk marked unverified must be verified first before it can link to Google.
 
 ### `import-clerk-users.ts` (offline variant)
 
@@ -35,7 +35,7 @@ This variant generates SQL only. The live importer above is the one that applies
 
 ### `send-announcement.ts` (recommended)
 
-Reads recipients from D1, excludes test accounts by default, renders the React Email template, and sends through Resend. The default is a dry run.
+Reads recipients from D1, excludes test, banned, and unverified accounts by default, renders the React Email template, and sends through Resend. The default is a dry run.
 
 ```bash
 RESEND_API_KEY=re_... bun run email:announcement -- --dry-run
@@ -48,6 +48,7 @@ Useful options:
 - `--exclude <emails>` skips comma-separated addresses. Useful when one person has two accounts.
 - `--limit <n>` sends to the first n recipients.
 - `--include-test` includes `@example.com` and `@quickcalai.test` accounts.
+- `--include-unverified` includes accounts whose email is not verified (excluded by default for deliverability).
 - `--login-url <url>` changes the CTA destination.
 - `--reply-to <address>` sets a real Reply-To inbox so replies do not bounce off the noreply sender.
 
@@ -57,7 +58,7 @@ Do not send until Google OAuth works and `quickcalai.com` points at the new app.
 
 ### `send-announcement-email.ts` (offline variant)
 
-Reads recipients from a Clerk JSON export instead of D1. Useful for a test send or a pre-migration announcement.
+Reads recipients from a Clerk JSON export instead of D1. Useful for a test send or a pre-migration announcement. It also skips unverified Clerk addresses by default; pass `--include-unverified` to override.
 
 ```bash
 bun run scripts/send-announcement-email.ts --file clerk-users.json

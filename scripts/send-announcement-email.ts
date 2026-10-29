@@ -36,7 +36,11 @@ interface ClerkUser {
   first_name?: string | null;
   last_name?: string | null;
   username?: string | null;
-  email_addresses?: Array<{ id: string; email_address: string }>;
+  email_addresses?: Array<{
+    id: string;
+    email_address: string;
+    verification?: { status?: string };
+  }>;
   primary_email_address_id?: string | null;
   primary_email_address?: string | null;
   email?: string;
@@ -45,6 +49,7 @@ interface ClerkUser {
 interface Recipient {
   email: string;
   firstName?: string;
+  verified: boolean;
 }
 
 function parseArgs() {
@@ -56,6 +61,7 @@ function parseArgs() {
   let loginUrl = "https://quickcalai.com/login";
   let mailingAddress = "";
   let limit = 0;
+  let includeUnverified = false;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -73,10 +79,21 @@ function parseArgs() {
       mailingAddress = args[++i]!;
     } else if (arg === "--limit" && args[i + 1]) {
       limit = parseInt(args[++i]!, 10);
+    } else if (arg === "--include-unverified") {
+      includeUnverified = true;
     }
   }
 
-  return { filePath, send, testRecipient, senderName, loginUrl, mailingAddress, limit };
+  return {
+    filePath,
+    send,
+    testRecipient,
+    senderName,
+    loginUrl,
+    mailingAddress,
+    limit,
+    includeUnverified,
+  };
 }
 
 function extractRecipients(data: unknown): Recipient[] {
@@ -89,12 +106,16 @@ function extractRecipients(data: unknown): Recipient[] {
 
   for (const u of users) {
     let email = u.primary_email_address || u.email;
+    let verified = false;
     if (!email && u.email_addresses && u.email_addresses.length > 0) {
-      if (u.primary_email_address_id) {
-        const primary = u.email_addresses.find((e) => e.id === u.primary_email_address_id);
-        if (primary) email = primary.email_address;
+      const primary = u.primary_email_address_id
+        ? u.email_addresses.find((e) => e.id === u.primary_email_address_id)
+        : undefined;
+      const record = primary ?? u.email_addresses[0];
+      if (record) {
+        email = record.email_address;
+        verified = record.verification?.status === "verified";
       }
-      if (!email) email = u.email_addresses[0]?.email_address;
     }
 
     if (!email) continue;
@@ -105,6 +126,7 @@ function extractRecipients(data: unknown): Recipient[] {
     recipients.push({
       email,
       firstName: u.first_name || u.username || undefined,
+      verified,
     });
   }
 
@@ -116,12 +138,23 @@ async function sleep(ms: number) {
 }
 
 async function main() {
-  const { filePath, send, testRecipient, senderName, loginUrl, mailingAddress, limit } = parseArgs();
+  const {
+    filePath,
+    send,
+    testRecipient,
+    senderName,
+    loginUrl,
+    mailingAddress,
+    limit,
+    includeUnverified,
+  } = parseArgs();
 
   let recipients: Recipient[] = [];
 
   if (testRecipient) {
-    recipients = [{ email: testRecipient.trim().toLowerCase(), firstName: "Tester" }];
+    recipients = [
+      { email: testRecipient.trim().toLowerCase(), firstName: "Tester", verified: true },
+    ];
   } else if (filePath) {
     const raw = readFileSync(resolve(filePath), "utf8");
     const json = JSON.parse(raw);
@@ -129,11 +162,23 @@ async function main() {
   } else {
     console.log("Announcement Email Sender");
     console.log("Usage:");
-    console.log("  bun run scripts/send-announcement-email.ts --file <clerk-users.json> [--send] [--sender-name 'Your Name, Rocktown Labs']");
-    console.log("  bun run scripts/send-announcement-email.ts --test-recipient user@example.com [--send]");
+    console.log(
+      "  bun run scripts/send-announcement-email.ts --file <clerk-users.json> [--send] [--sender-name 'Your Name, Rocktown Labs']",
+    );
+    console.log(
+      "  bun run scripts/send-announcement-email.ts --test-recipient user@example.com [--send]",
+    );
+    console.log("  Add --include-unverified to mail Clerk addresses that were not verified.");
     process.exit(0);
   }
 
+  if (!includeUnverified && !testRecipient) {
+    const skippedUnverified = recipients.filter((recipient) => !recipient.verified).length;
+    recipients = recipients.filter((recipient) => recipient.verified);
+    if (skippedUnverified > 0) {
+      console.log(`Skipped ${skippedUnverified} unverified Clerk address(es).`);
+    }
+  }
   if (limit > 0) {
     recipients = recipients.slice(0, limit);
   }
@@ -145,7 +190,8 @@ async function main() {
   console.log(`Sender: ${senderName}`);
 
   const apiKey = process.env.RESEND_API_KEY?.trim();
-  const fromEmail = process.env.RESEND_FROM_EMAIL?.trim() || "QuickCalAI <noreply@extractions.quickcalai.com>";
+  const fromEmail =
+    process.env.RESEND_FROM_EMAIL?.trim() || "QuickCalAI <noreply@extractions.quickcalai.com>";
 
   if (send && !apiKey) {
     console.error("\nError: RESEND_API_KEY environment variable is required to send emails.");
@@ -174,7 +220,9 @@ async function main() {
     });
 
     if (!send) {
-      console.log(`[DRY RUN] ${i + 1}/${recipients.length}: Would send to ${r.email} (${r.firstName || "no name"})`);
+      console.log(
+        `[DRY RUN] ${i + 1}/${recipients.length}: Would send to ${r.email} (${r.firstName || "no name"})`,
+      );
       if (i === 0) {
         console.log("\n--- Preview Text Sample ---");
         console.log(text.slice(0, 300) + "...\n---------------------------");
@@ -196,7 +244,9 @@ async function main() {
         if (res.error) {
           console.error(`[ERROR] Failed to send to ${r.email}: ${res.error.message}`);
         } else {
-          console.log(`[SENT] ${i + 1}/${recipients.length}: Sent to ${r.email} (id: ${res.data?.id})`);
+          console.log(
+            `[SENT] ${i + 1}/${recipients.length}: Sent to ${r.email} (id: ${res.data?.id})`,
+          );
         }
       } catch (err) {
         console.error(`[FAIL] Exception sending to ${r.email}:`, err);

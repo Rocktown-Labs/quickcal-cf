@@ -45,9 +45,17 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
 
-          # App config (update these to https://quickcalai.com after custom DNS is configured)
-          CORS_ORIGIN: "https://quickcal-web.rocktown-labs.workers.dev"
-          BETTER_AUTH_URL: "https://quickcal-server.rocktown-labs.workers.dev"
+          # App config. Override these repository variables at cutover:
+          #   CORS_ORIGIN=https://quickcalai.com
+          #   BETTER_AUTH_URL=https://api.quickcalai.com
+          #   PUBLIC_SERVER_URL=https://api.quickcalai.com
+          #   WEB_CUSTOM_DOMAIN=quickcalai.com
+          #   SERVER_CUSTOM_DOMAIN=api.quickcalai.com
+          CORS_ORIGIN: ${{ vars.CORS_ORIGIN || 'https://quickcal-web.rocktown-labs.workers.dev' }}
+          BETTER_AUTH_URL: ${{ vars.BETTER_AUTH_URL || 'https://quickcal-server.rocktown-labs.workers.dev' }}
+          PUBLIC_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL }}
+          WEB_CUSTOM_DOMAIN: ${{ vars.WEB_CUSTOM_DOMAIN }}
+          SERVER_CUSTOM_DOMAIN: ${{ vars.SERVER_CUSTOM_DOMAIN }}
           RESEND_FROM_EMAIL: "QuickCalAI <noreply@extractions.quickcalai.com>"
 
           # Secrets (replace placeholders in GitHub after first deploy)

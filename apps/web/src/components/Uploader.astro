@@ -396,11 +396,34 @@
     } catch (err) {
       showError("Upload failed", err instanceof Error ? err.message : "Please try again.");
       // A free credit may have been refused — refresh the banner state.
-      void api.me().then((me) => { freeCredits = me.freeCredits; }).catch(() => undefined);
+      void api.me().then((me) => {
+        isPremium = me.isPremium;
+        freeCredits = me.freeCredits;
+        renderFreeNote();
+      }).catch(() => undefined);
     }
   }
 
+  function renderFreeNote() {
+    const note = qs("[data-free-note]");
+    if (!note) return;
+    if (isPremium || freeCredits <= 0) {
+      note.classList.add("hidden");
+      return;
+    }
+    note.innerHTML = `🎁 <strong class="text-foreground">${freeCredits} free AI extraction${freeCredits === 1 ? "" : "s"}</strong> left — no credit card needed. Premium unlocks unlimited.`;
+    note.classList.remove("hidden");
+  }
+
   function finish(status: { status: string; eventCount: number; failureReason: string | null; uploadId: string; result: { shareToken?: string; downloadPath?: string } | null }) {
+    // The one-time credit is consumed when the run starts; refresh the banner
+    // so a failed run does not keep advertising a credit that is gone.
+    void api.me().then((me) => {
+      isPremium = me.isPremium;
+      freeCredits = me.freeCredits;
+      renderFreeNote();
+    }).catch(() => undefined);
+
     if (status.status === "completed" && status.result) {
       uploadId = status.uploadId;
       eventCount = status.eventCount;
@@ -668,13 +691,7 @@
       if (canIngest) {
         $('[data-dropzone]')?.classList.remove("hidden");
         $('[data-url-row]')?.classList.remove("hidden");
-        if (!isPremium && freeCredits > 0) {
-          const note = qs("[data-free-note]");
-          if (note) {
-            note.innerHTML = `🎁 <strong class="text-foreground">${freeCredits} free AI extraction${freeCredits === 1 ? "" : "s"}</strong> left — no credit card needed. Premium unlocks unlimited.`;
-            note.classList.remove("hidden");
-          }
-        }
+        renderFreeNote();
       } else {
         $('[data-premium-gate]')?.classList.remove("hidden");
       }

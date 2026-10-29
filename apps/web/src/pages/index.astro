@@ -69,9 +69,11 @@ const plans = [
     description: "Manual events and first AI extraction",
     featured: false,
     features: [
-      "1 free AI extraction included",
+      "1 one-time AI extraction",
       "Unlimited manual event creation",
       "Universal .ics downloads",
+      "Public share links with revoke",
+      "Calendar feed + REST/MCP access",
       "No credit card required",
     ],
   },
@@ -82,11 +84,9 @@ const plans = [
     description: "Unlimited AI extraction on demand",
     featured: true,
     features: [
+      "Everything in Free",
       "Unlimited AI extractions",
-      "Subscribe-once calendar feed (webcal)",
-      "Full MCP server and REST API access",
       "Email and SMS calendar delivery",
-      "Public share links with one-click revoke",
       "Cancel anytime",
     ],
   },
@@ -99,8 +99,7 @@ const plans = [
     features: [
       "Everything in Premium",
       "2 months free included",
-      "Priority processing queue",
-      "Annual billing simplicity",
+      "Cancel anytime",
     ],
   },
 ] as const;
@@ -135,7 +134,7 @@ const faqs = [
   {
     question: "Is there a free trial?",
     answer:
-      "Yes. Every new account gets 1 free AI extraction to test the full pipeline with no credit card required. You can also create single events by hand and export .ics files for free forever.",
+      "Yes. Every new account gets 1 one-time AI extraction to test the full pipeline with no credit card required. You can also create events by hand, download .ics files, create share links, and use the calendar feed/REST/MCP for free forever. The AI credit is consumed when a run starts; a failed run does not restore it.",
   },
   {
     question: "How does the AI ensure accuracy?",
@@ -588,7 +587,7 @@ const currentYear = new Date().getFullYear();
         <div class="text-center mb-16 max-w-xl mx-auto reveal">
           <p class="eyebrow mb-3">Pricing</p>
           <h2 class="font-heading text-4xl md:text-5xl tracking-tight">Simple, honest pricing</h2>
-          <p class="mt-4 text-sm text-muted-foreground">Start free. Upgrade only when you want unlimited AI extractions and feed sync.</p>
+          <p class="mt-4 text-sm text-muted-foreground">Start free. Upgrade only when you want unlimited AI extractions and email/SMS delivery.</p>
         </div>
 
         <div class="grid md:grid-cols-3 gap-6 items-start">

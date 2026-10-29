@@ -119,6 +119,8 @@ export function Uploader() {
       );
       setState("error");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // The one-time credit is spent once the run starts.
+      void me.refetch();
     } else if (status.status === "failed") {
       setErrorTitle("Processing failed");
       setErrorMessage(
@@ -126,8 +128,9 @@ export function Uploader() {
       );
       setState("error");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      void me.refetch();
     }
-  }, [state, status]);
+  }, [state, status, me]);
 
   const progressPct = useMemo(
     () => Math.min(Math.round(((stepIndex + 1) / STEPS.length) * 100), 99),

@@ -123,7 +123,11 @@ export function ingestionForbiddenResponse() {
   };
 }
 
-/** Refund the free credit when ingestion fails after it was taken. */
+/**
+ * Refund the one-time free credit only when the AI run never started
+ * (validation, storage, or workflow-start failure). Once the workflow starts,
+ * the credit is spent; see `startIngestionWorkflow`.
+ */
 export async function refundIngestion(
   db: Database,
   userId: string,
@@ -190,8 +194,12 @@ interface StartWorkflowFn {
 }
 
 /**
- * Creates the upload record and kicks off the processing workflow. Throws
- * on failure so callers can refund the free credit.
+ * Creates the upload record and kicks off the processing workflow.
+ *
+ * Throws only when the workflow never started, so callers can refund the
+ * one-time free credit. Once `startWorkflow` succeeds the credit is spent:
+ * a failure to persist the run id is logged and retried by the status
+ * reconciler, never turned into a refund.
  */
 export async function startIngestionWorkflow(
   db: Database,
@@ -209,8 +217,9 @@ export async function startIngestionWorkflow(
     callbackUrl,
   });
 
+  let instance: { id: string };
   try {
-    const instance = await startWorkflow({
+    instance = await startWorkflow({
       uploadId: upload.id,
       storageKey: source.storageKey,
       fileName: source.fileName,
@@ -219,12 +228,6 @@ export async function startIngestionWorkflow(
       sourceType: source.sourceType,
       creditUsed: source.creditUsed,
     });
-    await updateUploadRecord(db, upload.id, {
-      workflowRunId: instance.id,
-      status: "processing",
-      failureReason: null,
-    });
-    return { uploadId: upload.id, runId: instance.id, status: "processing" as const };
   } catch (error) {
     await updateUploadRecord(db, upload.id, {
       status: "failed",
@@ -233,6 +236,19 @@ export async function startIngestionWorkflow(
     });
     throw error;
   }
+
+  // The workflow is already running. Do not throw (and trigger a refund) if
+  // this bookkeeping write fails; the workflow's own persist step updates the
+  // row and the status endpoint reconciles from the workflow handle.
+  await updateUploadRecord(db, upload.id, {
+    workflowRunId: instance.id,
+    status: "processing",
+    failureReason: null,
+  }).catch((error) => {
+    console.error("[ingest] failed to persist workflow run id", error);
+  });
+
+  return { uploadId: upload.id, runId: instance.id, status: "processing" as const };
 }
 
 interface StoredIdempotentResponse {

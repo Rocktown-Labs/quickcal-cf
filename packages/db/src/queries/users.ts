@@ -108,7 +108,11 @@ export async function consumeFreeCredit(db: Database, userId: string): Promise<b
   return rows.length > 0;
 }
 
-/** Refund a free credit when ingestion fails after the credit was taken. */
+/**
+ * Refund a free credit when ingestion fails before the AI run starts.
+ * The free trial is one-time: the workflow does not call this after a run
+ * has begun, so forcing AI failures cannot mint unlimited free runs.
+ */
 export async function refundFreeCredit(db: Database, userId: string): Promise<void> {
   await db
     .update(user)

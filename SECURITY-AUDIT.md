@@ -4,7 +4,7 @@
 - **Scope:** `apps/server`, `apps/web`, `apps/native`, `packages/auth`, `packages/db`, `packages/email`, `packages/infra`, `scripts`, `.github/workflows`
 - **Source:** current worktree (includes the uncommitted MCP/OAuth feature)
 - **Method:** source review plus local unit tests and `bun audit`. No deployed endpoint, live credential, or third-party account was probed.
-- **Baseline:** full `bun test` — 82 passing tests (CI subset — 79); `bun run check-types` — 0 errors.
+- **Baseline:** full `bun test` — 83 passing tests; `bun run check-types` — 0 errors.
 
 ## Fixed and verified
 
@@ -116,7 +116,23 @@ The `persist` step inserted events one by one. A retry after a partial failure
 re-ran the insert. The step now clears the upload's event rows before
 re-inserting, making it idempotent.
 
-### 11. Dependency advisories (runtime)
+### 11. Free-trial credit could be farmed by forcing failures
+
+The workflow refunded the free credit on any failed run, so a user could force
+an unparseable extraction and get the credit back repeatedly (unlimited free AI
+work). The credit is now consumed when the workflow **starts**; only failures
+before the run starts (validation, storage, workflow-start failure) refund it.
+The web/native uploaders refresh the credit banner after a terminal run.
+
+### 12. Clerk import marked every address as verified
+
+Both Clerk importers hard-coded `email_verified = 1`. That would let an
+unverified address link to a Google account with the same email. The importers
+now preserve Clerk’s per-address `verification.status`; only verified addresses
+are imported verified. The announcement sender also excludes unverified and
+banned accounts by default.
+
+### 13. Dependency advisories (runtime)
 
 - `better-auth` 1.7.5 → 1.7.14 (fixes the critical OAuth-state/Magic-Link
   advisory GHSA-965c-763c-88jm and the high OAuth-proxy advisory
@@ -127,12 +143,19 @@ re-inserting, making it idempotent.
 - `bun audit` no longer reports either package's advisories (the package names
   still appear as dependency paths for unrelated build-tool advisories).
 
-### 12. Hardening
+### 14. Hardening
 
 - Added baseline response headers on the web app (`X-Content-Type-Options`,
   `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`) and on the
   API (`nosniff`, `no-referrer`, `Cache-Control: no-store` for `/api/*` so
   API keys/webhook secrets/feed tokens are never cached).
+- Made optional integrations genuinely optional in the env schema (Stripe,
+  Resend, Sent.dm) so a deploy without them starts and returns clear
+  configuration errors instead of failing validation.
+- Added optional Alchemy custom-domain wiring (`WEB_CUSTOM_DOMAIN`,
+  `SERVER_CUSTOM_DOMAIN`, `PUBLIC_SERVER_URL`) and documented the AWS DNS →
+  Cloudflare cutover, Clerk import, announcement, and Vercel retirement steps
+  in `README.md` / `DEPLOYMENT.md`.
 - Production 5xx responses no longer echo internal error messages/stacks; MCP
   unexpected tool errors return a generic message.
 - Added a 5/min per-user cap on premium email/SMS delivery (abuse/cost).
@@ -165,10 +188,6 @@ re-inserting, making it idempotent.
   should be upgraded on its own cadence.
 - **CSP:** baseline headers were added, but a strict CSP (nonce/hash-based) is
   not in place; inline theme/hydration scripts make this a separate change.
-- **Free-credit refund abuse:** a user can force an AI extraction failure (for
-  example, a document the model cannot parse) and receive the trial credit
-  back, getting repeated AI work for free. This is a business-logic/abuse
-  issue, not a cross-user boundary; a per-user refund cap would close it.
 - **OAuth JWT revocation:** access tokens are stateless and remain valid until
   their ~1h expiry even if the client is revoked.
 - **Banned users’ public share/feed links:** banning a user does not revoke

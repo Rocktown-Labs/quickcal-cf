@@ -2,7 +2,9 @@
  * Clerk to Better-Auth (D1) User Importer
  *
  * Reads a Clerk JSON user export, extracts user records, and generates
- * SQL INSERT statements for the Cloudflare D1 `user` table.
+ * SQL INSERT statements for the Cloudflare D1 `user` table. Clerk's
+ * per-address verification status is preserved; unverified addresses are not
+ * marked verified (that flag gates Google account linking).
  *
  * Usage:
  *   bun run scripts/import-clerk-users.ts --file clerk-users.json [--owner-email you@example.com]
@@ -61,15 +63,22 @@ function parseArgs() {
   return { filePath, ownerEmail, outSqlPath };
 }
 
-function extractEmail(user: ClerkUser): string | null {
-  if (user.primary_email_address) return user.primary_email_address.trim().toLowerCase();
-  if (user.email) return user.email.trim().toLowerCase();
+function extractEmail(user: ClerkUser): { email: string; verified: boolean } | null {
+  // Legacy/string-only exports carry no verification status; default to
+  // unverified rather than granting Google-linking trust we cannot prove.
+  if (user.primary_email_address) {
+    return { email: user.primary_email_address.trim().toLowerCase(), verified: false };
+  }
+  if (user.email) return { email: user.email.trim().toLowerCase(), verified: false };
   if (user.email_addresses && user.email_addresses.length > 0) {
-    if (user.primary_email_address_id) {
-      const primary = user.email_addresses.find((e) => e.id === user.primary_email_address_id);
-      if (primary?.email_address) return primary.email_address.trim().toLowerCase();
-    }
-    return user.email_addresses[0]!.email_address.trim().toLowerCase();
+    const primary = user.primary_email_address_id
+      ? user.email_addresses.find((e) => e.id === user.primary_email_address_id)
+      : undefined;
+    const record = primary ?? user.email_addresses[0]!;
+    return {
+      email: record.email_address.trim().toLowerCase(),
+      verified: record.verification?.status === "verified",
+    };
   }
   return null;
 }
@@ -98,11 +107,12 @@ export function generateMigrationSql(
   ];
 
   for (const clerkUser of users) {
-    const email = extractEmail(clerkUser);
-    if (!email) {
+    const emailRecord = extractEmail(clerkUser);
+    if (!emailRecord) {
       console.warn(`[skip] User ${clerkUser.id} has no email address`);
       continue;
     }
+    const email = emailRecord.email;
 
     if (options.ownerEmail && email === options.ownerEmail) {
       stats.skippedOwner++;
@@ -117,7 +127,9 @@ export function generateMigrationSql(
     const image = clerkUser.image_url || clerkUser.profile_image_url || null;
     const isOnboarded = clerkUser.public_metadata?.onboardingComplete ? 1 : 0;
     const freeCredits = 1;
-    const emailVerified = 1; // All 19 Clerk users were email-verified; required for Google OAuth linking
+    // Only verified Clerk addresses are marked verified. This is the gate
+    // Better-Auth uses before linking a Google account with the same email.
+    const emailVerified = emailRecord.verified ? 1 : 0;
     const role = "user";
 
     const createdAt = typeof clerkUser.created_at === "number"

@@ -36,6 +36,28 @@ describe("Clerk to Better-Auth user importer", () => {
     expect(sql).toContain("'user_2test456'");
     expect(sql).toContain("'bob@example.com'");
     expect(sql).toContain("'bobbie'");
+    // Alice's Clerk address is verified; Bob's legacy string-only export is not.
+    expect(sql).toContain("'alice@example.com', 1,");
+    expect(sql).toContain("'bob@example.com', 0,");
+  });
+
+  test("does not mark an unverified Clerk address as verified", () => {
+    const { sql } = generateMigrationSql([
+      {
+        id: "user_unverified",
+        first_name: "Una",
+        email_addresses: [
+          {
+            id: "idn_unverified",
+            email_address: "una@example.com",
+            verification: { status: "unverified" },
+          },
+        ],
+        primary_email_address_id: "idn_unverified",
+      },
+    ]);
+
+    expect(sql).toContain("'una@example.com', 0,");
   });
 
   test("skips owner email when specified", () => {

@@ -1,167 +1,251 @@
-# QuickCalAI Production Checklist
+# QuickCalAI Production Cutover Checklist
 
-This file tracks what is done, what is skipped, and what is still needed to ship QuickCalAI to `https://quickcalai.com`.
+This is the ordered runbook for moving `quickcalai.com` from the legacy Vercel + Clerk app to the Cloudflare Workers app. The legacy app stays live as the rollback until every smoke test on the new domain passes.
 
-## What is already done
+## Current topology
 
-- [x] Editorial/minimal homepage redesign (black + red, no gradients/glows/floating cards).
-- [x] Light/dark mode theme switcher.
-- [x] Google OAuth wired into Better-Auth (`/login`, `/signup` buttons included).
-- [x] Better-Auth admin plugin + DB migration for `role`, `banned`, etc.
-- [x] Stripe billing now uses dynamic plans from the `plan` table.
-- [x] Admin sync page at `/admin` creates Stripe products and prices.
-- [x] Theme cleanup across Dashboard, Files, Settings (removed gradients and hardcoded colors).
-- [x] Infra bindings updated for all new env vars.
-- [x] Sent.dm SMS integration verified as per-request client pattern.
-- [x] `bun run check-types` passes and `bun run dev` starts.
-
-## Required secrets (not all are known yet)
-
-Set these as GitHub Actions secrets, Cloudflare Worker secrets, or in `apps/server/.env` before deploying.
-
-| Secret | Status | Purpose |
+| Piece | Current | Target |
 | --- | --- | --- |
-| `BETTER_AUTH_SECRET` | ??? | Auth session signing |
-| `CORS_ORIGIN` | Use `https://quickcalai.com` | Allowed web origin |
-| `BETTER_AUTH_URL` | Use `https://quickcalai.com` | Auth base URL |
-| `GOOGLE_CLIENT_ID` | **Missing** | Google sign-in |
-| `GOOGLE_CLIENT_SECRET` | **Missing** | Google sign-in |
-| `GOOGLE_IOS_CLIENT_ID` | Optional | iOS Google sign-in |
-| `ADMIN_USER_IDS` | Optional | Bootstrap admins before sign-up |
-| `STRIPE_SECRET_KEY` | **Missing** | Stripe API |
-| `STRIPE_WEBHOOK_SECRET` | **Missing** | Stripe webhook verification |
-| `EXTRACTION_MODEL` | Optional var | Workers AI extraction model (in-network via `env.AI`) — defaults to `@cf/zai-org/glm-5.3-flash` |
-| `RESEND_API_KEY` | Set in GitHub Actions | Email delivery |
-| `RESEND_FROM_EMAIL` | Suggested: `QuickCalAI <noreply@extractions.quickcalai.com>` | Email sender |
-| `SENT_DM_API_KEY` | Set in GitHub Actions | SMS delivery |
+| Web | Vercel (legacy Clerk app) at `https://quickcalai.com` | `quickcal-web` Worker at `https://quickcalai.com` |
+| API / auth | Vercel/Clerk (legacy) | `quickcal-server` Worker at `https://api.quickcalai.com` |
+| DNS | AWS Route 53 (or the registrar) | Cloudflare zone (needed for Worker custom domains) |
+| Users | Clerk | Imported into D1; password users reset, Google users link |
+| Data | Legacy Clerk/Vercel stores | D1 + R2; legacy data exported before teardown |
 
-## Deployed URLs (prod stage via GitHub Actions)
+The new app is already deployed on:
 
-- **Web:** https://quickcal-web.rocktown-labs.workers.dev
-- **API / Better-Auth:** https://quickcal-server.rocktown-labs.workers.dev
+- Web: `https://quickcal-web.rocktown-labs.workers.dev`
+- API: `https://quickcal-server.rocktown-labs.workers.dev`
 
-After custom DNS is configured, these should become `https://quickcalai.com` and `https://quickcalai.com/api` (or a separate server subdomain).
+`quickcalai.com` still points at the legacy app. Do not remove the Vercel project, its domain, or the Clerk data until the cutover is verified.
 
-## Current status
-
-- ✅ GitHub Actions workflow at `.github/workflows/deploy.yml` deploys on push to `main` (and PR previews).
-- ✅ Production deployed with dummy optional keys.
-- ✅ Email sign-up works at `https://quickcal-server.rocktown-labs.workers.dev/api/auth/sign-up/email`.
-- ⚠️ Google/Stripe features are disabled until real keys are set and synced via `/admin`.
-
-## External dashboard configuration
+## 1. Configure the external services
 
 ### Google OAuth
-- Authorized redirect URI: `https://quickcal-server.rocktown-labs.workers.dev/api/auth/callback/google`
-  - Update to `https://quickcalai.com/api/auth/callback/google` when custom DNS is ready.
+
+Create a Web application OAuth client (and an iOS client if you ship the native app):
+
+- **Authorized JavaScript origin:** `https://quickcalai.com` (add `https://www.quickcalai.com` if used)
+- **Authorized redirect URI:** `https://api.quickcalai.com/api/auth/callback/google`
+- For testing before the cutover, also add `https://quickcal-server.rocktown-labs.workers.dev/api/auth/callback/google`.
+
+Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_IOS_CLIENT_ID` in the deploy environment.
 
 ### Stripe
-- Webhook endpoint: `https://quickcal-server.rocktown-labs.workers.dev/api/auth/stripe/webhook`
-  - Update to `https://quickcalai.com/api/auth/stripe/webhook` when custom DNS is ready.
-- Required events:
-  - `checkout.session.completed`
-  - `customer.subscription.created`
-  - `customer.subscription.updated`
-  - `customer.subscription.deleted`
+
+- Create the Premium product/prices, or let the app create them with the admin sync (step 3).
+- Webhook endpoint: `https://api.quickcalai.com/api/auth/stripe/webhook`
+- Subscribe to: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`.
+- Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PREMIUM_PRICE_ID`, and (if annual billing) `STRIPE_PREMIUM_ANNUAL_PRICE_ID`.
+- Use test keys first; switch to live keys only after a test checkout.
 
 ### Resend
-- No webhook needed for basic sending.
-- Sending domain: `extractions.quickcalai.com`
-- `RESEND_FROM_EMAIL` example: `QuickCalAI <noreply@extractions.quickcalai.com>`
+
+- Verify the sending domain (`extractions.quickcalai.com`) with SPF/DKIM/DMARC in Resend.
+- Set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` (for example `QuickCalAI <noreply@extractions.quickcalai.com>`).
+- No webhook is required for basic sending. `RESEND_WEBHOOK_SECRET` is unused today.
 
 ### Sent.dm
-- Make sure a sending number is configured in the Sent.dm dashboard before using the SMS feature.
 
-## Agent-native platform (shipped 2026-10-02)
+- Configure a sending number in the Sent.dm dashboard.
+- Set `SENT_DM_API_KEY`.
+- Test one SMS to your own number before announcing.
 
-- Ingestion: `POST /api/uploads` (file), `/text` (pasted schedule), `/from-url` (SSRF-hardened server fetch), `/events` (structured JSON, free, no AI). All accept `Idempotency-Key` + `callbackUrl`.
-- MCP server at `POST /mcp` (stateless streamable-HTTP JSON-RPC, `qc_` key auth) — 9 tools.
-- Review API: `GET /api/uploads/{id}/events`, `PATCH`/`DELETE /api/events/{id}` with automatic `.ics` regeneration; AI extractions carry per-event confidence + source quotes.
-- Aggregate calendar feed: `GET /api/calendar/{token}` (subscribe once, every event), rotate via `POST /api/calendar/rotate`.
-- Free trial: 1 free AI extraction per user (atomic `free_credits`), then `free_credits_exhausted`; failures refund the credit (sync and workflow paths).
-- Webhooks: signed `X-QuickCal-Signature` (Stripe-style `t=…,v1=…`), per-user secret in `/api/user/me`, non-blocking delivery (log-and-abandon after retries).
+### Auth / origin values
 
-## Security & correctness fixes (applied)
+These are security boundaries; get them right:
 
-- [x] CSRF protection: `originCheck` middleware verifies `Origin` on all state-changing requests (cookies are `SameSite=None`, so CORS alone didn't stop cross-site form posts). Non-browser clients (native app, agents, Stripe webhooks) send no `Origin` and pass.
-- [x] Rate limiting moved to a `RateLimiter` **Durable Object** (`apps/server/src/do/rate-limiter.ts`) so counters hold across Worker isolates. In-memory limiter remains as a fallback for tests/local.
-- [x] Password reset flow: Better-Auth `sendResetPassword` + Resend email → web `/reset-password` page. Email verification on sign-up (non-blocking) → web `/verify-email` page + dashboard banner with resend.
-- [x] Share link revocation: `POST /api/uploads/{id}/share/revoke` deletes the public `.ics` object and clears the token; UI buttons on web Files page and native Files tab.
-- [x] Upload validation now checks magic bytes (PNG/JPEG/WebP/PDF signatures) instead of trusting `Content-Type`; `Content-Disposition` filenames sanitized.
-- [x] Resend idempotency key includes the recipient (sending one upload to two different addresses no longer silently dedupes).
-- [x] AI extraction capped at 500 events; workflow dedupes events, reuses the share token on retries (no orphaned `.ics` objects), and marks date-only events as all-day.
-- [x] `GET /api/uploads` no longer leaks internal R2 storage keys; limit enforced in SQL.
-- [x] CORS no-match now returns `null` (was reflecting an allowed origin).
-- [x] Email/SMS share links derive from `CORS_ORIGIN` (works across stages; no hardcoded worker URL).
-- [x] Landing page copy made honest: removed fabricated stats/testimonials, the "deleted automatically" claim, the HEIC claim, and the non-existent "editable results" feature.
-- [x] CI now runs unit tests in addition to type checks.
+- `BETTER_AUTH_URL` = the **API/auth origin** (`https://api.quickcalai.com`, or the server Worker URL before cutover).
+- `CORS_ORIGIN` = the **web origin** (`https://quickcalai.com`; comma-separate `https://www.quickcalai.com` if used).
+- `PUBLIC_SERVER_URL` = the API origin baked into the web bundle (same as `BETTER_AUTH_URL` when using a custom API domain).
+- `BETTER_AUTH_SECRET` = a fresh 64-character random string; changing it invalidates sessions and OAuth tokens.
+- `ADMIN_USER_IDS` = the owner’s **Better-Auth** user ID (not the Clerk ID). Sign up once, copy the ID from D1 or `/api/user/me`, then set it and redeploy.
 
-## Skipped for now
+## 2. Deploy the latest code
 
-- **Resend webhooks.** `RESEND_WEBHOOK_SECRET` is not being used. Can be added later if you want to track bounces, complaints, opens, or clicks.
-- **PostHog and Sentry.** The old Vercel app had both. The Cloudflare app does not yet. Wire these after the domain cutover so the first sessions and errors are captured on the real hostname.
+Push to `main` (or run the Deploy workflow manually). The workflow runs type checks and tests before deploying. PR previews are opt-in via the `ENABLE_PREVIEW_DEPLOY` repository variable; production deploys are unchanged.
 
-## Still needed before launch
-
-1. Add remaining secrets (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`).
-2. Configure Stripe and Google dashboards with the URLs above.
-3. Configure Cloudflare DNS for `quickcalai.com` to point to the deployed web Worker.
-4. Deploy the latest changes (preview, then production).
-5. Confirm the owner account is in `ADMIN_USER_IDS`, then visit `/admin` and run **Sync Stripe products** once real Stripe keys are set.
-6. Finish the auth cutover: add real Google OAuth credentials, verify one Google-only user and one password-only user, then send the announcement.
-
-## Deploy with GitHub Actions
-
-A deploy workflow lives at `.github/workflows/deploy.yml`. It runs on pushes to `main`, PRs (preview), and manual dispatch.
-
-### Required repository secrets / variables
-
-Create these in GitHub before the first deploy:
-
-| Name | Type | Purpose |
-| --- | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | secret | Cloudflare API token with Workers + Pages + D1 + R2 + KV + Workflow permissions |
-| `CLOUDFLARE_ACCOUNT_ID` | variable | Your Cloudflare account ID |
-| `ALCHEMY_PASSWORD` | secret | Password Alchemy uses to encrypt state (generate once and keep safe) |
-
-### App secrets status
-
-| Secret | Status | Notes |
-| --- | --- | --- |
-| `BETTER_AUTH_SECRET` | ✅ set | Real random secret generated |
-| `RESEND_API_KEY` | ✅ set | User-provided |
-| `SENT_DM_API_KEY` | ✅ set | User-provided |
-| `GOOGLE_CLIENT_ID` | ⚠️ dummy | Replace with real values when ready |
-| `GOOGLE_CLIENT_SECRET` | ⚠️ dummy | Replace with real values when ready |
-| `STRIPE_SECRET_KEY` | ⚠️ dummy | Replace with real `sk_test_...` / `sk_live_...` |
-| `STRIPE_WEBHOOK_SECRET` | ⚠️ dummy | Replace after configuring Stripe webhook |
-| `ADMIN_USER_IDS` | ⚠️ dummy | Set to your user ID after first admin sign-up, then re-run workflow |
-| `RESEND_WEBHOOK_SECRET` | ⚠️ dummy | Skipped for now |
-
-Replace dummy values with real ones in the GitHub Actions secrets page. The app will start and degrade gracefully while optional keys are still dummies.
-
-### Deploy commands
+Confirm the production deploy succeeded:
 
 ```bash
-# Manual workflow run from GitHub UI, or just push to main
-# Deploy preview from a PR automatically
+gh run list --workflow deploy.yml --limit 5
+gh run view <run-id> --log-failed
 ```
 
-### User migration (Clerk -> Better-Auth)
+## 3. Bootstrap admin + Stripe plans
 
-The live importer is `bun run migrate:clerk-users`. It fetches Clerk users, preserves Clerk IDs, skips emails that already exist in D1, and never imports password hashes. Password users complete the Better-Auth reset flow on first sign-in.
+1. Sign in to the new app with the owner account.
+2. Copy the Better-Auth user ID and set `ADMIN_USER_IDS` in GitHub Actions, then redeploy.
+3. Visit `/admin` and run **Sync Stripe products** with live (or test) keys. This writes the Premium plan and price IDs into D1.
+4. If you set price IDs manually, confirm `plan.active = 1` in D1.
 
-Production D1 has the 18 non-overlapping Clerk users imported. The owner account already existed and was matched by email. See `scripts/README.md` for the offline JSON-export variant.
+## 4. Import Clerk users
 
-Before announcing:
+The live importer reads the Clerk Backend API and writes to remote D1. It preserves Clerk IDs, skips IDs/emails that already exist, preserves Clerk’s email-verification status, and never imports password hashes.
 
-- Add real Google OAuth credentials and verify one migrated Google-only user can sign in. Account linking for Google is enabled in `packages/auth`.
-- Verify one password-only user can use "Forgot password" and set a credential account.
-- Run one MCP OAuth connection end to end (Claude or Cursor) against `/mcp`. The consent page is at `/consent`; the login and signup pages preserve the OAuth query.
-- Cut `quickcalai.com` over to the new web Worker and update `CORS_ORIGIN`, the Google redirect URI, and the Stripe webhook URL.
+Prerequisites:
 
-### Email templates and announcement
+- `CLERK_SECRET_KEY`
+- `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` (for `wrangler d1 execute --remote`)
+- The production D1 database name. The script discovers the single `quickcal-cf-database-prod*` database; pass `--database <name>` if it cannot.
 
-`packages/email` contains React Email templates for welcome, processing complete, and the product announcement. `bun run email:announcement` renders a dry-run preview; `--apply` sends through Resend. A mailing address is required with `--apply`.
+Dry run first:
 
-Do not send the announcement until Google OAuth and the domain cutover are live. If the email advertises Premium, confirm Stripe checkout works first. Set `--reply-to` so replies reach a real inbox. The script excludes test accounts by default and adds a `List-Unsubscribe` header.
+```bash
+CLERK_SECRET_KEY=sk_... bun run migrate:clerk-users -- --dry-run
+```
+
+Review the printed report path (SQL + full JSON report, mode 600) and the skipped-user reasons. Then apply:
+
+```bash
+CLERK_SECRET_KEY=sk_... bun run migrate:clerk-users -- --apply
+```
+
+The importer is idempotent: re-running skips existing Clerk IDs and emails. After it finishes, verify the count:
+
+```bash
+bunx wrangler d1 execute <database> --remote --json \
+  --command "select count(*) as users from user;"
+```
+
+Important details:
+
+- Imported users get `free_credits = 1` (the one-time trial).
+- Only Clerk-verified addresses are imported as `email_verified = 1`. Unverified addresses must complete the Better-Auth verification flow before they can link a Google account with the same email.
+- Password users sign in with **Forgot password** once to create a credential account. Passwords cannot move between auth providers.
+- Google users sign in with Google after the OAuth client is configured.
+- Existing D1 users (including the owner) are matched by lowercased email and left on their Better-Auth ID.
+
+## 5. Verify migrated accounts
+
+Before sending anything:
+
+- Sign in with one Google-only migrated account.
+- Sign in with one password-only migrated account via **Forgot password**.
+- Create one upload, review/edit an event, download the `.ics`, create and revoke a share link.
+- Send one email and one SMS to your own contacts.
+- Connect one MCP client (Claude or Cursor) via OAuth 2.1 or a `qc_…` API key; call `tools/list`, `create_events`, and `check_upload_status`.
+- Confirm `/api/user/me` returns the profile and the calendar feed URL.
+
+## 6. Send the announcement email
+
+The D1-backed sender is the recommended one. It reads recipients from D1, excludes test accounts by default, renders the React Email template, and adds `List-Unsubscribe`.
+
+```bash
+# Render a preview and print recipients (default; no email sent)
+RESEND_API_KEY=re_... bun run email:announcement -- --dry-run
+
+# Single test send to yourself
+RESEND_API_KEY=re_... bun run email:announcement -- \
+  --to you@example.com --apply --mailing-address "123 Main St" --reply-to you@example.com
+
+# Full send after the domain cutover is verified
+RESEND_API_KEY=re_... MAILING_ADDRESS="123 Main St" bun run email:announcement -- \
+  --apply --reply-to support@quickcalai.com
+```
+
+Notes:
+
+- The default CTA is `https://quickcalai.com/login`. Before the cutover, pass `--login-url https://quickcal-web.rocktown-labs.workers.dev/login` for a test.
+- A physical mailing address is required with `--apply` (CAN-SPAM).
+- The script excludes test accounts, banned accounts, and unverified emails by default. Pass `--include-unverified` only if you have a reason to mail unverified addresses.
+- The script warns if the login URL is a `workers.dev` host.
+- Send the full announcement **after** the domain cutover and after Google/Stripe/Resend/Sent.dm are verified, or the email will point at the old app.
+
+## 7. Cut the domain over
+
+Cloudflare Workers custom domains require the `quickcalai.com` zone to be active in the Cloudflare account. The recommended path is to move the DNS zone from AWS to Cloudflare:
+
+1. **Export the current DNS** from Route 53 (or the registrar) and keep it for rollback.
+2. Add `quickcalai.com` as a zone in Cloudflare; import the records.
+3. Change the nameservers at the registrar/Route 53 to the Cloudflare nameservers. Wait for the zone to become active.
+4. In Cloudflare → Workers & Pages → `quickcal-web` → Settings → Domains & Routes, add `quickcalai.com` (and `www` if used).
+5. In Cloudflare → Workers & Pages → `quickcal-server` → Settings → Domains & Routes, add `api.quickcalai.com`.
+6. Set the GitHub repository variables:
+   - `CORS_ORIGIN=https://quickcalai.com` (add `https://www.quickcalai.com` if used)
+   - `BETTER_AUTH_URL=https://api.quickcalai.com`
+   - `PUBLIC_SERVER_URL=https://api.quickcalai.com`
+   - `WEB_CUSTOM_DOMAIN=quickcalai.com`
+   - `SERVER_CUSTOM_DOMAIN=api.quickcalai.com`
+7. Redeploy production. Alchemy attaches the custom domains when the variables are set.
+8. Update the Google redirect URI to `https://api.quickcalai.com/api/auth/callback/google`.
+9. Update the Stripe webhook to `https://api.quickcalai.com/api/auth/stripe/webhook`.
+10. The MCP resource becomes `https://api.quickcalai.com/mcp`; re-run one MCP OAuth connection and confirm discovery.
+
+If you cannot move the zone yet, **do not** point `quickcalai.com` at the Worker with an ad-hoc CNAME: Workers custom domains are zone-scoped, and the legacy Vercel app is the safe rollback. Move the zone first, then cut over.
+
+### Cookie / CORS topology
+
+The app is built for split origins:
+
+- Web: `https://quickcalai.com`
+- API: `https://api.quickcalai.com`
+
+Session cookies are `SameSite=None; Secure; HttpOnly`, so they work across the two hosts. The Origin-check middleware and CORS allow only `CORS_ORIGIN`. If you instead mount the API on the same host (`https://quickcalai.com/api`), set `BETTER_AUTH_URL=https://quickcalai.com` and route `/api/*`, `/mcp`, `/.well-known/*`, `/doc`, and `/reference` to the server Worker. The split `api.` host is simpler and is the recommended topology.
+
+## 8. Smoke test on the real domain
+
+- `https://quickcalai.com` loads the new landing page.
+- `https://quickcalai.com/login` → sign in with password and Google.
+- Forgot password → reset → sign in.
+- Upload → status → review/edit → download `.ics`.
+- Share link → open `/s/{token}` → download; revoke and confirm 404.
+- Calendar feed URL → subscribe/refresh; rotate and confirm the old URL stops.
+- Email and SMS delivery to your own contacts.
+- `/api/user/me`, `/api/keys`, `/mcp` with an API key.
+- MCP OAuth 2.1 consent flow (`/consent`).
+- `/doc` and `/reference` load.
+- Stripe test checkout (or live, if confident) → subscription active → cancel.
+- Check Worker logs for 5xx/errors.
+
+## 9. Retire the legacy app
+
+Only after the smoke tests pass:
+
+1. Remove `quickcalai.com` from the Vercel project (keep the deployment for a short rollback window).
+2. Delete the old Vercel project and its environment variables.
+3. Export/archive Clerk user data, then remove the Clerk application and its keys.
+4. Remove the old DNS records from AWS/Route 53 after the Cloudflare zone is authoritative.
+5. Rotate any secrets that were shared with the legacy deployment.
+
+## Rollback
+
+Keep the Vercel deployment and the old DNS records until the new app has been stable for a few days. To roll back, point the nameservers/DNS back to Vercel and restore the old records. The D1/R2 data is separate; do not delete it during rollback.
+
+## CI / secrets reference
+
+GitHub Actions secrets:
+
+| Name | Purpose |
+| --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Workers + D1 + R2 + KV + Workflow + custom-domain permissions |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account (secret or variable) |
+| `ALCHEMY_PASSWORD` | Alchemy state encryption |
+| `BETTER_AUTH_SECRET` | Auth/JWT signing |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_IOS_CLIENT_ID` | Google OAuth |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `STRIPE_PREMIUM_PRICE_ID` / `STRIPE_PREMIUM_ANNUAL_PRICE_ID` | Billing |
+| `RESEND_API_KEY` / `RESEND_FROM_EMAIL` | Email |
+| `SENT_DM_API_KEY` | SMS |
+| `ADMIN_USER_IDS` | Better-Auth admin allowlist |
+
+GitHub Actions variables:
+
+| Name | Example |
+| --- | --- |
+| `CORS_ORIGIN` | `https://quickcalai.com` |
+| `BETTER_AUTH_URL` | `https://api.quickcalai.com` |
+| `PUBLIC_SERVER_URL` | `https://api.quickcalai.com` |
+| `WEB_CUSTOM_DOMAIN` | `quickcalai.com` |
+| `SERVER_CUSTOM_DOMAIN` | `api.quickcalai.com` |
+| `ENABLE_PREVIEW_DEPLOY` | `true` only when preview env is configured |
+| `PREVIEW_CORS_ORIGIN` | The preview web origin, if preview deploys are enabled |
+
+The deploy workflow falls back to the workers.dev URLs when the domain variables are unset.
+
+## Security / behavior notes
+
+- **One-time free credit:** the credit is consumed when the AI workflow starts. It is refunded only if the run never started (validation/storage/workflow-start failure). A failed AI run or unparseable document does not restore it.
+- **Banned accounts:** banned users are rejected on session, API-key, and OAuth credentials; expired temporary bans lift automatically.
+- **Share links:** public share links and the calendar feed are available on the free tier; Premium gates unlimited AI and email/SMS delivery.
+- **Preview deploys:** PR previews need their own `CORS_ORIGIN` and app env; keep `ENABLE_PREVIEW_DEPLOY` unset until that exists.
+- **Security audit:** see [SECURITY-AUDIT.md](./SECURITY-AUDIT.md) for the full findings, fixes, and remaining risks.
