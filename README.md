@@ -97,7 +97,8 @@ bun run dev          # web on :4321, API on :3000 (via alchemy dev)
 ```
 
 Copy `.env.example` to `apps/server/.env` and fill in values. For the native app, set
-`EXPO_PUBLIC_SERVER_URL` in `apps/native/.env`.
+`EXPO_PUBLIC_SERVER_URL` (the API origin) and `EXPO_PUBLIC_WEB_URL` (the web origin used for
+public share links and auth emails) in `apps/native/.env`.
 
 Generate/refresh typed env accessors after editing any `.env.schema`:
 
@@ -156,6 +157,29 @@ Server (validated by Varlock against `apps/server/.env.schema`; wired in `packag
 
 After the first production deploy, set `CORS_ORIGIN` to the exact deployed web origin and `BETTER_AUTH_URL` to the exact API origin. These values are security boundaries: the CSRF/CORS checks and the OAuth token audience depend on them.
 
+## Native app (Expo)
+
+The native app mirrors the web flows: email/password + Google sign-in, the AI uploader (file,
+URL, pasted text), manual event building, files/review/edit, download/share, email/SMS delivery,
+API keys, the calendar feed, and settings. Sessions live in SecureStore via the Better-Auth Expo
+plugin.
+
+- **Local dev:** `bun run dev:native` (Metro). Set `EXPO_PUBLIC_SERVER_URL` to the API origin and
+  `EXPO_PUBLIC_WEB_URL` to the web origin; the schema defaults are `http://localhost:3000` and
+  `http://localhost:4321`.
+- **Production builds:** set both public env vars to the production origins, run `bunx eas-cli
+  init` once to link an Expo project, then use the `preview` / `production` profiles in
+  `apps/native/eas.json`. Signing credentials and store listings are managed in EAS/App Store
+  Connect/Google Play.
+- **Share links:** the app opens/copies the **web** `/s/{token}` page, not the API host. The
+  `.ics` download still comes from the API.
+- **Stripe:** checkout, billing portal, and cancellation open in the in-app browser. Stripe returns
+  to the public `/billing/return` page, which deep-links back to `quickcal-cf://settings`; the
+  profile refetches when the browser closes.
+- **Scanned PDFs:** the web uploader rasterizes them in the browser. The native app does not have a
+  PDF rasterizer, so scanned/image-only PDFs should be shared as PNG/JPG images; text-layer PDFs
+  work directly.
+
 ## Production cutover runbook
 
 The detailed, ordered checklist is in [DEPLOYMENT.md](./DEPLOYMENT.md). The short version:
@@ -191,6 +215,6 @@ quickcal-cf/
 
 - Web and API are deployed and functional end-to-end on the Cloudflare Workers URLs: email auth with verification + password reset, uploads, extraction, review/edit, share links with revocation, calendar feed, API keys, MCP, and admin Stripe sync.
 - Google OAuth, Stripe checkout, Resend, and Sent.dm require real credentials in the deploy environment; the app degrades gracefully when optional integrations are absent.
-- The native app mirrors the mobile web app and needs a device build pass before store submission.
+- The native app mirrors the web app (auth, uploader, files/review, settings, billing, API keys, feed). It needs a device build/test pass plus EAS/Apple/Google signing credentials before store submission; `apps/native/eas.json` has preview/production profiles.
 - `quickcalai.com` is still served by the legacy Vercel/Clerk app. The Cloudflare app is ready for the cutover described above; the legacy app remains the rollback until the domain is verified.
 - Clerk users should be imported with the dry-run → apply flow above; the importer is idempotent, so a re-run is safe.

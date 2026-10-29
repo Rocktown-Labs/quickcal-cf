@@ -2,6 +2,12 @@ import { authClient } from "./auth-client";
 import { ENV } from "../src/env";
 
 const BASE = ENV.EXPO_PUBLIC_SERVER_URL;
+const WEB_BASE = ENV.EXPO_PUBLIC_WEB_URL;
+
+/** The web app origin (public share pages, auth emails) — not the API origin. */
+export function webUrl(): string {
+  return WEB_BASE.replace(/\/+$/, "");
+}
 
 export class ApiError extends Error {
   status: number;

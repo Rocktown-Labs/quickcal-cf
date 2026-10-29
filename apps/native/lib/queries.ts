@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type DirectEvent, type RnFilePart, type ReviewEvent, type UploadStatus } from "./api";
+import {
+  api,
+  ApiError,
+  type DirectEvent,
+  type RnFilePart,
+  type ReviewEvent,
+  type UploadStatus,
+} from "./api";
 
 export const queryKeys = {
   me: ["me"] as const,
@@ -42,6 +49,12 @@ export function useUploadStatus(runId: string | null) {
     queryKey: queryKeys.uploadStatus(runId ?? ""),
     queryFn: () => api.uploadStatusByRun(runId!),
     enabled: Boolean(runId),
+    // The workflow/route may need a moment to persist the run id; tolerate a
+    // brief 404 instead of failing the uploader on the first poll.
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status === 404) return failureCount < 5;
+      return failureCount < 1;
+    },
     refetchInterval: (query) => {
       const data = query.state.data;
       if (data && TERMINAL.has(data.status)) return false;

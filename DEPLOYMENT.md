@@ -243,6 +243,40 @@ GitHub Actions variables:
 
 The deploy workflow falls back to the workers.dev URLs when the domain variables are unset.
 
+## Native app builds
+
+The Expo app is in `apps/native`. It needs two public build-time values:
+
+- `EXPO_PUBLIC_SERVER_URL` — the API origin (`https://api.quickcalai.com` in production).
+- `EXPO_PUBLIC_WEB_URL` — the web origin (`https://quickcalai.com`), used for public share links
+  and auth emails.
+
+Local dev defaults are `http://localhost:3000` and `http://localhost:4321`. For store builds:
+
+```bash
+cd apps/native
+bunx eas-cli login
+bunx eas-cli init                 # links the Expo project (writes extra.eas.projectId)
+bunx eas-cli build --profile preview --platform ios
+bunx eas-cli build --profile production --platform all
+bunx eas-cli submit --profile production --platform ios
+```
+
+`apps/native/eas.json` has `preview` (internal APK/device build) and `production` (store builds,
+auto-incremented) profiles. Apple Developer, App Store Connect, Google Play, and signing
+credentials are external setup. Before submitting, device-test:
+
+- email/password + Google sign-in, sign-out, password reset (web link) and verification;
+- file/URL/text/manual ingestion, review/edit/delete, .ics download/share;
+- share link opens the **web** `/s/{token}` page, not the API;
+- email/SMS delivery, API key create/revoke, calendar feed rotate;
+- Stripe checkout/billing portal/cancel returning through the public `/billing/return` page and
+  the `quickcal-cf://settings` deep link;
+- offline/error states (files list retry, status polling retry).
+
+Scanned/image-only PDFs should be shared as PNG/JPG images on native; the web uploader rasterizes
+them in the browser, but the native app has no PDF rasterizer.
+
 ## Security / behavior notes
 
 - **One-time free credit:** the credit is consumed when the AI workflow starts. It is refunded only if the run never started (validation/storage/workflow-start failure). A failed AI run or unparseable document does not restore it.

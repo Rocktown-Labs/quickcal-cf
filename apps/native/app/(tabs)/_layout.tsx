@@ -1,5 +1,5 @@
 import { Redirect, Tabs } from "expo-router";
-import { Text } from "react-native";
+import { ActivityIndicator, Text, View } from "react-native";
 import { useColorScheme } from "react-native";
 import { authClient } from "@/lib/auth-client";
 
@@ -15,7 +15,11 @@ export default function TabsLayout() {
   const isDark = colorScheme !== "light";
 
   if (isPending) {
-    return null;
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
   }
   if (!session?.user) {
     return <Redirect href="/login" />;

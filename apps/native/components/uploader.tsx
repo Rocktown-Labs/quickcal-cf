@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Share, Text as RNText, View } from "react-native";
 import { Button, Input, Label, Spinner, Text, TextArea, TextField, useToast } from "heroui-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import { api, type DirectEvent, type RnFilePart, type StatusResponse } from "@/lib/api";
+import { api, webUrl, type DirectEvent, type RnFilePart, type StatusResponse } from "@/lib/api";
 import {
   useCreateDirectEvents,
   useCreateTextUpload,
@@ -19,7 +19,6 @@ import {
   useUploadStatus,
 } from "@/lib/queries";
 import { downloadAndShareIcs, shareIcsContent } from "@/lib/ics";
-import { authClient } from "@/lib/auth-client";
 import { PressCard, ProgressBar, Pulse } from "@/components/qc";
 
 const STEPS = [
@@ -132,6 +131,17 @@ export function Uploader() {
     }
   }, [state, status, me]);
 
+  // A failed status query must not leave the stepper spinning forever.
+  useEffect(() => {
+    if (state !== "processing" || !statusQuery.isError) return;
+    setErrorTitle("Status check failed");
+    setErrorMessage(
+      statusQuery.error instanceof Error ? statusQuery.error.message : "Please try again.",
+    );
+    setState("error");
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  }, [state, statusQuery.isError, statusQuery.error]);
+
   const progressPct = useMemo(
     () => Math.min(Math.round(((stepIndex + 1) / STEPS.length) * 100), 99),
     [stepIndex],
@@ -229,6 +239,7 @@ export function Uploader() {
     setStepIndex(0);
     setFileName("");
     setDeliveryOpen(false);
+    setManualRows([]);
   }
 
   async function downloadIcs() {
@@ -246,7 +257,7 @@ export function Uploader() {
   async function copyShareLink() {
     if (!shareToken) return;
     try {
-      await Clipboard.setStringAsync(`${api.serverUrl()}/s/${shareToken}`);
+      await Clipboard.setStringAsync(`${webUrl()}/s/${shareToken}`);
       toast.show({ variant: "success", label: "Share link copied." });
     } catch {
       toast.show({ variant: "danger", label: "Could not copy the share link." });
@@ -257,7 +268,7 @@ export function Uploader() {
     if (!shareToken) return;
     try {
       await Share.share({
-        message: `Check out this calendar schedule: ${api.serverUrl()}/s/${shareToken}`,
+        message: `Check out this calendar schedule: ${webUrl()}/s/${shareToken}`,
       });
     } catch {
       // User dismissed the share sheet — nothing to do.
@@ -395,16 +406,10 @@ export function Uploader() {
     }
   }
 
-  async function upgradeToPremium() {
-    try {
-      await authClient.subscription.upgrade({
-        plan: "premium",
-        successUrl: "quickcal-cf://settings",
-        cancelUrl: "quickcal-cf://settings",
-      });
-    } catch (err) {
-      showErrorToast(err, "Could not open checkout. Try again from Settings.");
-    }
+  function upgradeToPremium() {
+    // The Settings screen owns the native Stripe flow (it opens the checkout
+    // URL in an auth session and refreshes the subscription on return).
+    router.push("/settings");
   }
 
   // ── Idle ──────────────────────────────────────────────────────────────────
@@ -456,6 +461,10 @@ export function Uploader() {
                 <Text className="text-lg font-bold text-white">Choose a photo or PDF</Text>
                 <Text className="text-neutral-400 mt-1">Supports JPEG, PNG, WebP, and PDF</Text>
                 <Text className="text-neutral-500 mt-3 text-sm">Up to 10MB</Text>
+                <Text className="text-neutral-500 mt-1 text-xs text-center px-4">
+                  PDFs need a text layer. For a scanned PDF, share it as a PNG or JPG image so the
+                  vision pipeline can read it.
+                </Text>
               </PressCard>
               <View className="flex-row gap-2">
                 <View className="flex-1">
@@ -496,7 +505,7 @@ export function Uploader() {
               <Text className="text-neutral-400 text-center px-8">
                 Upgrade to Premium for unlimited AI extraction from images, PDFs, text, and URLs.
               </Text>
-              <Button className="bg-[#c23326]" size="lg" onPress={() => void upgradeToPremium()}>
+              <Button className="bg-[#c23326]" size="lg" onPress={upgradeToPremium}>
                 <Button.Label>Upgrade to Premium</Button.Label>
               </Button>
             </View>
@@ -546,7 +555,7 @@ export function Uploader() {
               <Text className="text-neutral-400 text-center px-8">
                 Upgrade to Premium to extract events from pasted text too.
               </Text>
-              <Button className="bg-[#c23326]" size="lg" onPress={() => void upgradeToPremium()}>
+              <Button className="bg-[#c23326]" size="lg" onPress={upgradeToPremium}>
                 <Button.Label>Upgrade to Premium</Button.Label>
               </Button>
             </View>

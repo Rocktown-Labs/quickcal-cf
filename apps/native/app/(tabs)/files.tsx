@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { Button, Input, Spinner, TextField, useToast } from "heroui-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { api, type ReviewEvent } from "@/lib/api";
+import { api, webUrl, type ReviewEvent } from "@/lib/api";
 import {
   useDeleteEvent,
   useDeleteUpload,
@@ -60,9 +60,15 @@ function EventEditor({
   const [showDate, setShowDate] = useState(false);
   const [showTime, setShowTime] = useState(false);
 
-  const [dateObj, setDateObj] = useState<Date>(new Date(`${initialDate}T12:00:00Z`));
+  // Build the picker values from the wall-clock components in local time.
+  // Using UTC noon here shifts the displayed day in UTC+12/+13 timezones.
+  const [initialYear, initialMonth, initialDay] = initialDate.split("-").map(Number);
+  const [initialHour, initialMinute] = (initialTime || "12:00").split(":").map(Number);
+  const [dateObj, setDateObj] = useState<Date>(
+    new Date(initialYear ?? 2026, (initialMonth ?? 1) - 1, initialDay ?? 1, 12, 0, 0),
+  );
   const [timeObj, setTimeObj] = useState<Date>(
-    new Date(`2026-01-01T${initialTime || "12:00"}:00Z`),
+    new Date(2026, 0, 1, initialHour ?? 12, initialMinute ?? 0, 0),
   );
 
   async function save() {
@@ -250,7 +256,7 @@ export default function FilesScreen() {
 
   async function copyShareLink(token: string) {
     try {
-      await Clipboard.setStringAsync(`${api.serverUrl()}/s/${token}`);
+      await Clipboard.setStringAsync(`${webUrl()}/s/${token}`);
       toast.show({ variant: "success", label: "Share link copied." });
     } catch {
       toast.show({ variant: "danger", label: "Could not copy the link." });
@@ -320,6 +326,17 @@ export default function FilesScreen() {
       {uploads.isPending ? (
         <View className="items-center py-10">
           <Spinner size="lg" color="default" />
+        </View>
+      ) : uploads.isError ? (
+        <View className="mx-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-8 items-center gap-3">
+          <Text className="text-4xl">⚠️</Text>
+          <Text className="text-lg font-bold text-white">Could not load your files</Text>
+          <Text className="text-neutral-400 text-center text-sm">
+            {uploads.error instanceof Error ? uploads.error.message : "Please try again."}
+          </Text>
+          <Button size="sm" className="bg-[#c23326]" onPress={() => void uploads.refetch()}>
+            <Button.Label>Try again</Button.Label>
+          </Button>
         </View>
       ) : rows.length === 0 ? (
         <View className="px-4 rounded-2xl border border-neutral-800 bg-neutral-900 p-10 items-center gap-3 mx-4">

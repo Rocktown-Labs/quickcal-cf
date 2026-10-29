@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 import { Alert } from "react-native";
 import * as Clipboard from "expo-clipboard";
+import * as WebBrowser from "expo-web-browser";
 import { Button, Input, Label, Spinner, TextField, useToast } from "heroui-native";
 import { authClient } from "@/lib/auth-client";
-import { api } from "@/lib/api";
+import { api, webUrl } from "@/lib/api";
 import {
   useApiKeys,
   useCreateApiKey,
@@ -43,7 +44,7 @@ export default function SettingsScreen() {
 
   const profile = me.data;
   const isPremium = profile?.isPremium ?? false;
-  const isVerified = session?.user?.emailVerified ?? true;
+  const isVerified = session?.user?.emailVerified ?? false;
   const phoneValue = phone ?? profile?.phoneNumber ?? "";
 
   async function saveProfile() {
@@ -55,13 +56,28 @@ export default function SettingsScreen() {
     }
   }
 
-  async function upgrade() {
+  async function openBillingUrl(url: string) {
+    // Better-Auth's default redirect plugin is browser-only. On native we
+    // disable the server redirect and open the Stripe URL in the in-app
+    // browser. Stripe returns to the public /billing/return page, which
+    // deep-links back to quickcal-cf://settings; refetch when the browser
+    // closes so the premium badge updates either way.
+    await WebBrowser.openBrowserAsync(url);
+    void me.refetch();
+    toast.show({ variant: "success", label: "Returned from billing." });
+  }
+
+  async function upgrade(annual = false) {
     try {
-      await authClient.subscription.upgrade({
+      const { data, error } = await authClient.subscription.upgrade({
         plan: "premium",
-        successUrl: "quickcal-cf://settings",
-        cancelUrl: "quickcal-cf://settings",
+        annual,
+        successUrl: `${webUrl()}/billing/return?status=success`,
+        cancelUrl: `${webUrl()}/billing/return?status=cancel`,
+        disableRedirect: true,
       });
+      if (error) throw new Error(error.message);
+      if (data?.url) await openBillingUrl(data.url);
     } catch (err) {
       toast.show({
         variant: "danger",
@@ -72,7 +88,12 @@ export default function SettingsScreen() {
 
   async function manageBilling() {
     try {
-      await authClient.subscription.billingPortal({ returnUrl: "quickcal-cf://settings" });
+      const { data, error } = await authClient.subscription.billingPortal({
+        returnUrl: `${webUrl()}/billing/return?status=portal`,
+        disableRedirect: true,
+      });
+      if (error) throw new Error(error.message);
+      if (data?.url) await openBillingUrl(data.url);
     } catch (err) {
       toast.show({
         variant: "danger",
@@ -88,14 +109,21 @@ export default function SettingsScreen() {
         text: "Cancel Subscription",
         style: "destructive",
         onPress: () =>
-          void authClient.subscription
-            .cancel({ returnUrl: "quickcal-cf://settings" })
-            .catch((err: unknown) =>
+          void (async () => {
+            try {
+              const { data, error } = await authClient.subscription.cancel({
+                returnUrl: `${webUrl()}/billing/return?status=portal`,
+                disableRedirect: true,
+              });
+              if (error) throw new Error(error.message);
+              if (data?.url) await openBillingUrl(data.url);
+            } catch (err) {
               toast.show({
                 variant: "danger",
                 label: err instanceof Error ? err.message : "Cancel failed.",
-              }),
-            ),
+              });
+            }
+          })(),
       },
     ]);
   }
@@ -140,6 +168,22 @@ export default function SettingsScreen() {
       </View>
 
       <View className="px-4 gap-4 pb-10">
+        {me.isError ? (
+          <View className="rounded-xl border border-amber-800 bg-amber-950/30 p-4 gap-2">
+            <Text className="text-amber-200 text-sm">
+              We couldn&apos;t load your profile. Some settings may be out of date.
+            </Text>
+            <Button
+              size="sm"
+              variant="outline"
+              className="self-start border-amber-700"
+              onPress={() => void me.refetch()}
+            >
+              <Button.Label className="text-amber-200">Retry</Button.Label>
+            </Button>
+          </View>
+        ) : null}
+
         {!isVerified ? (
           <SectionCard title="Verify your email">
             <Text className="text-neutral-400 text-sm">
@@ -216,9 +260,14 @@ export default function SettingsScreen() {
               <Text className="text-neutral-400 text-sm">
                 Free plan — AI uploads and delivery require Premium.
               </Text>
-              <Button className="bg-[#c23326]" onPress={() => void upgrade()}>
-                <Button.Label>Upgrade to Premium — $12.99/mo</Button.Label>
-              </Button>
+              <View className="gap-2">
+                <Button className="bg-[#c23326]" onPress={() => void upgrade()}>
+                  <Button.Label>Upgrade to Premium — $12.99/mo</Button.Label>
+                </Button>
+                <Button variant="outline" onPress={() => void upgrade(true)}>
+                  <Button.Label>Annual — $5.99/mo ($71.88/yr)</Button.Label>
+                </Button>
+              </View>
             </>
           )}
         </SectionCard>
@@ -241,14 +290,39 @@ export default function SettingsScreen() {
             </Button>
           </View>
 
+          {keys.isError ? (
+            <View className="rounded-lg border border-red-900 bg-red-950/20 p-3 gap-2">
+              <Text className="text-red-400 text-sm">Could not load your API keys.</Text>
+              <Button
+                size="sm"
+                variant="outline"
+                className="self-start border-red-900"
+                onPress={() => void keys.refetch()}
+              >
+                <Button.Label className="text-red-400">Retry</Button.Label>
+              </Button>
+            </View>
+          ) : null}
+
           {newKey ? (
-            <View className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 gap-1">
+            <View className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 gap-2">
               <Text className="text-sm font-bold text-green-500">
                 Copy this key now — it won't be shown again:
               </Text>
               <Text className="text-sm text-white" selectable>
                 {newKey}
               </Text>
+              <Button
+                size="sm"
+                variant="outline"
+                className="self-start"
+                onPress={() => {
+                  void Clipboard.setStringAsync(newKey);
+                  toast.show({ variant: "success", label: "API key copied." });
+                }}
+              >
+                <Button.Label>Copy key</Button.Label>
+              </Button>
             </View>
           ) : null}
 
@@ -390,6 +464,17 @@ export default function SettingsScreen() {
             <Text className="text-neutral-300 text-xs" selectable>
               {api.serverUrl()}/mcp
             </Text>
+            <Button
+              size="sm"
+              variant="outline"
+              className="self-start"
+              onPress={() => {
+                void Clipboard.setStringAsync(`${api.serverUrl()}/mcp`);
+                toast.show({ variant: "success", label: "MCP URL copied." });
+              }}
+            >
+              <Button.Label>Copy URL</Button.Label>
+            </Button>
           </View>
         </SectionCard>
 
@@ -405,7 +490,12 @@ export default function SettingsScreen() {
             variant="outline"
             className="border-red-900"
             onPress={() => {
-              void authClient.signOut();
+              void authClient.signOut().catch((err: unknown) =>
+                toast.show({
+                  variant: "danger",
+                  label: err instanceof Error ? err.message : "Sign out failed.",
+                }),
+              );
             }}
           >
             <Button.Label className="text-red-400">Sign Out</Button.Label>

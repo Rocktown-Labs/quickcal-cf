@@ -5,6 +5,7 @@ import { Stack } from "expo-router";
 import { HeroUINativeProvider } from "heroui-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppThemeProvider } from "@/contexts/app-theme-context";
 
 export const unstable_settings = {
@@ -35,16 +36,18 @@ function StackLayout() {
 
 export default function Layout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <KeyboardProvider>
-        <AppThemeProvider>
-          <HeroUINativeProvider>
-            <QueryClientProvider client={queryClient}>
-              <StackLayout />
-            </QueryClientProvider>
-          </HeroUINativeProvider>
-        </AppThemeProvider>
-      </KeyboardProvider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <KeyboardProvider>
+          <AppThemeProvider>
+            <HeroUINativeProvider>
+              <QueryClientProvider client={queryClient}>
+                <StackLayout />
+              </QueryClientProvider>
+            </HeroUINativeProvider>
+          </AppThemeProvider>
+        </KeyboardProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
