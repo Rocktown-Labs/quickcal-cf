@@ -25,6 +25,7 @@ export function Container({
     <AnimatedView
       className={cn("flex-1 bg-background", className)}
       style={{
+        paddingTop: insets.top,
         paddingBottom: insets.bottom,
       }}
       {...props}
@@ -33,7 +34,7 @@ export function Container({
         <ScrollView
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
-          contentInsetAdjustmentBehavior="automatic"
+          contentInsetAdjustmentBehavior="never"
           {...scrollViewProps}
         >
           {children}

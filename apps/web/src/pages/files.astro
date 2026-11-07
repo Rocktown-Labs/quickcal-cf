@@ -32,6 +32,10 @@ import DashLayout from "../layouts/DashLayout.astro";
     return "bg-muted text-muted-foreground";
   }
 
+  // Server-reported delivery availability; defaults to hidden until /me loads.
+  let emailEnabled = false;
+  let smsEnabled = false;
+
   function card(u: UploadSummary): string {
     const safe = escapeHtml(u.fileName);
     const date = new Date(u.createdAt).toLocaleDateString();
@@ -51,13 +55,41 @@ import DashLayout from "../layouts/DashLayout.astro";
         <button data-act="download" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-3 py-2">Download .ics</button>
         <button data-act="review" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Review events</button>
         <button data-act="copy" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Copy link</button>
-        <button data-act="email" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Email</button>
-        <button data-act="sms" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">SMS</button>
+        <button data-act="share" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Share</button>
+        ${emailEnabled ? `<button data-act="email" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Email</button>` : ""}
+        ${smsEnabled ? `<button data-act="sms" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">SMS</button>` : ""}
         <button data-act="revoke" data-id="${u.id}" class="text-xs font-bold border border-warning/40 text-warning hover:bg-warning/10 rounded-lg px-3 py-2">Revoke share link</button>
         <button data-act="delete" data-id="${u.id}" class="text-xs font-bold text-danger hover:text-danger/80 border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-2">Delete</button>
       </div>
       <div data-review="${u.id}" class="hidden mt-3 space-y-2"></div>` : ""}
     </div>`;
+  }
+
+  /**
+   * Use the device share sheet when available (iOS/Android/modern desktop);
+   * otherwise copy the public share link. This is the zero-cost alternative to
+   * backend SMS and keeps the recipient on the readable /s/{token} page.
+   */
+  async function shareLink(token: string) {
+    const url = `${window.location.origin}/s/${token}`;
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: "QuickCalAI schedule",
+          text: "Here is a calendar schedule.",
+          url,
+        });
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("Share link copied to clipboard.");
+    } catch {
+      alert("Could not share or copy the link.");
+    }
   }
 
   function confidenceBadge(confidence: number | null): string {
@@ -108,7 +140,7 @@ import DashLayout from "../layouts/DashLayout.astro";
       }
       panel.innerHTML = events.map(reviewRow).join("");
     } catch (err) {
-      panel.innerHTML = `<p class="text-sm text-danger">${err instanceof Error ? err.message : "Could not load events."}</p>`;
+      panel.innerHTML = `<p class="text-sm text-danger">${escapeHtml(err instanceof Error ? err.message : "Could not load events.")}</p>`;
     }
   }
 
@@ -154,6 +186,8 @@ import DashLayout from "../layouts/DashLayout.astro";
         const me = await api.me();
         profileEmail = me.email ?? "";
         profilePhone = me.phoneNumber ?? "";
+        emailEnabled = me.emailEnabled;
+        smsEnabled = me.smsEnabled;
       } catch { /* prompts just won't be prefilled */ }
 
       const { uploads } = await api.listUploads(50);
@@ -186,6 +220,8 @@ import DashLayout from "../layouts/DashLayout.astro";
             btn.textContent = "Copied!";
             setTimeout(() => { btn.textContent = "Copy link"; }, 2000);
           } catch { /* clipboard unavailable */ }
+        } else if (act === "share" && token) {
+          await shareLink(token);
         } else if (act === "email") {
           const email = prompt("Send the .ics file to which email address?", profileEmail);
           if (!email) return;

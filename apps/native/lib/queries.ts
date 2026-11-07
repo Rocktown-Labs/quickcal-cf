@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type DirectEvent, type RnFilePart, type ReviewEvent, type UploadStatus } from "./api";
+import {
+  api,
+  ApiError,
+  type DirectEvent,
+  type RnFilePart,
+  type ReviewEvent,
+  type UploadStatus,
+} from "./api";
 
 export const queryKeys = {
   me: ["me"] as const,
@@ -12,10 +19,11 @@ export const queryKeys = {
 
 const TERMINAL: ReadonlySet<UploadStatus> = new Set(["completed", "failed", "no_events"]);
 
-export function useMe() {
+export function useMe(enabled = true) {
   return useQuery({
     queryKey: queryKeys.me,
     queryFn: api.me,
+    enabled,
   });
 }
 
@@ -42,6 +50,12 @@ export function useUploadStatus(runId: string | null) {
     queryKey: queryKeys.uploadStatus(runId ?? ""),
     queryFn: () => api.uploadStatusByRun(runId!),
     enabled: Boolean(runId),
+    // The workflow/route may need a moment to persist the run id; tolerate a
+    // brief 404 instead of failing the uploader on the first poll.
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.status === 404) return failureCount < 5;
+      return failureCount < 1;
+    },
     refetchInterval: (query) => {
       const data = query.state.data;
       if (data && TERMINAL.has(data.status)) return false;
@@ -57,6 +71,8 @@ export function useCreateUpload() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.uploads });
       void qc.invalidateQueries({ queryKey: queryKeys.stats });
+      // The one-time credit is consumed when the run starts.
+      void qc.invalidateQueries({ queryKey: queryKeys.me });
     },
   });
 }
@@ -214,7 +230,10 @@ export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: api.updateMe,
-    onSuccess: () => {
+    onSuccess: (profile) => {
+      // Write the server response straight into the cache so navigation after
+      // onboarding doesn't bounce back on a stale isOnboarded=false value.
+      qc.setQueryData(queryKeys.me, profile);
       void qc.invalidateQueries({ queryKey: queryKeys.me });
     },
   });

@@ -8,14 +8,14 @@
       "packages/*"
     ],
     "catalog": {
-      "zod": "^4.5.4",
+      "zod": "^4.6.6",
       "@types/node": "^26.4.1",
       "varlock": "1.18.0",
       "@cloudflare/workers-types": "^5.20260906.1",
-      "better-auth": "1.7.5",
+      "better-auth": "1.7.14",
       "evlog": "^2.28.1",
       "tailwindcss": "^4.3.3",
-      "@better-auth/expo": "1.7.5",
+      "@better-auth/expo": "1.7.14",
       "drizzle-orm": "1.0.0-rc.4"
     }
   },
@@ -25,10 +25,12 @@
     "check-types": "turbo run check-types",
     "dev:native": "turbo run dev -F native --",
     "dev:web": "turbo run dev -F web",
-    "test": "bun test ./packages/db ./apps/server",
+    "test": "bun test ./packages/db ./apps/server ./packages/auth ./scripts",
     "test:all": "turbo run test",
     "check": "oxlint apps/server/src apps/web/src packages && oxfmt --check apps/server/src apps/web/src packages",
     "db:generate": "turbo run db:generate -F @quickcal-cf/db --",
+    "migrate:clerk-users": "bun scripts/migrate-clerk-users.ts",
+    "email:announcement": "bun scripts/send-announcement.ts",
     "deploy": "turbo run deploy -F @quickcal-cf/infra --",
     "destroy": "turbo run destroy -F @quickcal-cf/infra --",
     "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/server/ && varlock codegen --path ./apps/native/ && varlock codegen --path ./packages/db/",
@@ -48,5 +50,8 @@
     "turbo": "^2.10.12",
     "typescript": "^6.0.3",
     "varlock": "catalog:"
+  },
+  "overrides": {
+    "zod": "4.6.7"
   }
 }

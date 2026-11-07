@@ -57,10 +57,16 @@ app.openapi(getShare, async (c) => {
     {
       fileName: upload.fileName,
       eventCount: rows.length,
+      // Return only the fields the share contract promises — not the
+      // internal createdAt/updatedAt columns from the query.
       events: rows.map((e) => ({
-        ...e,
+        id: e.id,
+        title: e.title,
+        description: e.description,
+        location: e.location,
         startTime: e.startTime.toISOString(),
         endTime: e.endTime?.toISOString() ?? null,
+        isAllDay: e.isAllDay,
       })),
       downloadPath: `/api/share/${token}/ics`,
     },
@@ -110,8 +116,12 @@ app.openapi(getShareIcs, async (c) => {
       .trim()
       .slice(0, 80) || "calendar-events";
   c.header("Content-Type", "text/calendar; charset=utf-8");
+  c.header("X-Content-Type-Options", "nosniff");
   c.header("Content-Disposition", `attachment; filename="${baseName}.ics"`);
-  c.header("Cache-Control", "public, max-age=3600");
+  // Revocation must take effect immediately: a shared cache (or the browser)
+  // holding the old file for an hour would keep serving an event the owner
+  // deleted or a link they revoked. Calendar clients poll this URL directly.
+  c.header("Cache-Control", "no-store");
   return c.body(await object.arrayBuffer());
 });
 

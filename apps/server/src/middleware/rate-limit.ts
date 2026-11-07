@@ -52,6 +52,16 @@ function pruneStore() {
       store.delete(key);
     }
   }
+
+  // If every entry is recent (e.g. a burst of distinct spoofed IPs), evict
+  // the oldest insertions so the fallback map cannot grow without bound.
+  // Map iteration follows insertion order.
+  let overflow = store.size - MAX_STORE_KEYS;
+  for (const key of store.keys()) {
+    if (overflow <= 0) break;
+    store.delete(key);
+    overflow -= 1;
+  }
 }
 
 function isLimitedInMemory(key: string, windowMs: number, maxRequests: number): boolean {

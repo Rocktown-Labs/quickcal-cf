@@ -1,4 +1,6 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import type { Context } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import jsonContent from "stoker/openapi/helpers/json-content";
 import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
@@ -29,10 +31,25 @@ import {
 } from "../lib/ingest";
 import { fetchIngestDocument, IngestUrlError } from "../lib/fetch-document";
 
+const MAX_TEXT_BYTES = 100 * 1024;
+
 const app = new OpenAPIHono<AuthEnv>();
+const payloadTooLarge = (c: Context) => c.json({ message: "Payload too large" }, 413);
 // Generous per-user budget covering status polling (the web/native uploaders
 // poll every 2s). Ingestion routes add their own strict limits below.
 app.use(rateLimit({ windowMs: 60_000, maxRequests: 60, keyPrefix: "uploads:user" }));
+// Enforce the body caps even for chunked requests that omit Content-Length
+// (the handler checks are an early exit, not the only line of defense).
+app.use(
+  "/",
+  bodyLimit({
+    maxSize: MAX_UPLOAD_FILE_SIZE_BYTES + 1024 * 1024,
+    onError: payloadTooLarge,
+  }),
+);
+app.use("/text", bodyLimit({ maxSize: MAX_TEXT_BYTES + 16 * 1024, onError: payloadTooLarge }));
+app.use("/from-url", bodyLimit({ maxSize: 16 * 1024, onError: payloadTooLarge }));
+app.use("/events", bodyLimit({ maxSize: 2 * 1024 * 1024, onError: payloadTooLarge }));
 // AI ingestion is expensive — strict per-user caps per method.
 app.use("/", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
 app.use("/text", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
@@ -143,6 +160,10 @@ const createUpload = createRoute({
   responses: {
     [HttpStatusCodes.ACCEPTED]: ingestAcceptedSchema,
     [HttpStatusCodes.FORBIDDEN]: ingestForbiddenResponse,
+    [HttpStatusCodes.REQUEST_TOO_LONG]: jsonContent(
+      createMessageObjectSchema("Payload too large"),
+      "Request body exceeds the upload limit",
+    ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createMessageObjectSchema("Invalid file"),
       "File validation failed",
@@ -154,26 +175,43 @@ app.openapi(createUpload, async (c) => {
   const userId = c.get("userId");
   const db = getDb();
 
+  // Reject an oversized body before `formData()` buffers it. The per-file
+  // check below runs after parsing, which is too late for a 100MB request.
+  const declaredLength = Number(c.req.header("content-length") ?? "0");
+  if (declaredLength > MAX_UPLOAD_FILE_SIZE_BYTES + 1024 * 1024) {
+    return c.json({ message: "File exceeds 10MB limit" }, HttpStatusCodes.REQUEST_TOO_LONG);
+  }
+
   return withIdempotency(c, db, userId, async () => {
     const access = await requireIngestionAccess(db, userId);
     if (!access) {
       return c.json(ingestionForbiddenResponse(), HttpStatusCodes.FORBIDDEN);
     }
 
-    const formData = await c.req.formData();
-    const file = formData.get("file");
-
     const fail = (message: string) => {
       void refundIngestion(db, userId, access);
       return c.json({ message }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
     };
+
+    let formData: FormData;
+    try {
+      formData = await c.req.formData();
+    } catch {
+      return fail("Invalid multipart form data");
+    }
+    const file = formData.get("file");
 
     if (!(file instanceof File)) return fail("No file provided");
     if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) return fail("File exceeds 10MB limit");
 
     // Validate the real content — the client-supplied Content-Type is only a
     // hint, so check magic bytes before anything is stored or sent to the AI.
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    let bytes: Uint8Array;
+    try {
+      bytes = new Uint8Array(await file.arrayBuffer());
+    } catch {
+      return fail("Could not read the uploaded file.");
+    }
     const detectedType = detectMimeType(bytes);
     if (!detectedType) {
       return fail("Unsupported file type — could not read the file contents.");
@@ -185,7 +223,7 @@ app.openapi(createUpload, async (c) => {
     }
 
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "upload";
-    const storageKey = `uploads/${userId}/${Date.now()}-${safeName}`;
+    const storageKey = `uploads/${userId}/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
 
     try {
       await ENV.FILES.put(storageKey, bytes, {
@@ -217,8 +255,6 @@ app.openapi(createUpload, async (c) => {
 
 // ─── Text ingestion (agents paste schedules as plain text) ──────────────────
 
-const MAX_TEXT_BYTES = 100 * 1024;
-
 const createTextUpload = createRoute({
   method: "post",
   path: "/text",
@@ -239,6 +275,10 @@ const createTextUpload = createRoute({
   responses: {
     [HttpStatusCodes.ACCEPTED]: ingestAcceptedSchema,
     [HttpStatusCodes.FORBIDDEN]: ingestForbiddenResponse,
+    [HttpStatusCodes.REQUEST_TOO_LONG]: jsonContent(
+      createMessageObjectSchema("Payload too large"),
+      "Request body exceeds the text limit",
+    ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createMessageObjectSchema("Invalid input"),
       "Text validation failed",
@@ -249,6 +289,11 @@ const createTextUpload = createRoute({
 app.openapi(createTextUpload, async (c) => {
   const userId = c.get("userId");
   const db = getDb();
+
+  const declaredLength = Number(c.req.header("content-length") ?? "0");
+  if (declaredLength > MAX_TEXT_BYTES + 16 * 1024) {
+    return c.json({ message: "Text exceeds the 100KB limit" }, HttpStatusCodes.REQUEST_TOO_LONG);
+  }
 
   return withIdempotency(c, db, userId, async () => {
     const { content, title, callbackUrl: rawCallback } = c.req.valid("json");
@@ -266,7 +311,7 @@ app.openapi(createTextUpload, async (c) => {
       return c.json(ingestionForbiddenResponse(), HttpStatusCodes.FORBIDDEN);
     }
 
-    const storageKey = `uploads/${userId}/${Date.now()}-pasted-text.txt`;
+    const storageKey = `uploads/${userId}/${Date.now()}-${crypto.randomUUID()}-pasted-text.txt`;
     const textBytes = new TextEncoder().encode(content);
 
     try {
@@ -326,12 +371,21 @@ const createUrlUpload = createRoute({
       createMessageObjectSchema("Fetch failed"),
       "The document URL could not be fetched",
     ),
+    [HttpStatusCodes.REQUEST_TOO_LONG]: jsonContent(
+      createMessageObjectSchema("Payload too large"),
+      "Request body exceeds the URL request limit",
+    ),
   },
 });
 
 app.openapi(createUrlUpload, async (c) => {
   const userId = c.get("userId");
   const db = getDb();
+
+  const declaredLength = Number(c.req.header("content-length") ?? "0");
+  if (declaredLength > 16 * 1024) {
+    return c.json({ message: "Request body too large" }, HttpStatusCodes.REQUEST_TOO_LONG);
+  }
 
   return withIdempotency(c, db, userId, async () => {
     const { url, callbackUrl: rawCallback } = c.req.valid("json");
@@ -365,7 +419,7 @@ app.openapi(createUrlUpload, async (c) => {
     const isText = doc.text !== null;
     const safeName =
       doc.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "fetched-document";
-    const storageKey = `uploads/${userId}/${Date.now()}-${safeName}`;
+    const storageKey = `uploads/${userId}/${Date.now()}-${crypto.randomUUID()}-${safeName}`;
 
     try {
       await ENV.FILES.put(storageKey, doc.bytes, {
@@ -445,6 +499,10 @@ const createDirectEvents = createRoute({
       }),
       "Events created — the .ics and share link are ready immediately",
     ),
+    [HttpStatusCodes.REQUEST_TOO_LONG]: jsonContent(
+      createMessageObjectSchema("Payload too large"),
+      "Request body exceeds the event limit",
+    ),
     [HttpStatusCodes.UNPROCESSABLE_ENTITY]: jsonContent(
       createMessageObjectSchema("Invalid input"),
       "Event validation failed",
@@ -455,6 +513,11 @@ const createDirectEvents = createRoute({
 app.openapi(createDirectEvents, async (c) => {
   const userId = c.get("userId");
   const db = getDb();
+
+  const declaredLength = Number(c.req.header("content-length") ?? "0");
+  if (declaredLength > 2 * 1024 * 1024) {
+    return c.json({ message: "Request body too large" }, HttpStatusCodes.REQUEST_TOO_LONG);
+  }
 
   return withIdempotency(c, db, userId, async () => {
     const { name, events: inputEvents } = c.req.valid("json");

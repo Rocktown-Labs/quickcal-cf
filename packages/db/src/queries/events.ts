@@ -66,6 +66,14 @@ export async function deleteUserEvent(db: Database, userId: string, eventId: str
   return rows[0] ?? null;
 }
 
+/**
+ * Clears an upload's event rows before a retried persist step re-inserts
+ * them, so a workflow retry cannot duplicate events.
+ */
+export async function deleteEventsForUpload(db: Database, uploadId: string) {
+  await db.delete(events).where(eq(events.uploadId, uploadId));
+}
+
 /** Every event row owned by a user (aggregate calendar feed). */
 export async function getUserEventRows(db: Database, userId: string) {
   return db

@@ -25,7 +25,7 @@ export default function DashboardScreen() {
 
   const firstName =
     session?.user?.name?.split(" ")[0] || session?.user?.email?.split("@")[0] || "there";
-  const isVerified = session?.user?.emailVerified ?? true;
+  const isVerified = session?.user?.emailVerified ?? false;
 
   const totals = stats.data;
   const successRate =
@@ -57,6 +57,22 @@ export default function DashboardScreen() {
           </Text>
         </View>
       </View>
+
+      {stats.isError ? (
+        <View className="mx-4 mb-4 rounded-xl border border-amber-800 bg-amber-950/30 p-4 gap-2">
+          <Text className="text-amber-200 text-sm">
+            We couldn&apos;t load your recent stats. You can still upload new files.
+          </Text>
+          <Button
+            size="sm"
+            variant="outline"
+            className="self-start border-amber-700"
+            onPress={() => void stats.refetch()}
+          >
+            <Button.Label className="text-amber-200">Retry</Button.Label>
+          </Button>
+        </View>
+      ) : null}
 
       {!isVerified ? (
         <View className="mx-4 mb-4 rounded-xl border border-amber-800 bg-amber-950/30 p-4 gap-3">

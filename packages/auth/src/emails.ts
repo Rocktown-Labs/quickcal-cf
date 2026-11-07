@@ -1,10 +1,15 @@
 import { Resend } from "resend";
+import { renderWelcomeEmail } from "@quickcal-cf/email";
 
 export interface AuthEmailConfig {
   RESEND_API_KEY?: string;
   RESEND_FROM_EMAIL?: string;
   /** Deployed web origin (CORS_ORIGIN) — links in emails land on the app. */
   WEB_ORIGIN: string;
+}
+
+function fromAddress(config: AuthEmailConfig): string {
+  return config.RESEND_FROM_EMAIL?.trim() || "QuickCalAI <noreply@extractions.quickcalai.com>";
 }
 
 function escapeHtml(value: string): string {
@@ -50,8 +55,7 @@ export async function sendAuthEmail(
     return false;
   }
 
-  const from =
-    config.RESEND_FROM_EMAIL?.trim() || "QuickCalAI <noreply@extractions.quickcalai.com>";
+  const from = fromAddress(config);
 
   const html = shell(`
     <h1 style="color:#efefef;font-size:20px;margin:0 0 16px;">${input.heading}</h1>
@@ -62,16 +66,62 @@ export async function sendAuthEmail(
     <a href="${escapeHtml(input.actionUrl)}" style="color:#c23326;word-break:break-all;">${escapeHtml(input.actionUrl)}</a></p>
   `);
 
+  const text = [
+    input.heading,
+    "",
+    input.bodyHtml.replace(/<[^>]+>/g, ""),
+    "",
+    `${input.actionLabel}: ${input.actionUrl}`,
+    "",
+    input.fallbackNote,
+  ].join("\n");
+
   const resend = new Resend(apiKey);
   const { error } = await resend.emails.send({
     from,
     to: input.to,
     subject: input.subject,
     html,
+    text,
   });
 
   if (error) {
     throw new Error(`Failed to send email: ${error.message}`);
+  }
+  return true;
+}
+
+/**
+ * Sends the post-signup welcome email. Like the auth emails, this degrades
+ * quietly when Resend is not configured so account creation never depends on
+ * the email provider.
+ */
+export async function sendWelcomeEmail(
+  config: AuthEmailConfig,
+  input: { to: string; name?: string },
+): Promise<boolean> {
+  const apiKey = config.RESEND_API_KEY?.trim();
+  if (!apiKey) {
+    return false;
+  }
+
+  const { html, text } = await renderWelcomeEmail({
+    name: input.name,
+    dashboardUrl: `${config.WEB_ORIGIN}/dashboard`,
+    freeCredits: 1,
+  });
+
+  const resend = new Resend(apiKey);
+  const { error } = await resend.emails.send({
+    from: fromAddress(config),
+    to: input.to,
+    subject: "Welcome to QuickCalAI",
+    html,
+    text,
+  });
+
+  if (error) {
+    throw new Error(`Failed to send welcome email: ${error.message}`);
   }
   return true;
 }

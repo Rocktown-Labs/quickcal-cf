@@ -1,5 +1,5 @@
-import { Link } from "expo-router";
-import { useState } from "react";
+import { Link, router } from "expo-router";
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { Button, FieldError, Input, Label, Spinner, TextField, useToast } from "heroui-native";
 import { useForm } from "@tanstack/react-form";
@@ -16,6 +16,12 @@ const signInSchema = z.object({
 export default function LoginScreen() {
   const { toast } = useToast();
   const [pending, setPending] = useState(false);
+  const { data: session } = authClient.useSession();
+
+  // Already signed in (including after the Google browser flow) → dashboard.
+  useEffect(() => {
+    if (session?.user) router.replace("/");
+  }, [session]);
 
   const form = useForm({
     defaultValues: { email: "", password: "" },
@@ -31,6 +37,7 @@ export default function LoginScreen() {
         toast.show({ variant: "danger", label: error.message || "Failed to sign in" });
       } else {
         toast.show({ variant: "success", label: "Welcome back!" });
+        router.replace("/");
       }
     },
   });

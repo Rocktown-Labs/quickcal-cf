@@ -1,6 +1,8 @@
 {
   "extends": "@quickcal-cf/config/tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   }
 }

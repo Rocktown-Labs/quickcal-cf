@@ -1,0 +1,120 @@
+---
+import Logo from "../components/Logo.astro";
+import Layout from "../layouts/Layout.astro";
+
+const params = Astro.url.searchParams;
+const clientId = params.get("client_id") ?? "";
+const scopes = (params.get("scope") ?? "").split(/\s+/).filter(Boolean);
+const hasParams = Boolean(clientId && params.get("sig"));
+---
+
+<Layout title="Authorize app - QuickCalAI">
+  <div class="flex min-h-[calc(100vh-4rem)] items-center justify-center">
+    <div class="mx-auto mt-10 w-full max-w-md p-6">
+      <div class="mb-6 flex flex-col items-center gap-3 text-center">
+        <a href="/" class="flex items-center gap-2">
+          <Logo size={22} className="text-primary" />
+          <span class="text-sm font-semibold tracking-tight">QuickCalAI</span>
+        </a>
+        <h1 class="font-serif text-3xl tracking-tight">Authorize app</h1>
+        <p class="text-sm text-muted-foreground">
+          An app is asking to access your QuickCalAI account.
+        </p>
+      </div>
+
+      <div id="missing" class={`rounded-xl border border-warning/40 bg-warning/10 p-6 text-center ${hasParams ? "hidden" : ""}`}>
+        <h2 class="font-semibold mb-1">This authorization link is incomplete</h2>
+        <p class="text-sm text-muted-foreground mb-4">
+          Start the connection again from your MCP client.
+        </p>
+        <a href="/dashboard" class="inline-block rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground hover:bg-primary/90">
+          Go to dashboard
+        </a>
+      </div>
+
+      <div id="consent" class={`rounded-xl border border-border bg-card p-6 ${hasParams ? "" : "hidden"}`}>
+        <p class="text-sm text-muted-foreground mb-1">Requested by</p>
+        <p class="mb-5 break-all text-sm font-medium text-foreground">{clientId}</p>
+
+        <p class="mb-2 text-sm font-medium text-foreground">This app will be able to:</p>
+        <ul class="mb-6 space-y-1 text-sm text-muted-foreground">
+          {scopes.length > 0 ? (
+            scopes.map((scope) => <li>Access: {scope}</li>)
+          ) : (
+            <li>Use your QuickCalAI account</li>
+          )}
+        </ul>
+
+        <p id="error" class="mb-4 hidden text-sm text-danger"></p>
+
+        <div class="flex gap-3">
+          <button
+            id="deny"
+            type="button"
+            class="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Deny
+          </button>
+          <button
+            id="allow"
+            type="button"
+            class="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Allow
+          </button>
+        </div>
+
+        <p class="mt-4 text-center text-xs text-muted-foreground">
+          Only allow apps you trust.
+        </p>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import { oauthConsentUrl } from "../lib/oauth-continuation";
+
+  const params = new URLSearchParams(window.location.search);
+  const error = document.getElementById("error") as HTMLParagraphElement;
+  const allow = document.getElementById("allow") as HTMLButtonElement;
+  const deny = document.getElementById("deny") as HTMLButtonElement;
+
+  async function submit(accept: boolean) {
+    error.classList.add("hidden");
+    allow.disabled = true;
+    deny.disabled = true;
+
+    try {
+      const response = await fetch(oauthConsentUrl(), {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accept,
+          scope: params.get("scope") ?? undefined,
+          oauth_query: window.location.search,
+        }),
+      });
+
+      const data = (await response.json().catch(() => ({}))) as {
+        redirect_uri?: string;
+        message?: string;
+      };
+
+      if (!response.ok || !data.redirect_uri) {
+        throw new Error(data.message || "Could not complete authorization.");
+      }
+
+      window.location.href = data.redirect_uri;
+    } catch (caught) {
+      error.textContent = caught instanceof Error ? caught.message : "Could not complete authorization.";
+      error.classList.remove("hidden");
+      allow.disabled = false;
+      deny.disabled = false;
+    }
+  }
+
+  allow.addEventListener("click", () => submit(true));
+  deny.addEventListener("click", () => submit(false));
+</script>

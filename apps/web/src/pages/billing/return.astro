@@ -1,0 +1,44 @@
+---
+import Layout from "../../layouts/Layout.astro";
+
+const status = Astro.url.searchParams.get("status") ?? "";
+const copy =
+  status === "success"
+    ? {
+        icon: "✅",
+        title: "Payment complete",
+        body: "Your QuickCalAI subscription is being activated. Return to the app to see your updated plan.",
+      }
+    : status === "cancel"
+      ? {
+          icon: "↩️",
+          title: "Checkout canceled",
+          body: "No charge was made. You can return to the app and try again whenever you're ready.",
+        }
+      : {
+          icon: "💳",
+          title: "Billing",
+          body: "Return to the QuickCalAI app to continue.",
+        };
+---
+
+<Layout title={`${copy.title} — QuickCalAI`}>
+  <div class="flex min-h-screen items-center justify-center px-4 py-12">
+    <div class="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center">
+      <div class="mb-4 text-5xl">{copy.icon}</div>
+      <h1 class="mb-2 text-2xl font-bold">{copy.title}</h1>
+      <p class="mb-6 text-sm text-muted-foreground">{copy.body}</p>
+
+      <a
+        href="quickcal-cf://settings"
+        class="inline-block w-full rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground hover:bg-primary/90"
+      >
+        Return to QuickCalAI
+      </a>
+
+      <p class="mt-4 text-xs text-muted-foreground">
+        If the button doesn't open the app, close this window and return to QuickCalAI manually.
+      </p>
+    </div>
+  </div>
+</Layout>

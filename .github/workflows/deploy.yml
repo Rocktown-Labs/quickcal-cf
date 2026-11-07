@@ -21,7 +21,9 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Pin the runtime that generated bun.lock; `latest` made CI
+          # non-reproducible (and a compromised release would run with secrets).
+          bun-version: 1.3.10
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -31,7 +33,7 @@ jobs:
         working-directory: .
 
       - name: Run tests
-        run: bun test ./packages/db ./apps/server
+        run: bun test ./packages/db ./apps/server ./packages/auth ./scripts
         working-directory: .
 
       - name: Deploy production
@@ -43,10 +45,18 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
 
-          # App config (update these to https://quickcalai.com after custom DNS is configured)
-          CORS_ORIGIN: "https://quickcal-web.rocktown-labs.workers.dev"
-          BETTER_AUTH_URL: "https://quickcal-server.rocktown-labs.workers.dev"
-          RESEND_FROM_EMAIL: "QuickCalAI <noreply@extractions.quickcalai.com>"
+          # App config. Override these repository variables at cutover:
+          #   CORS_ORIGIN=https://quickcalai.com
+          #   BETTER_AUTH_URL=https://api.quickcalai.com
+          #   PUBLIC_SERVER_URL=https://api.quickcalai.com
+          #   WEB_CUSTOM_DOMAIN=quickcalai.com
+          #   SERVER_CUSTOM_DOMAIN=api.quickcalai.com
+          CORS_ORIGIN: ${{ vars.CORS_ORIGIN || (vars.WEB_CUSTOM_DOMAIN != '' && format('https://{0}', vars.WEB_CUSTOM_DOMAIN)) || 'https://quickcal-web.rocktown-labs.workers.dev' }}
+          BETTER_AUTH_URL: ${{ vars.BETTER_AUTH_URL || (vars.SERVER_CUSTOM_DOMAIN != '' && format('https://{0}', vars.SERVER_CUSTOM_DOMAIN)) || 'https://quickcal-server.rocktown-labs.workers.dev' }}
+          PUBLIC_SERVER_URL: ${{ vars.PUBLIC_SERVER_URL || (vars.SERVER_CUSTOM_DOMAIN != '' && format('https://{0}', vars.SERVER_CUSTOM_DOMAIN)) || '' }}
+          WEB_CUSTOM_DOMAIN: ${{ vars.WEB_CUSTOM_DOMAIN }}
+          SERVER_CUSTOM_DOMAIN: ${{ vars.SERVER_CUSTOM_DOMAIN }}
+          RESEND_FROM_EMAIL: ${{ vars.RESEND_FROM_EMAIL || 'QuickCalAI <noreply@extractions.quickcalai.com>' }}
 
           # Secrets (replace placeholders in GitHub after first deploy)
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
@@ -65,16 +75,32 @@ jobs:
           RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
           SENT_DM_API_KEY: ${{ secrets.SENT_DM_API_KEY }}
 
+      # Preview deploys need the app env (auth secret, Stripe/Resend/Sent.dm
+      # keys, and a preview-specific CORS origin). Until those are configured,
+      # keep PR CI deterministic instead of failing on Varlock validation.
+      # Set the ENABLE_PREVIEW_DEPLOY repository variable to turn them on.
       - name: Deploy preview
-        if: github.event_name == 'pull_request' && github.event.action != 'closed'
+        if: github.event_name == 'pull_request' && github.event.action != 'closed' && vars.ENABLE_PREVIEW_DEPLOY == 'true'
         run: bunx alchemy deploy --stage "pr-${{ github.event.number }}" --yes
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           ALCHEMY_PASSWORD: ${{ secrets.ALCHEMY_PASSWORD }}
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          CORS_ORIGIN: ${{ vars.PREVIEW_CORS_ORIGIN }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PREMIUM_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_PRICE_ID }}
+          STRIPE_PREMIUM_ANNUAL_PRICE_ID: ${{ secrets.STRIPE_PREMIUM_ANNUAL_PRICE_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          SENT_DM_API_KEY: ${{ secrets.SENT_DM_API_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_IOS_CLIENT_ID: ${{ secrets.GOOGLE_IOS_CLIENT_ID }}
+          ADMIN_USER_IDS: ${{ secrets.ADMIN_USER_IDS }}
 
       - name: Destroy preview
-        if: github.event_name == 'pull_request' && github.event.action == 'closed'
+        if: github.event_name == 'pull_request' && github.event.action == 'closed' && vars.ENABLE_PREVIEW_DEPLOY == 'true'
         run: bunx alchemy destroy --stage "pr-${{ github.event.number }}" --yes
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}

@@ -112,6 +112,8 @@ export interface Profile {
   freeCredits: number;
   calendarFeedPath: string | null;
   webhookSecret: string;
+  emailEnabled: boolean;
+  smsEnabled: boolean;
 }
 
 export type UseCase = "class" | "work" | "conference" | "events" | "other";
