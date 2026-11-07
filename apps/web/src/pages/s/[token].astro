@@ -32,6 +32,7 @@ const { token } = Astro.params;
             <a id="share-google" href="#" target="_blank" rel="noopener" class="text-center border border-input hover:bg-accent hover:text-accent-foreground font-bold py-2.5 px-4 rounded-xl text-sm">Add to Google</a>
             <button id="share-subscribe" class="border border-input hover:bg-accent hover:text-accent-foreground font-bold py-2.5 px-4 rounded-xl text-sm">Subscribe (Apple)</button>
           </div>
+          <button id="share-native" class="border border-input hover:bg-accent hover:text-accent-foreground font-bold py-2.5 px-4 rounded-xl text-sm">Share this schedule</button>
         </div>
         <div id="share-events" class="space-y-3"></div>
         <div class="mt-10 text-center">
@@ -95,6 +96,30 @@ const { token } = Astro.params;
       document.getElementById("share-error")!.classList.remove("hidden");
     }
   }
+
+  document.getElementById("share-native")?.addEventListener("click", async () => {
+    const button = document.getElementById("share-native") as HTMLButtonElement;
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: "QuickCalAI schedule",
+          text: "Here is a calendar schedule.",
+          url,
+        });
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      button.textContent = "Link copied!";
+      setTimeout(() => { button.textContent = "Share this schedule"; }, 2000);
+    } catch {
+      alert("Could not copy the link.");
+    }
+  });
 
   init();
 </script>

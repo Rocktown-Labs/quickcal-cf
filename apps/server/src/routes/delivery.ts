@@ -147,7 +147,7 @@ app.openapi(sendSms, async (c) => {
       uploadId: upload.id,
       userId,
       to: phone,
-      icsUrl: publicIcsUrl(upload.shareToken),
+      shareUrl: publicShareUrl(upload.shareToken),
     });
     return c.json({ message: `Download link sent to ${phone}` }, HttpStatusCodes.OK);
   } catch (error) {

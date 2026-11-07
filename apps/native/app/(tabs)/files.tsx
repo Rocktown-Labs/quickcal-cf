@@ -1,6 +1,6 @@
 import * as Clipboard from "expo-clipboard";
 import { useState } from "react";
-import { Alert, Text, View } from "react-native";
+import { Alert, Share, Text, View } from "react-native";
 import { Button, Input, Spinner, TextField, useToast } from "heroui-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { webUrl, type ReviewEvent } from "@/lib/api";
@@ -263,6 +263,16 @@ export default function FilesScreen() {
     }
   }
 
+  async function shareLink(token: string) {
+    try {
+      await Share.share({
+        message: `Check out this calendar schedule: ${webUrl()}/s/${token}`,
+      });
+    } catch {
+      // User dismissed the share sheet — nothing to do.
+    }
+  }
+
   async function download(token: string, fileName: string) {
     try {
       await downloadAndShareIcs(token, fileName);
@@ -396,6 +406,13 @@ export default function FilesScreen() {
                       onPress={() => void copyShareLink(u.shareToken!)}
                     >
                       <Button.Label>Copy link</Button.Label>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onPress={() => void shareLink(u.shareToken!)}
+                    >
+                      <Button.Label>Share</Button.Label>
                     </Button>
                     <Button
                       size="sm"

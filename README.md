@@ -19,6 +19,8 @@ The latest security review and fixes are in [SECURITY-AUDIT.md](./SECURITY-AUDIT
 
 - **Free** — one **one-time** AI extraction, unlimited manual/bulk event creation, universal `.ics` downloads, public share links with one-click revoke, the aggregate calendar feed, and REST/MCP access. AI calls made through the API/MCP consume the one free credit; structured events are free.
 - **Premium** — unlimited AI extractions and email (Resend) / SMS (Sent.dm) calendar delivery.
+  SMS to US numbers requires Sent.dm A2P 10DLC registration; the web/native share sheet is the
+  zero-cost alternative and avoids carrier link filtering.
 
 The free credit is consumed when the AI workflow **starts**. It is refunded only if the run never started (invalid file, storage failure, or workflow-start failure). A failed AI run or an unparseable document does not restore it — otherwise a user could force failures and get unlimited free AI work.
 

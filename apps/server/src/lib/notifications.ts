@@ -104,7 +104,8 @@ export async function sendCalendarFileSms(input: {
   uploadId: string;
   userId: string;
   to: string;
-  icsUrl: string;
+  /** Web share page, not the raw .ics API URL — recipients get a readable page. */
+  shareUrl: string;
 }) {
   const phoneNumber = normalizePhoneNumber(input.to);
   const sent = getSentClient();
@@ -112,7 +113,9 @@ export async function sendCalendarFileSms(input: {
   const response = await sent.messages.send({
     to: [phoneNumber],
     channel: ["sms"],
-    text: `Your QuickCalAI calendar is ready. Download your .ics file: ${input.icsUrl}`,
+    // Transactional delivery the user asked for. Keep the link on the verified
+    // web domain (not the raw .ics object) and include opt-out language.
+    text: `Your QuickCalAI calendar is ready: ${input.shareUrl}\n\nReply STOP to opt out.`,
     "Idempotency-Key": `calendar-file-${input.userId}-${input.uploadId}-${phoneNumber.slice(1)}`,
   });
 

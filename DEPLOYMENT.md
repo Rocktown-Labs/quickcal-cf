@@ -47,9 +47,10 @@ Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_IOS_CLIENT_ID` in th
 
 ### Sent.dm
 
-- Configure a sending number in the Sent.dm dashboard.
-- Set `SENT_DM_API_KEY`.
-- Test one SMS to your own number before announcing.
+- **US A2P 10DLC registration is required** before sending to US numbers. Unregistered traffic is filtered or blocked by US carriers; complete brand + campaign registration and use an approved 10DLC or toll-free sender. See [Sent.dm compliance](https://docs.sent.dm/troubleshooting/compliance).
+- Set `SENT_DM_API_KEY`; configure the approved sender/number in the Sent.dm dashboard.
+- The app sends the **web share page** (`/s/{token}`), not the raw `.ics` object URL, and includes `Reply STOP to opt out.` Keep the link on the verified web domain; avoid URL shorteners.
+- Test one SMS to your own number on AT&T/Verizon/T-Mobile before announcing. SMS is a premium convenience — the web/native share sheet is the zero-cost default and avoids carrier filtering entirely.
 
 ### Auth / origin values
 

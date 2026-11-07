@@ -51,6 +51,7 @@ import DashLayout from "../layouts/DashLayout.astro";
         <button data-act="download" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-3 py-2">Download .ics</button>
         <button data-act="review" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Review events</button>
         <button data-act="copy" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Copy link</button>
+        <button data-act="share" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Share</button>
         <button data-act="email" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Email</button>
         <button data-act="sms" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">SMS</button>
         <button data-act="revoke" data-id="${u.id}" class="text-xs font-bold border border-warning/40 text-warning hover:bg-warning/10 rounded-lg px-3 py-2">Revoke share link</button>
@@ -58,6 +59,33 @@ import DashLayout from "../layouts/DashLayout.astro";
       </div>
       <div data-review="${u.id}" class="hidden mt-3 space-y-2"></div>` : ""}
     </div>`;
+  }
+
+  /**
+   * Use the device share sheet when available (iOS/Android/modern desktop);
+   * otherwise copy the public share link. This is the zero-cost alternative to
+   * backend SMS and keeps the recipient on the readable /s/{token} page.
+   */
+  async function shareLink(token: string) {
+    const url = `${window.location.origin}/s/${token}`;
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: "QuickCalAI schedule",
+          text: "Here is a calendar schedule.",
+          url,
+        });
+        return;
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      alert("Share link copied to clipboard.");
+    } catch {
+      alert("Could not share or copy the link.");
+    }
   }
 
   function confidenceBadge(confidence: number | null): string {
@@ -186,6 +214,8 @@ import DashLayout from "../layouts/DashLayout.astro";
             btn.textContent = "Copied!";
             setTimeout(() => { btn.textContent = "Copy link"; }, 2000);
           } catch { /* clipboard unavailable */ }
+        } else if (act === "share" && token) {
+          await shareLink(token);
         } else if (act === "email") {
           const email = prompt("Send the .ics file to which email address?", profileEmail);
           if (!email) return;
