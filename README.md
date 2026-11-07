@@ -149,6 +149,8 @@ Server (validated by Varlock against `apps/server/.env.schema`; wired in `packag
 
 - **Required to boot:** `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`.
 - **Required for billing/email/SMS features:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PREMIUM_PRICE_ID`, `RESEND_API_KEY`, `SENT_DM_API_KEY`. Leave blank to deploy without those integrations; the app returns a clear configuration error when the feature is used.
+  - `RESEND_API_KEY` and `SENT_DM_API_KEY` also drive `emailEnabled` / `smsEnabled` in `/api/user/me`, so the web and native clients hide delivery controls that cannot work. **Leave `SENT_DM_API_KEY` blank to launch without SMS** (US A2P 10DLC registration is required first); the share sheet is the zero-cost default.
+  - Keep **Resend** for launch and the announcement. **Cloudflare Email Sending** is beta, needs Workers Paid plus the sending domain onboarded to Cloudflare, and is for transactional mail only — not bulk announcements.
 - **Optional:** `NODE_ENV` (defaults to `production` in deploy), `EXTRACTION_MODEL` (defaults to `@cf/zai-org/glm-5.3-flash`), `STRIPE_PREMIUM_ANNUAL_PRICE_ID`, `RESEND_FROM_EMAIL`, `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_IOS_CLIENT_ID`, `ADMIN_USER_IDS`, `WEB_CUSTOM_DOMAIN`, `SERVER_CUSTOM_DOMAIN`, `PUBLIC_SERVER_URL`.
 
 **Origin rules:**

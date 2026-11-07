@@ -8,6 +8,7 @@ import {
   useDeleteEvent,
   useDeleteUpload,
   useEmailUpload,
+  useMe,
   useRevokeShare,
   useSmsUpload,
   useUpdateEvent,
@@ -234,11 +235,14 @@ function ReviewPanel({ uploadId }: { uploadId: string }) {
 
 export default function FilesScreen() {
   const uploads = useUploads(50);
+  const me = useMe();
   const deleteUpload = useDeleteUpload();
   const revokeShare = useRevokeShare();
   const emailUpload = useEmailUpload();
   const smsUpload = useSmsUpload();
   const { toast } = useToast();
+  const emailEnabled = me.data?.emailEnabled ?? false;
+  const smsEnabled = me.data?.smsEnabled ?? false;
 
   const [deliveryId, setDeliveryId] = useState<string | null>(null);
   const [reviewId, setReviewId] = useState<string | null>(null);
@@ -414,15 +418,23 @@ export default function FilesScreen() {
                     >
                       <Button.Label>Share</Button.Label>
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onPress={() => setDeliveryId(isDeliveryTarget ? null : u.id)}
-                    >
-                      <Button.Label>
-                        {isDeliveryTarget ? "Hide delivery" : "Email / SMS"}
-                      </Button.Label>
-                    </Button>
+                    {emailEnabled || smsEnabled ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onPress={() => setDeliveryId(isDeliveryTarget ? null : u.id)}
+                      >
+                        <Button.Label>
+                          {isDeliveryTarget
+                            ? "Hide delivery"
+                            : emailEnabled && smsEnabled
+                              ? "Email / SMS"
+                              : emailEnabled
+                                ? "Email"
+                                : "SMS"}
+                        </Button.Label>
+                      </Button>
+                    ) : null}
                     <Button
                       size="sm"
                       variant="outline"
@@ -450,39 +462,43 @@ export default function FilesScreen() {
 
                 {isDeliveryTarget ? (
                   <View className="gap-3 pt-1">
-                    <TextField>
-                      <Input
-                        value={email}
-                        onChangeText={setEmail}
-                        placeholder="Email — you@example.com"
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                      />
-                      <Button
-                        size="sm"
-                        className="bg-[#c23326]"
-                        isDisabled={emailUpload.isPending}
-                        onPress={() => void sendEmail()}
-                      >
-                        <Button.Label>Send Email</Button.Label>
-                      </Button>
-                    </TextField>
-                    <TextField>
-                      <Input
-                        value={phone}
-                        onChangeText={setPhone}
-                        placeholder="SMS — +15551234567"
-                        keyboardType="phone-pad"
-                      />
-                      <Button
-                        size="sm"
-                        className="bg-[#c23326]"
-                        isDisabled={smsUpload.isPending}
-                        onPress={() => void sendSms()}
-                      >
-                        <Button.Label>Send SMS</Button.Label>
-                      </Button>
-                    </TextField>
+                    {emailEnabled ? (
+                      <TextField>
+                        <Input
+                          value={email}
+                          onChangeText={setEmail}
+                          placeholder="Email — you@example.com"
+                          keyboardType="email-address"
+                          autoCapitalize="none"
+                        />
+                        <Button
+                          size="sm"
+                          className="bg-[#c23326]"
+                          isDisabled={emailUpload.isPending}
+                          onPress={() => void sendEmail()}
+                        >
+                          <Button.Label>Send Email</Button.Label>
+                        </Button>
+                      </TextField>
+                    ) : null}
+                    {smsEnabled ? (
+                      <TextField>
+                        <Input
+                          value={phone}
+                          onChangeText={setPhone}
+                          placeholder="SMS — +15551234567"
+                          keyboardType="phone-pad"
+                        />
+                        <Button
+                          size="sm"
+                          className="bg-[#c23326]"
+                          isDisabled={smsUpload.isPending}
+                          onPress={() => void sendSms()}
+                        >
+                          <Button.Label>Send SMS</Button.Label>
+                        </Button>
+                      </TextField>
+                    ) : null}
                   </View>
                 ) : null}
 

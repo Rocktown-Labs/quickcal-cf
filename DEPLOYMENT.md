@@ -39,16 +39,25 @@ Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_IOS_CLIENT_ID` in th
 - Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PREMIUM_PRICE_ID`, and (if annual billing) `STRIPE_PREMIUM_ANNUAL_PRICE_ID`.
 - Use test keys first; switch to live keys only after a test checkout.
 
-### Resend
+### Resend (launch default)
 
 - Verify the sending domain (`extractions.quickcalai.com`) with SPF/DKIM/DMARC in Resend.
 - Set `RESEND_API_KEY` and `RESEND_FROM_EMAIL` (for example `QuickCalAI <noreply@extractions.quickcalai.com>`).
 - No webhook is required for basic sending. `RESEND_WEBHOOK_SECRET` is unused today.
+- **Keep Resend for launch and for the announcement.** Cloudflare Email Sending cannot replace it until the domain is on Cloudflare, and it is not intended for bulk/marketing mail (see below).
 
-### Sent.dm
+### Cloudflare Email Sending (post-cutover option)
+
+- **Beta, Workers Paid only.** Sending to arbitrary recipients requires the Workers Paid plan; Email Routing alone is available on Free.
+- The sending domain must be **onboarded to Cloudflare** (i.e. after the `quickcalai.com` nameserver move) and configured with SPF/DKIM/DMARC. This is why it cannot be used before the DNS cutover.
+- Intended for **transactional** mail (verification, password reset, calendar delivery). It is **not** a bulk/marketing sender — keep the announcement on Resend (or another ESP) even after cutover.
+- If you migrate transactional email later: add a `send_email` binding (`{ "name": "EMAIL" }`) to the server Worker, replace the Resend calls in `apps/server/src/lib/notifications.ts`, and keep `RESEND_API_KEY` until delivery is verified. `emailEnabled` is driven by `RESEND_API_KEY` today; update `deliveryFlags()` in `apps/server/src/routes/me.ts` when you switch.
+
+### Sent.dm (optional; disabled by default)
 
 - **US A2P 10DLC registration is required** before sending to US numbers. Unregistered traffic is filtered or blocked by US carriers; complete brand + campaign registration and use an approved 10DLC or toll-free sender. See [Sent.dm compliance](https://docs.sent.dm/troubleshooting/compliance).
-- Set `SENT_DM_API_KEY`; configure the approved sender/number in the Sent.dm dashboard.
+- **Leave `SENT_DM_API_KEY` blank to launch without SMS.** `/api/user/me` then reports `smsEnabled: false` and both web and native hide the SMS controls; the share sheet remains the zero-cost path.
+- To enable it: set `SENT_DM_API_KEY` and configure the approved sender/number in the Sent.dm dashboard.
 - The app sends the **web share page** (`/s/{token}`), not the raw `.ics` object URL, and includes `Reply STOP to opt out.` Keep the link on the verified web domain; avoid URL shorteners.
 - Test one SMS to your own number on AT&T/Verizon/T-Mobile before announcing. SMS is a premium convenience — the web/native share sheet is the zero-cost default and avoids carrier filtering entirely.
 

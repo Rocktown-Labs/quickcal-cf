@@ -24,6 +24,10 @@ const profileSchema = z.object({
   freeCredits: z.number(),
   calendarFeedPath: z.string().nullable(),
   webhookSecret: z.string(),
+  // Feature availability so clients can hide delivery controls that would
+  // otherwise fail with a configuration error (e.g. no Sent.dm key yet).
+  emailEnabled: z.boolean(),
+  smsEnabled: z.boolean(),
 });
 
 // Onboarding questionnaire answers — sent by the web app's /onboarding flow.
@@ -37,6 +41,14 @@ const useCaseInput = z
     return useCaseSchema.options.filter((option) => picked.includes(option)).join(",");
   });
 const calendarAppSchema = z.enum(["google", "apple", "outlook", "other"]);
+
+/** Availability is based on server config, not the client's guess. */
+function deliveryFlags() {
+  return {
+    emailEnabled: Boolean(ENV.RESEND_API_KEY?.trim()),
+    smsEnabled: Boolean(ENV.SENT_DM_API_KEY?.trim()),
+  };
+}
 
 const getMe = createRoute({
   method: "get",
@@ -70,6 +82,7 @@ app.openapi(getMe, async (c) => {
       isPremium: premium,
       calendarFeedPath: `/api/calendar/${calToken}`,
       webhookSecret,
+      ...deliveryFlags(),
     },
     HttpStatusCodes.OK,
   );
@@ -117,6 +130,7 @@ app.openapi(updateMe, async (c) => {
       isPremium: premium,
       calendarFeedPath: `/api/calendar/${calToken}`,
       webhookSecret,
+      ...deliveryFlags(),
     },
     HttpStatusCodes.OK,
   );

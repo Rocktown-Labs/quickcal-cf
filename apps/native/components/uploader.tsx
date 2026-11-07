@@ -90,6 +90,9 @@ export function Uploader() {
   const isPremium = me.data?.isPremium ?? false;
   const freeCredits = me.data?.freeCredits ?? 0;
   const canIngest = isPremium || freeCredits > 0;
+  // Server-reported availability; keep controls hidden until /me confirms.
+  const emailEnabled = me.data?.emailEnabled ?? false;
+  const smsEnabled = me.data?.smsEnabled ?? false;
 
   const statusQuery = useUploadStatus(runId);
   const status = statusQuery.data ?? null;
@@ -829,13 +832,17 @@ export function Uploader() {
             <Text className="text-lg">🔗</Text>
             <Text className="text-white font-bold text-sm">Share Link</Text>
           </PressCard>
-          <PressCard
-            onPress={() => setDeliveryOpen((o) => !o)}
-            className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl p-4 items-center"
-          >
-            <Text className="text-lg">✉️</Text>
-            <Text className="text-white font-bold text-sm">Email or SMS</Text>
-          </PressCard>
+          {emailEnabled || smsEnabled ? (
+            <PressCard
+              onPress={() => setDeliveryOpen((o) => !o)}
+              className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl p-4 items-center"
+            >
+              <Text className="text-lg">✉️</Text>
+              <Text className="text-white font-bold text-sm">
+                {emailEnabled && smsEnabled ? "Email or SMS" : emailEnabled ? "Email" : "SMS"}
+              </Text>
+            </PressCard>
+          ) : null}
         </View>
 
         <PressCard
@@ -858,41 +865,45 @@ export function Uploader() {
             entering={FadeInDown.springify().dampingRatio(1)}
             className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 gap-3"
           >
-            <TextField>
-              <Label>Email</Label>
-              <Input
-                value={deliveryEmail}
-                onChangeText={setDeliveryEmail}
-                placeholder="you@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <Button
-                className="bg-[#c23326]"
-                size="sm"
-                isDisabled={emailUpload.isPending}
-                onPress={() => void sendEmail()}
-              >
-                <Button.Label>Send Email</Button.Label>
-              </Button>
-            </TextField>
-            <TextField>
-              <Label>Phone Number</Label>
-              <Input
-                value={deliveryPhone}
-                onChangeText={setDeliveryPhone}
-                placeholder="+1 (555) 123-4567"
-                keyboardType="phone-pad"
-              />
-              <Button
-                className="bg-[#c23326]"
-                size="sm"
-                isDisabled={smsUpload.isPending}
-                onPress={() => void sendSms()}
-              >
-                <Button.Label>Send SMS</Button.Label>
-              </Button>
-            </TextField>
+            {emailEnabled ? (
+              <TextField>
+                <Label>Email</Label>
+                <Input
+                  value={deliveryEmail}
+                  onChangeText={setDeliveryEmail}
+                  placeholder="you@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <Button
+                  className="bg-[#c23326]"
+                  size="sm"
+                  isDisabled={emailUpload.isPending}
+                  onPress={() => void sendEmail()}
+                >
+                  <Button.Label>Send Email</Button.Label>
+                </Button>
+              </TextField>
+            ) : null}
+            {smsEnabled ? (
+              <TextField>
+                <Label>Phone Number</Label>
+                <Input
+                  value={deliveryPhone}
+                  onChangeText={setDeliveryPhone}
+                  placeholder="+1 (555) 123-4567"
+                  keyboardType="phone-pad"
+                />
+                <Button
+                  className="bg-[#c23326]"
+                  size="sm"
+                  isDisabled={smsUpload.isPending}
+                  onPress={() => void sendSms()}
+                >
+                  <Button.Label>Send SMS</Button.Label>
+                </Button>
+              </TextField>
+            ) : null}
           </Animated.View>
         ) : null}
       </View>
