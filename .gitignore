@@ -52,6 +52,8 @@ coverage
 .nyc_output
 
 # Misc
+exported_users.csv
+clerk-import*.sql
 *.tgz
 .cache
 tmp

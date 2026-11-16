@@ -16,6 +16,7 @@
     "@better-auth/stripe": "1.7.14",
     "@quickcal-cf/db": "workspace:*",
     "@quickcal-cf/email": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
     "resend": "^6.30.0",

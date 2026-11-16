@@ -11,6 +11,7 @@ import * as billingSchema from "@quickcal-cf/db/schema/billing";
 import type { Database } from "@quickcal-cf/db";
 import { expo } from "@better-auth/expo";
 import { sendAuthEmail, sendWelcomeEmail } from "./emails";
+import { password } from "./password";
 
 export type AuthConfig = {
   BETTER_AUTH_URL: string;
@@ -172,6 +173,7 @@ export function createAuth(
     ],
     emailAndPassword: {
       enabled: true,
+      password,
       minPasswordLength: 8,
       // Send verification emails, but keep sign-in friction low — an
       // unverified user can still sign in and is reminded in the app.

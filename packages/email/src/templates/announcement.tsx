@@ -168,8 +168,8 @@ export function AnnouncementEmail({
         <br />
         2. If you used Google before, continue with Google.
         <br />
-        3. If you used a password, choose &quot;Forgot password&quot; once to set a new one.
-        Passwords cannot move between auth providers. Security thing, not a you thing.
+        3. If you used a password, sign in with your existing password. If you need help, choose
+        &quot;Forgot password&quot; to set a new one.
       </Text>
 
       <Button href={loginUrl} style={buttonStyle}>

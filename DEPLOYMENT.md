@@ -91,7 +91,28 @@ gh run view <run-id> --log-failed
 
 ## 4. Import Clerk users
 
-The live importer reads the Clerk Backend API and writes to remote D1. It preserves Clerk IDs, skips IDs/emails that already exist, preserves Clerk’s email-verification status, and never imports password hashes.
+### Clerk CSV export (preferred when available)
+
+The root `exported_users.csv` is private and gitignored. It contains password hashes;
+never commit it or the generated query batch. Confirm the deployed server's `DB`
+binding with `cf workers versions get latest --worker-id quickcal-server`, then run:
+
+```bash
+bun run migrate:clerk-csv --database <bound-D1-UUID> --dry-run
+bun run migrate:clerk-csv --database <bound-D1-UUID> --apply
+```
+
+Deploy the bcrypt-compatible auth verifier before applying. New passwords still use
+Better Auth's default scrypt. The importer preserves exported bcrypt credentials,
+Clerk IDs, creation dates, and primary-email verification. It also backfills missing
+credentials for matching Clerk IDs without overwriting existing passwords. Accounts
+with the same email and a different ID remain untouched. Google users can link by
+verified email once Google OAuth is configured. Unsupported hashes and TOTP exports
+stop the import. Query batches are written to a private temporary directory.
+
+### Clerk API import (without exported passwords)
+
+The older live importer reads the Clerk Backend API and writes to remote D1. It preserves Clerk IDs, skips IDs/emails that already exist, preserves Clerk’s email-verification status, and never imports password hashes. Use the CSV path above to retain exported passwords.
 
 Prerequisites:
 
