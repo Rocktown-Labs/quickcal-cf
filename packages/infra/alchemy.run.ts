@@ -50,7 +50,9 @@ export const server = Cloudflare.Worker("server", {
     output: {
       // Rolldown resolves relative output paths from the server package, while
       // Sentry scans from the infra process directory. Give both the same path.
-      dir: fileURLToPath(new URL("../../apps/server/.alchemy/bundles/server/", import.meta.url)),
+      dir: fileURLToPath(
+        new URL("../../apps/server/.alchemy/bundles/server/", import.meta.url).href,
+      ),
       plugins: sentryBuildConfigured
         ? sentryRollupPlugin({
             authToken: process.env.SENTRY_AUTH_TOKEN,
