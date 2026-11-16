@@ -1,4 +1,5 @@
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
+import * as Sentry from "@sentry/cloudflare";
 import {
   createDb,
   deleteEventsForUpload,
@@ -248,6 +249,9 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
       return this.finish(step, db, uploadId, userId, result);
     } catch (error) {
       await step.do("mark-failed", async () => {
+        Sentry.captureException(error);
+        Sentry.logger.error("Calendar processing failed", { sourceType });
+        Sentry.metrics.count("calendar.processing.failed", 1, { attributes: { sourceType } });
         await updateUploadRecord(db, uploadId, {
           workflowRunId: event.instanceId,
           status: "failed",
@@ -279,6 +283,14 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
     userId: string,
     result: CalendarProcessingResult,
   ): Promise<CalendarProcessingResult> {
+    await step.do("record-processing-outcome", async () => {
+      const attributes = { outcome: result.status, event_count: result.eventCount };
+      Sentry.metrics.count("calendar.processing.finished", 1, {
+        attributes: { outcome: result.status },
+      });
+      Sentry.logger.info("Calendar processing finished", attributes);
+      return null;
+    });
     const upload = await getUploadById(db, uploadId);
 
     if (upload?.callbackUrl) {
@@ -301,6 +313,7 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
           },
         );
       } catch (err) {
+        Sentry.captureException(err, { tags: { operation: "webhook_delivery" } });
         // Log only the origin: callback URLs may carry secret query tokens.
         let callbackOrigin = "invalid";
         try {

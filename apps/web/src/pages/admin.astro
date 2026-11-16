@@ -142,7 +142,7 @@ import Logo from "../components/Logo.astro";
         body: JSON.stringify(body),
       });
 
-      const json = await res.json().catch(() => ({ message: "Invalid response" }));
+      const json = await res.json().catch(() => ({ message: "Invalid response" })) as { message?: string };
       if (!res.ok) {
         throw new Error(json.message || `Sync failed (${res.status})`);
       }

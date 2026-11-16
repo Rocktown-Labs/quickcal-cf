@@ -25,7 +25,7 @@
     "check-types": "turbo run check-types",
     "dev:native": "turbo run dev -F native --",
     "dev:web": "turbo run dev -F web",
-    "test": "bun test ./packages/db ./apps/server ./packages/auth ./scripts",
+    "test": "bun test ./packages/db ./apps/server ./packages/auth ./packages/observability ./scripts",
     "test:all": "turbo run test",
     "check": "oxlint apps/server/src apps/web/src packages && oxfmt --check apps/server/src apps/web/src packages",
     "db:generate": "turbo run db:generate -F @quickcal-cf/db --",

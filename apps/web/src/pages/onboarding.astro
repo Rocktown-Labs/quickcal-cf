@@ -151,6 +151,7 @@ import Layout from "../layouts/Layout.astro";
 </Layout>
 
 <script>
+  import { track } from "../lib/analytics";
   import { authClient } from "../lib/auth-client";
   import { api, ApiError, type CalendarApp, type UseCase } from "../lib/api";
 
@@ -282,11 +283,12 @@ import Layout from "../layouts/Layout.astro";
 
   // Skip setup — never trap the user; mark onboarded and let them through.
   document.getElementById("ob-skip")!.addEventListener("click", async () => {
-    await save({ isOnboarded: true }, { quiet: true });
+    if (await save({ isOnboarded: true }, { quiet: true })) track("onboarding_completed", { outcome: "skipped" });
     window.location.href = "/dashboard";
   });
 
   function finish() {
+    track("onboarding_completed", { outcome: "completed" });
     const title = document.getElementById("ob-done-title")!;
     title.textContent = firstName ? `You're all set, ${firstName}!` : "You're all set!";
     document.getElementById("ob-done-tip")!.textContent =

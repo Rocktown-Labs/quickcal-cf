@@ -33,7 +33,7 @@ jobs:
         working-directory: .
 
       - name: Run tests
-        run: bun test ./packages/db ./apps/server ./packages/auth ./scripts
+        run: bun test ./packages/db ./apps/server ./packages/auth ./packages/observability ./scripts
         working-directory: .
 
       - name: Deploy production
@@ -74,6 +74,11 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_WEBHOOK_SECRET: ${{ secrets.RESEND_WEBHOOK_SECRET }}
           SENT_DM_API_KEY: ${{ secrets.SENT_DM_API_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG || secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT || secrets.SENTRY_PROJECT }}
+          SENTRY_RELEASE: ${{ github.sha }}
 
       # Preview deploys need the app env (auth secret, Stripe/Resend/Sent.dm
       # keys, and a preview-specific CORS origin). Until those are configured,

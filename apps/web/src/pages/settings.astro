@@ -112,6 +112,7 @@ import DashLayout from "../layouts/DashLayout.astro";
 </DashLayout>
 
 <script>
+  import { track } from "../lib/analytics";
   import { authClient } from "../lib/auth-client";
   import { api, ApiError } from "../lib/api";
   import { escapeHtml } from "../lib/html";
@@ -189,6 +190,7 @@ import DashLayout from "../layouts/DashLayout.astro";
 
       const here = window.location.origin;
       btnUpgrade.addEventListener("click", async () => {
+        track("checkout_clicked", { interval: "monthly" });
         try {
           await authClient.subscription.upgrade({
             plan: "premium",
@@ -200,6 +202,7 @@ import DashLayout from "../layouts/DashLayout.astro";
         }
       });
       btnUpgradeAnnual.addEventListener("click", async () => {
+        track("checkout_clicked", { interval: "annual" });
         try {
           await authClient.subscription.upgrade({
             plan: "premium",
