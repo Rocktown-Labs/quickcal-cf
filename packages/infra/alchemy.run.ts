@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { sentryRollupPlugin } from "@sentry/rollup-plugin";
 import { fileURLToPath } from "node:url";
+import { RuntimeBuildPlugin } from "./runtime-plugin";
 import "varlock/auto-load";
 
 // Optional custom-domain wiring. The zone must already be active in the
@@ -64,7 +65,7 @@ export const server = Cloudflare.Worker("server", {
             // Alchemy exposes Rolldown's output hooks. buildStart only sends the
             // plugin's own telemetry; renderChunk/writeBundle do map injection/upload.
             const { buildStart: _buildStart, transform: _transform, ...outputPlugin } = plugin;
-            return outputPlugin;
+            return new RuntimeBuildPlugin(outputPlugin);
           })
         : [],
     },
