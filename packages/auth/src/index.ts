@@ -255,6 +255,7 @@ export function createAuth(
       : undefined,
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
+    onAPIError: { errorURL: `${webOrigin}/login` },
     advanced: {
       defaultCookieAttributes: {
         sameSite: "none",
