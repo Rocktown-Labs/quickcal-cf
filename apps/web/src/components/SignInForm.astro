@@ -103,6 +103,10 @@ import Logo from "./Logo.astro";
   const emailInput = document.getElementById("email") as HTMLInputElement;
   const passwordInput = document.getElementById("password") as HTMLInputElement;
   const formError = document.getElementById("form-error") as HTMLParagraphElement;
+  if (new URL(window.location.href).searchParams.has("error")) {
+    formError.textContent = "Google sign-in could not finish. Please try signing in again.";
+    formError.classList.remove("hidden");
+  }
   const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
 
   form.addEventListener("submit", async (e) => {
@@ -142,7 +146,8 @@ import Logo from "./Logo.astro";
     track("google_signin_started", { method: "google" });
     authClient.signIn.social({
       provider: "google",
-      callbackURL: oauthDestination ? window.location.href : "/dashboard",
+      callbackURL: oauthDestination ? window.location.href : `${window.location.origin}/dashboard`,
+      errorCallbackURL: `${window.location.origin}/login`,
     });
   });
 </script>

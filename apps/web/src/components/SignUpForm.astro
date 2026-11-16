@@ -151,7 +151,8 @@ import Logo from "./Logo.astro";
     track("google_signin_started", { method: "google" });
     authClient.signIn.social({
       provider: "google",
-      callbackURL: oauthDestination ? window.location.href : "/onboarding",
+      callbackURL: oauthDestination ? window.location.href : `${window.location.origin}/onboarding`,
+      errorCallbackURL: `${window.location.origin}/login`,
     });
   });
 </script>

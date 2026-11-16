@@ -11,6 +11,13 @@ import { safePath } from "@quickcal-cf/observability";
  * share/reset tokens, and no access to device capabilities we don't use).
  */
 export const onRequest = defineMiddleware(async (context, next) => {
+  const canonicalOrigin = (env as { CANONICAL_WEB_ORIGIN?: string }).CANONICAL_WEB_ORIGIN;
+  if (canonicalOrigin && context.url.origin !== canonicalOrigin) {
+    const target = new URL(canonicalOrigin);
+    target.pathname = context.url.pathname;
+    target.search = context.url.search;
+    return Response.redirect(target.href, 302);
+  }
   const handler = Sentry.withSentry(webSentryOptions, {
     async fetch(_request: Request, _env: typeof env, _ctx: ExecutionContext) {
       Sentry.getCurrentScope().setTransactionName(`GET ${safePath(context.url.pathname)}`);
