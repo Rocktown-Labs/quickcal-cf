@@ -4,6 +4,7 @@ import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { sentryRollupPlugin } from "@sentry/rollup-plugin";
+import { fileURLToPath } from "node:url";
 import "varlock/auto-load";
 
 // Optional custom-domain wiring. The zone must already be active in the
@@ -47,6 +48,11 @@ export const server = Cloudflare.Worker("server", {
   observability,
   build: {
     output: {
+      // Rolldown resolves relative output paths from the server package, while
+      // Sentry scans from the infra process directory. Give both the same path.
+      dir: fileURLToPath(
+        new URL("../../apps/server/.alchemy/bundles/server/", import.meta.url).href,
+      ),
       plugins: sentryBuildConfigured
         ? sentryRollupPlugin({
             authToken: process.env.SENTRY_AUTH_TOKEN,
