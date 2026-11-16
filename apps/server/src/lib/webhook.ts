@@ -38,6 +38,10 @@ export async function sendWebhook(
 
   const res = await fetch(callbackUrl, {
     method: "POST",
+    // Never follow redirects: a validated https callback could otherwise
+    // bounce the signed payload to http:// or an internal address. A 3xx is
+    // treated as a delivery failure and retried/abandoned by the workflow.
+    redirect: "error",
     headers: {
       "Content-Type": "application/json",
       "User-Agent": "QuickCalAI-Webhooks/1.0",

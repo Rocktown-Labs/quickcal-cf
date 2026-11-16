@@ -59,6 +59,13 @@ describe("validateCallbackUrl (webhook targets)", () => {
     expect(validateCallbackUrl("file:///etc/passwd")).toBeNull();
   });
 
+  test("rejects embedded credentials and internal hostnames", () => {
+    expect(validateCallbackUrl("https://user:pass@example.com/hook")).toBeNull();
+    expect(validateCallbackUrl("https://printer.local/hook")).toBeNull();
+    expect(validateCallbackUrl("https://db.internal/hook")).toBeNull();
+    expect(validateCallbackUrl("https://printer.local./hook")).toBeNull();
+  });
+
   test("null-safe", () => {
     expect(validateCallbackUrl(undefined)).toBeNull();
     expect(validateCallbackUrl(null)).toBeNull();

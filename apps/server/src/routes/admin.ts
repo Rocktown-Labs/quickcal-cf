@@ -1,20 +1,32 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { createMiddleware } from "hono/factory";
 import { z } from "zod";
 import Stripe from "stripe";
 import { createAuth, getDb } from "../services";
-import { upsertPlan } from "@quickcal-cf/db";
+import { isUserBanned, upsertPlan } from "@quickcal-cf/db";
 import { ENV } from "../env.server";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 
 const router = new Hono();
+router.use(bodyLimit({ maxSize: 16 * 1024 }));
 
 export const requireAdmin = createMiddleware(async (c, next) => {
   const auth = await createAuth();
   const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  const user = session?.user as { role?: string } | undefined;
+  const user = session?.user as { id?: string; role?: string } | undefined;
   const roles = (user?.role ?? "").split(",").map((r) => r.trim());
-  if (!roles.includes("admin")) {
+  // ADMIN_USER_IDS is the deploy-time allowlist (the admin plugin uses it for
+  // its own endpoints but does not write `user.role`), so honor it here too.
+  const adminIds = (ENV.ADMIN_USER_IDS ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  const isAdmin = roles.includes("admin") || Boolean(user?.id && adminIds.includes(user.id));
+  if (!isAdmin || !user?.id) {
+    return c.json({ message: "Forbidden — admin required" }, HttpStatusCodes.FORBIDDEN);
+  }
+  if (await isUserBanned(getDb(), user.id)) {
     return c.json({ message: "Forbidden — admin required" }, HttpStatusCodes.FORBIDDEN);
   }
   await next();

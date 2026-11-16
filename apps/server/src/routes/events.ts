@@ -3,18 +3,11 @@ import * as HttpStatusCodes from "stoker/http-status-codes";
 import jsonContent from "stoker/openapi/helpers/json-content";
 import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
 import createMessageObjectSchema from "stoker/openapi/schemas/create-message-object";
-import {
-  deleteUserEvent,
-  generateICSFromRows,
-  getUploadById,
-  getUploadEventsForReview,
-  getUserEventById,
-  updateUserEvent,
-  updateUploadRecord,
-} from "@quickcal-cf/db";
+import { getUserEventById } from "@quickcal-cf/db";
 import { ENV } from "../env.server";
 import { getDb } from "../services";
 import { type AuthEnv } from "../lib/auth";
+import { deleteEventAndRefreshIcs, updateEventAndRefreshIcs } from "../lib/event-mutations";
 import { rateLimit } from "../middleware/rate-limit";
 
 const app = new OpenAPIHono<AuthEnv>();
@@ -48,41 +41,6 @@ const eventResponseSchema = z.object({
   sourceQuote: z.string().nullable(),
   uploadId: z.string().nullable(),
 });
-
-/**
- * Regenerates the upload's .ics from the current event rows after an edit
- * or delete. Editing must never leave the shared file stale. If the last
- * event is deleted, the ics + share token are removed and the upload
- * becomes `no_events`.
- */
-async function refreshUploadIcs(userId: string, uploadId: string) {
-  const db = getDb();
-  const upload = await getUploadById(db, uploadId);
-  if (!upload || upload.userId !== userId) return;
-
-  const rows = await getUploadEventsForReview(db, userId, uploadId);
-
-  // Last event removed → the calendar file and share link go with it.
-  if (rows.length === 0) {
-    if (upload.icsKey) {
-      await ENV.FILES.delete(upload.icsKey).catch(() => undefined);
-    }
-    await updateUploadRecord(db, uploadId, {
-      icsKey: null,
-      shareToken: null,
-      status: "no_events",
-      failureReason: null,
-    });
-    return;
-  }
-
-  if (!upload.icsKey) return;
-
-  const icsContent = generateICSFromRows(rows);
-  await ENV.FILES.put(upload.icsKey, icsContent, {
-    httpMetadata: { contentType: "text/calendar" },
-  });
-}
 
 const updateEvent = createRoute({
   method: "patch",
@@ -130,7 +88,12 @@ app.openapi(updateEvent, async (c) => {
 
   const date = body.date ?? existingDate;
   const time = body.time !== undefined ? body.time : existingTime;
-  const endTimeRaw = body.endTime !== undefined ? body.endTime : null;
+  // Preserve an existing end time when the patch only changes the title,
+  // location, or description. An explicit `endTime: ""` still clears it.
+  const existingEndTime = existing.endTime
+    ? `${pad(existing.endTime.getUTCHours())}:${pad(existing.endTime.getUTCMinutes())}`
+    : "";
+  const endTimeRaw = body.endTime !== undefined ? body.endTime : existingEndTime;
 
   if (time && endTimeRaw && endTimeRaw <= time) {
     return c.json(
@@ -142,7 +105,7 @@ app.openapi(updateEvent, async (c) => {
   const startTime = new Date(`${date}T${time || "00:00"}:00Z`);
   const endTime = time && endTimeRaw ? new Date(`${date}T${endTimeRaw}:00Z`) : null;
 
-  const updated = await updateUserEvent(db, userId, id, {
+  const updated = await updateEventAndRefreshIcs(db, ENV.FILES, userId, id, {
     ...(body.title !== undefined ? { title: body.title } : {}),
     ...(body.description !== undefined ? { description: body.description } : {}),
     ...(body.location !== undefined ? { location: body.location } : {}),
@@ -153,9 +116,6 @@ app.openapi(updateEvent, async (c) => {
 
   if (!updated) {
     return c.json({ message: "Event not found" }, HttpStatusCodes.NOT_FOUND);
-  }
-  if (updated.uploadId) {
-    await refreshUploadIcs(userId, updated.uploadId);
   }
 
   const row = await getUserEventById(db, userId, id);
@@ -196,12 +156,9 @@ app.openapi(deleteEvent, async (c) => {
   const userId = c.get("userId");
   const db = getDb();
 
-  const deleted = await deleteUserEvent(db, userId, id);
+  const deleted = await deleteEventAndRefreshIcs(db, ENV.FILES, userId, id);
   if (!deleted) {
     return c.json({ message: "Event not found" }, HttpStatusCodes.NOT_FOUND);
-  }
-  if (deleted.uploadId) {
-    await refreshUploadIcs(userId, deleted.uploadId);
   }
 
   return c.json({ message: "Event deleted" }, HttpStatusCodes.OK);

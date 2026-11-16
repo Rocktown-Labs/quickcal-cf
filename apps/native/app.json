@@ -3,6 +3,7 @@
     "name": "QuickCalAI",
     "slug": "quickcal-cf",
     "version": "1.0.0",
+    "description": "Turn photos, PDFs, pasted text, links, or structured events into calendar files.",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "quickcal-cf",

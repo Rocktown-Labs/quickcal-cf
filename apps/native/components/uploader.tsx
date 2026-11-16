@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Share, Text as RNText, View } from "react-native";
 import { Button, Input, Label, Spinner, Text, TextArea, TextField, useToast } from "heroui-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
-import { api, type DirectEvent, type RnFilePart, type StatusResponse } from "@/lib/api";
+import { webUrl, type DirectEvent, type RnFilePart, type StatusResponse } from "@/lib/api";
 import {
   useCreateDirectEvents,
   useCreateTextUpload,
@@ -19,7 +19,6 @@ import {
   useUploadStatus,
 } from "@/lib/queries";
 import { downloadAndShareIcs, shareIcsContent } from "@/lib/ics";
-import { authClient } from "@/lib/auth-client";
 import { PressCard, ProgressBar, Pulse } from "@/components/qc";
 
 const STEPS = [
@@ -91,6 +90,9 @@ export function Uploader() {
   const isPremium = me.data?.isPremium ?? false;
   const freeCredits = me.data?.freeCredits ?? 0;
   const canIngest = isPremium || freeCredits > 0;
+  // Server-reported availability; keep controls hidden until /me confirms.
+  const emailEnabled = me.data?.emailEnabled ?? false;
+  const smsEnabled = me.data?.smsEnabled ?? false;
 
   const statusQuery = useUploadStatus(runId);
   const status = statusQuery.data ?? null;
@@ -119,6 +121,8 @@ export function Uploader() {
       );
       setState("error");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // The one-time credit is spent once the run starts.
+      void me.refetch();
     } else if (status.status === "failed") {
       setErrorTitle("Processing failed");
       setErrorMessage(
@@ -126,8 +130,20 @@ export function Uploader() {
       );
       setState("error");
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      void me.refetch();
     }
-  }, [state, status]);
+  }, [state, status, me]);
+
+  // A failed status query must not leave the stepper spinning forever.
+  useEffect(() => {
+    if (state !== "processing" || !statusQuery.isError) return;
+    setErrorTitle("Status check failed");
+    setErrorMessage(
+      statusQuery.error instanceof Error ? statusQuery.error.message : "Please try again.",
+    );
+    setState("error");
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  }, [state, statusQuery.isError, statusQuery.error]);
 
   const progressPct = useMemo(
     () => Math.min(Math.round(((stepIndex + 1) / STEPS.length) * 100), 99),
@@ -226,6 +242,7 @@ export function Uploader() {
     setStepIndex(0);
     setFileName("");
     setDeliveryOpen(false);
+    setManualRows([]);
   }
 
   async function downloadIcs() {
@@ -243,7 +260,7 @@ export function Uploader() {
   async function copyShareLink() {
     if (!shareToken) return;
     try {
-      await Clipboard.setStringAsync(`${api.serverUrl()}/s/${shareToken}`);
+      await Clipboard.setStringAsync(`${webUrl()}/s/${shareToken}`);
       toast.show({ variant: "success", label: "Share link copied." });
     } catch {
       toast.show({ variant: "danger", label: "Could not copy the share link." });
@@ -254,7 +271,7 @@ export function Uploader() {
     if (!shareToken) return;
     try {
       await Share.share({
-        message: `Check out this calendar schedule: ${api.serverUrl()}/s/${shareToken}`,
+        message: `Check out this calendar schedule: ${webUrl()}/s/${shareToken}`,
       });
     } catch {
       // User dismissed the share sheet — nothing to do.
@@ -392,16 +409,10 @@ export function Uploader() {
     }
   }
 
-  async function upgradeToPremium() {
-    try {
-      await authClient.subscription.upgrade({
-        plan: "premium",
-        successUrl: "quickcal-cf://settings",
-        cancelUrl: "quickcal-cf://settings",
-      });
-    } catch (err) {
-      showErrorToast(err, "Could not open checkout. Try again from Settings.");
-    }
+  function upgradeToPremium() {
+    // The Settings screen owns the native Stripe flow (it opens the checkout
+    // URL in an auth session and refreshes the subscription on return).
+    router.push("/settings");
   }
 
   // ── Idle ──────────────────────────────────────────────────────────────────
@@ -453,6 +464,10 @@ export function Uploader() {
                 <Text className="text-lg font-bold text-white">Choose a photo or PDF</Text>
                 <Text className="text-neutral-400 mt-1">Supports JPEG, PNG, WebP, and PDF</Text>
                 <Text className="text-neutral-500 mt-3 text-sm">Up to 10MB</Text>
+                <Text className="text-neutral-500 mt-1 text-xs text-center px-4">
+                  PDFs need a text layer. For a scanned PDF, share it as a PNG or JPG image so the
+                  vision pipeline can read it.
+                </Text>
               </PressCard>
               <View className="flex-row gap-2">
                 <View className="flex-1">
@@ -493,7 +508,7 @@ export function Uploader() {
               <Text className="text-neutral-400 text-center px-8">
                 Upgrade to Premium for unlimited AI extraction from images, PDFs, text, and URLs.
               </Text>
-              <Button className="bg-[#c23326]" size="lg" onPress={() => void upgradeToPremium()}>
+              <Button className="bg-[#c23326]" size="lg" onPress={upgradeToPremium}>
                 <Button.Label>Upgrade to Premium</Button.Label>
               </Button>
             </View>
@@ -543,7 +558,7 @@ export function Uploader() {
               <Text className="text-neutral-400 text-center px-8">
                 Upgrade to Premium to extract events from pasted text too.
               </Text>
-              <Button className="bg-[#c23326]" size="lg" onPress={() => void upgradeToPremium()}>
+              <Button className="bg-[#c23326]" size="lg" onPress={upgradeToPremium}>
                 <Button.Label>Upgrade to Premium</Button.Label>
               </Button>
             </View>
@@ -817,13 +832,17 @@ export function Uploader() {
             <Text className="text-lg">🔗</Text>
             <Text className="text-white font-bold text-sm">Share Link</Text>
           </PressCard>
-          <PressCard
-            onPress={() => setDeliveryOpen((o) => !o)}
-            className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl p-4 items-center"
-          >
-            <Text className="text-lg">✉️</Text>
-            <Text className="text-white font-bold text-sm">Email or SMS</Text>
-          </PressCard>
+          {emailEnabled || smsEnabled ? (
+            <PressCard
+              onPress={() => setDeliveryOpen((o) => !o)}
+              className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl p-4 items-center"
+            >
+              <Text className="text-lg">✉️</Text>
+              <Text className="text-white font-bold text-sm">
+                {emailEnabled && smsEnabled ? "Email or SMS" : emailEnabled ? "Email" : "SMS"}
+              </Text>
+            </PressCard>
+          ) : null}
         </View>
 
         <PressCard
@@ -846,41 +865,45 @@ export function Uploader() {
             entering={FadeInDown.springify().dampingRatio(1)}
             className="bg-neutral-900 p-4 rounded-xl border border-neutral-800 gap-3"
           >
-            <TextField>
-              <Label>Email</Label>
-              <Input
-                value={deliveryEmail}
-                onChangeText={setDeliveryEmail}
-                placeholder="you@example.com"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <Button
-                className="bg-[#c23326]"
-                size="sm"
-                isDisabled={emailUpload.isPending}
-                onPress={() => void sendEmail()}
-              >
-                <Button.Label>Send Email</Button.Label>
-              </Button>
-            </TextField>
-            <TextField>
-              <Label>Phone Number</Label>
-              <Input
-                value={deliveryPhone}
-                onChangeText={setDeliveryPhone}
-                placeholder="+1 (555) 123-4567"
-                keyboardType="phone-pad"
-              />
-              <Button
-                className="bg-[#c23326]"
-                size="sm"
-                isDisabled={smsUpload.isPending}
-                onPress={() => void sendSms()}
-              >
-                <Button.Label>Send SMS</Button.Label>
-              </Button>
-            </TextField>
+            {emailEnabled ? (
+              <TextField>
+                <Label>Email</Label>
+                <Input
+                  value={deliveryEmail}
+                  onChangeText={setDeliveryEmail}
+                  placeholder="you@example.com"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+                <Button
+                  className="bg-[#c23326]"
+                  size="sm"
+                  isDisabled={emailUpload.isPending}
+                  onPress={() => void sendEmail()}
+                >
+                  <Button.Label>Send Email</Button.Label>
+                </Button>
+              </TextField>
+            ) : null}
+            {smsEnabled ? (
+              <TextField>
+                <Label>Phone Number</Label>
+                <Input
+                  value={deliveryPhone}
+                  onChangeText={setDeliveryPhone}
+                  placeholder="+1 (555) 123-4567"
+                  keyboardType="phone-pad"
+                />
+                <Button
+                  className="bg-[#c23326]"
+                  size="sm"
+                  isDisabled={smsUpload.isPending}
+                  onPress={() => void sendSms()}
+                >
+                  <Button.Label>Send SMS</Button.Label>
+                </Button>
+              </TextField>
+            ) : null}
           </Animated.View>
         ) : null}
       </View>

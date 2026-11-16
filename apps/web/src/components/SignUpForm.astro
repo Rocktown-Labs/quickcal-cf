@@ -93,6 +93,17 @@ import Logo from "./Logo.astro";
 
 <script>
   import { authClient } from "../lib/auth-client";
+  import { oauthAuthorizeUrl } from "../lib/oauth-continuation";
+
+  const oauthDestination = oauthAuthorizeUrl();
+  if (oauthDestination) {
+    authClient
+      .getSession()
+      .then(({ data }) => {
+        if (data?.session) window.location.href = oauthDestination;
+      })
+      .catch(() => undefined);
+  }
 
   const form = document.getElementById("signup-form") as HTMLFormElement;
   const nameInput = document.getElementById("name") as HTMLInputElement;
@@ -117,7 +128,7 @@ import Logo from "./Logo.astro";
         },
         {
           onSuccess: () => {
-            window.location.href = "/onboarding";
+            window.location.href = oauthDestination ?? "/onboarding";
           },
           onError: (ctx) => {
             formError.textContent = ctx.error.message || "Sign up failed. Please try again.";
@@ -137,7 +148,7 @@ import Logo from "./Logo.astro";
   document.getElementById("google-signup")?.addEventListener("click", () => {
     authClient.signIn.social({
       provider: "google",
-      callbackURL: "/onboarding",
+      callbackURL: oauthDestination ? window.location.href : "/onboarding",
     });
   });
 </script>

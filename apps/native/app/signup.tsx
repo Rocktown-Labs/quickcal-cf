@@ -1,5 +1,5 @@
-import { Link } from "expo-router";
-import { useState } from "react";
+import { Link, router } from "expo-router";
+import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { Button, FieldError, Input, Label, Spinner, TextField, useToast } from "heroui-native";
 import { useForm } from "@tanstack/react-form";
@@ -17,6 +17,11 @@ const signUpSchema = z.object({
 export default function SignupScreen() {
   const { toast } = useToast();
   const [pending, setPending] = useState(false);
+  const { data: session } = authClient.useSession();
+
+  useEffect(() => {
+    if (session?.user) router.replace("/");
+  }, [session]);
 
   const form = useForm({
     defaultValues: { name: "", email: "", password: "" },
@@ -36,6 +41,7 @@ export default function SignupScreen() {
           variant: "success",
           label: "Account created — check your inbox to verify your email",
         });
+        router.replace("/");
       }
     },
   });
@@ -120,6 +126,22 @@ export default function SignupScreen() {
           ) : (
             <Button.Label>Create Account</Button.Label>
           )}
+        </Button>
+
+        <View className="items-center py-1">
+          <Text className="text-neutral-500 text-xs uppercase">Or continue with</Text>
+        </View>
+
+        <Button
+          variant="outline"
+          onPress={() => {
+            void authClient.signIn.social({
+              provider: "google",
+              callbackURL: "/",
+            });
+          }}
+        >
+          <Button.Label>Continue with Google</Button.Label>
         </Button>
       </View>
     </AuthShell>

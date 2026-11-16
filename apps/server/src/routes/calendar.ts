@@ -52,6 +52,7 @@ app.openapi(getFeed, async (c) => {
 
   const ics = generateICSFromRows(rows);
   c.header("Content-Type", "text/calendar; charset=utf-8");
+  c.header("X-Content-Type-Options", "nosniff");
   c.header("Content-Disposition", 'inline; filename="quickcalai.ics"');
   c.header("Cache-Control", "no-store");
   return c.body(ics);
