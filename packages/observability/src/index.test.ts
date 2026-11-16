@@ -4,6 +4,7 @@ import { safePath, scrubBreadcrumb, scrubEvent, scrubLog } from "./index";
 describe("telemetry privacy", () => {
   test("removes auth, email, request content, and share/feed secrets", () => {
     const event = scrubEvent({
+      transaction: "GET /s/private-token",
       user: { id: "private-user", email: "person@example.com" },
       request: {
         url: "https://quickcalai.com/reset-password?token=private",

@@ -20,6 +20,8 @@ export function safePath(value: string): string {
 function safeText(value: string): string {
   return value
     .replace(/https?:\/\/[^\s"'<>]+/g, safePath)
+    .replace(/(\/s\/)[^/?#\s]+/g, "$1[redacted]")
+    .replace(/(\/api\/(?:share|calendar)\/)[^/?#\s]+/g, "$1[redacted]")
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
     .replace(/\b(?:qc_|sk_live_|sk_test_|re_)[a-zA-Z0-9_-]+/g, "[secret]")
     .replace(/Bearer\s+[^\s"'<>]+/gi, "Bearer [redacted]");
