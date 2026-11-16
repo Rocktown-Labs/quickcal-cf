@@ -123,7 +123,9 @@ export default Alchemy.Stack(
       rootDir: "../../apps/web",
       compatibility: { flags: ["nodejs_compat"] },
       observability,
-      ...(webCustomDomain ? { domain: webCustomDomain } : {}),
+      ...(webCustomDomain
+        ? { domain: { name: webCustomDomain, redirects: [`www.${webCustomDomain}`] } }
+        : {}),
       env: {
         SESSION: Cloudflare.KV.Namespace("session"),
         IMAGES: Cloudflare.Images.Images(),
@@ -132,6 +134,7 @@ export default Alchemy.Stack(
         PUBLIC_SENTRY_RELEASE: Config.withDefault(Config.String("SENTRY_RELEASE"), ""),
         SENTRY_DSN: Config.withDefault(Config.String("SENTRY_DSN"), ""),
         SENTRY_RELEASE: Config.withDefault(Config.String("SENTRY_RELEASE"), ""),
+        CANONICAL_WEB_ORIGIN: webCustomDomain ? `https://${webCustomDomain}` : "",
       },
       dev: {
         port: 4321,
