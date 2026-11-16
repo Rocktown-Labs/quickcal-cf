@@ -124,7 +124,7 @@ export default Alchemy.Stack(
       compatibility: { flags: ["nodejs_compat"] },
       observability,
       ...(webCustomDomain
-        ? { domain: { name: webCustomDomain, redirects: [`www.${webCustomDomain}`] } }
+        ? { domain: { name: webCustomDomain, aliases: [`www.${webCustomDomain}`] } }
         : {}),
       env: {
         SESSION: Cloudflare.KV.Namespace("session"),

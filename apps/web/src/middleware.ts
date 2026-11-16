@@ -12,7 +12,7 @@ import { safePath } from "@quickcal-cf/observability";
  */
 export const onRequest = defineMiddleware(async (context, next) => {
   const canonicalOrigin = (env as { CANONICAL_WEB_ORIGIN?: string }).CANONICAL_WEB_ORIGIN;
-  if (canonicalOrigin && context.url.hostname.endsWith(".workers.dev")) {
+  if (canonicalOrigin && context.url.origin !== canonicalOrigin) {
     const target = new URL(canonicalOrigin);
     target.pathname = context.url.pathname;
     target.search = context.url.search;
