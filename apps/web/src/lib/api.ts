@@ -1,4 +1,5 @@
 import { ENV } from "../env.public";
+import { captureApiFailure } from "./observability";
 
 const BASE = ENV.PUBLIC_SERVER_URL;
 
@@ -51,6 +52,7 @@ async function request<T>(
   });
 
   if (!res.ok) {
+    if (res.status >= 500) captureApiFailure(path, res.status);
     const payload = await res.json().catch(() => null);
     const message =
       (payload as { message?: string } | null)?.message ??

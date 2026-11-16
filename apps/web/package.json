@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@better-auth/stripe": "^1.7.6",
+    "@quickcal-cf/observability": "workspace:*",
+    "@sentry/browser": "11.12.0",
+    "@sentry/cloudflare": "11.12.0",
     "astro": "^7.3.1",
     "better-auth": "catalog:",
     "evlog": "catalog:",
@@ -20,12 +23,13 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@alchemy.run/frontend-frameworks": "2.0.0-beta.79",
     "@astrojs/check": "^0.9.10",
+    "@cloudflare/workers-types": "catalog:",
+    "@quickcal-cf/config": "workspace:*",
+    "@sentry/vite-plugin": "11.12.0",
     "@tailwindcss/vite": "^4.3.3",
     "tailwindcss": "catalog:",
-    "typescript": "^6.0.3",
-    "@quickcal-cf/config": "workspace:*",
-    "@alchemy.run/frontend-frameworks": "2.0.0-beta.79",
-    "@cloudflare/workers-types": "catalog:"
+    "typescript": "^6.0.3"
   }
 }

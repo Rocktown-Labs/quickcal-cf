@@ -1,11 +1,13 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import * as Sentry from "@sentry/cloudflare";
+import { sentryOptions } from "./lib/observability";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import defaultHook from "stoker/openapi/default-hook";
 import notFound from "stoker/middlewares/not-found";
 import serveEmojiFavicon from "stoker/middlewares/serve-emoji-favicon";
-import { ENV } from "./env.server";
+import { ENV, withRequestEnv } from "./env.server";
 import { createAuth } from "./services";
 import uploads from "./routes/uploads";
 import delivery from "./routes/delivery";
@@ -23,6 +25,21 @@ import { rateLimit } from "./middleware/rate-limit";
 import { originCheck } from "./middleware/csrf";
 
 const app = new OpenAPIHono({ defaultHook });
+
+app.use(async (c, next) => {
+  const started = Date.now();
+  await next();
+  const route = c.req.routePath || "unmatched";
+  const attributes = { route, method: c.req.method, status: c.res.status };
+  Sentry.getCurrentScope().setTransactionName(`${c.req.method} ${route}`);
+  Sentry.metrics.count("api.requests", 1, { attributes });
+  Sentry.metrics.distribution("api.duration", Date.now() - started, {
+    unit: "millisecond",
+    attributes,
+  });
+  if (c.res.status >= 500) Sentry.logger.error("API request failed", attributes);
+  else if (c.res.status >= 400) Sentry.logger.warn("API request rejected", attributes);
+});
 
 app.use(logger());
 app.use(async (c, next) => {
@@ -50,7 +67,7 @@ app.use(
       return match ? origin : null;
     },
     allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: ["Content-Type", "Authorization", "sentry-trace", "baggage"],
     credentials: true,
   }),
 );
@@ -138,13 +155,19 @@ app.get("/", (c) => {
   return c.text("OK");
 });
 
-export { CalendarProcessingWorkflow } from "./workflows/calendar-processing";
-export { RateLimiter } from "./do/rate-limiter";
+import { CalendarProcessingWorkflow as CalendarProcessingWorkflowBase } from "./workflows/calendar-processing";
+import { RateLimiter as RateLimiterBase } from "./do/rate-limiter";
+export const CalendarProcessingWorkflow = Sentry.instrumentWorkflowWithSentry(
+  sentryOptions,
+  CalendarProcessingWorkflowBase,
+);
+export const RateLimiter = Sentry.instrumentDurableObjectWithSentry(sentryOptions, RateLimiterBase);
 
 app.notFound(notFound);
 app.onError((err, c) => {
   const status = (err as { status?: number }).status ?? 500;
   if (status >= 500) {
+    Sentry.captureException(err);
     // Full detail stays in server logs; never echo provider/DB internals to
     // an unauthenticated caller in production.
     console.error("[server] unhandled error", err);
@@ -159,4 +182,8 @@ app.onError((err, c) => {
   );
 });
 
-export default app;
+export default Sentry.withSentry(sentryOptions, {
+  fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    return withRequestEnv(env, () => app.fetch(request, env, ctx));
+  },
+});

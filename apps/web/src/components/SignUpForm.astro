@@ -92,6 +92,7 @@ import Logo from "./Logo.astro";
 </div>
 
 <script>
+  import { track } from "../lib/analytics";
   import { authClient } from "../lib/auth-client";
   import { oauthAuthorizeUrl } from "../lib/oauth-continuation";
 
@@ -128,6 +129,7 @@ import Logo from "./Logo.astro";
         },
         {
           onSuccess: () => {
+            track("signup_completed", { method: "email" });
             window.location.href = oauthDestination ?? "/onboarding";
           },
           onError: (ctx) => {
@@ -146,6 +148,7 @@ import Logo from "./Logo.astro";
   });
 
   document.getElementById("google-signup")?.addEventListener("click", () => {
+    track("google_signin_started", { method: "google" });
     authClient.signIn.social({
       provider: "google",
       callbackURL: oauthDestination ? window.location.href : "/onboarding",

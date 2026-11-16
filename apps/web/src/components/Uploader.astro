@@ -220,6 +220,7 @@
 </div>
 
 <script>
+  import { track } from "../lib/analytics";
   import { authClient } from "../lib/auth-client";
   import { api, ApiError } from "../lib/api";
   import { escapeHtml } from "../lib/html";
@@ -380,6 +381,7 @@
     show("processing");
     try {
       const { runId } = await start();
+      track("extraction_started");
       stepTimer = window.setInterval(() => {
         if (stepIndex < STEPS.length - 1) { stepIndex += 1; renderSteps(); }
       }, 3000);
@@ -446,6 +448,7 @@
     }).catch(() => undefined);
 
     if (status.status === "completed" && status.result) {
+      track("extraction_completed");
       uploadId = status.uploadId;
       eventCount = status.eventCount;
       shareToken = status.result.shareToken ?? null;
@@ -456,8 +459,10 @@
       show("complete");
       toast(`Done. Extracted ${eventCount} event${eventCount === 1 ? "" : "s"}.`);
     } else if (status.status === "no_events") {
+      track("extraction_failed", { outcome: "no_events" });
       showError("No calendar events found", status.failureReason ?? "That file looked valid, but QuickCalAI could not find any dates or times to turn into events.");
     } else {
+      track("extraction_failed", { outcome: "failed" });
       showError("Processing failed", status.failureReason ?? "QuickCalAI could not finish processing this upload.");
     }
   }
@@ -676,6 +681,7 @@
 
     try {
       const data = await api.createDirectEvents(manualRows);
+      track("manual_events_created");
       manualRows.length = 0;
       renderManualList();
       fileName = `manual-events`;

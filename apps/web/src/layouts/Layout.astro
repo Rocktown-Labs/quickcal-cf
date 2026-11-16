@@ -10,6 +10,7 @@ const {
   title = "QuickCalAI - AI-Powered Calendar Extraction",
   description = "Extract dates and events from images and PDFs with AI. Generate calendar files (.ics) and get reminders via download, email, or SMS.",
 } = Astro.props;
+const trackPage = !/^\/(?:s\/|reset-password|verify-email|consent)/.test(Astro.url.pathname);
 ---
 
 <!doctype html>
@@ -49,6 +50,13 @@ const {
       }
     </script>
     <title>{title}</title>
+    {trackPage && <>
+      <script is:inline>window.traks=window.traks||function(){(window.traks.q=window.traks.q||[]).push(arguments)}</script>
+      <script is:inline defer data-site="pb_live_l9jl4w33mwaddxyeoigxbcmq" src="https://traks-collect.rocktown-labs.workers.dev/t.js"></script>
+    </>}
+    <script>
+      import "../lib/observability";
+    </script>
   </head>
   <body>
     <slot />
