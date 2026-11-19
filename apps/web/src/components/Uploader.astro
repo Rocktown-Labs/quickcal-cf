@@ -551,8 +551,23 @@
   }
 
   // Wire up static controls
-  for (const btn of $$("[data-tab]")) {
-    btn.addEventListener("click", () => setTab(btn.getAttribute("data-tab") as "ai" | "text" | "manual"));
+  const uploadTabs = Array.from($$("[data-tab]")) as HTMLElement[];
+  for (const btn of uploadTabs) {
+    btn.addEventListener("click", () =>
+      setTab(btn.getAttribute("data-tab") as "ai" | "text" | "manual"),
+    );
+    btn.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const index = uploadTabs.indexOf(btn);
+      const next =
+        event.key === "ArrowRight"
+          ? uploadTabs[(index + 1) % uploadTabs.length]
+          : uploadTabs[(index - 1 + uploadTabs.length) % uploadTabs.length];
+      if (!next) return;
+      next.focus();
+      setTab(next.getAttribute("data-tab") as "ai" | "text" | "manual");
+    });
   }
   for (const btn of $$("[data-reset]")) {
     btn.addEventListener("click", reset);
