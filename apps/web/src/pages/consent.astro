@@ -45,7 +45,7 @@ const hasParams = Boolean(clientId && params.get("sig"));
           )}
         </ul>
 
-        <p id="error" class="mb-4 hidden text-sm text-danger"></p>
+        <p id="error" role="alert" aria-live="polite" class="mb-4 hidden text-sm text-danger"></p>
 
         <div class="flex gap-3">
           <button
@@ -85,11 +85,15 @@ const hasParams = Boolean(clientId && params.get("sig"));
     allow.disabled = true;
     deny.disabled = true;
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+
     try {
       const response = await fetch(oauthConsentUrl(), {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           accept,
           scope: params.get("scope") ?? undefined,
@@ -106,10 +110,22 @@ const hasParams = Boolean(clientId && params.get("sig"));
         throw new Error(data.message || "Could not complete authorization.");
       }
 
-      window.location.href = data.redirect_uri;
+      // Never navigate to a script/data URI, even if the API is compromised.
+      const target = new URL(data.redirect_uri, window.location.origin);
+      if (!["https:", "http:", "quickcal-cf:"].includes(target.protocol)) {
+        throw new Error("The authorization server returned an invalid redirect.");
+      }
+      window.location.href = target.toString();
     } catch (caught) {
-      error.textContent = caught instanceof Error ? caught.message : "Could not complete authorization.";
+      error.textContent =
+        caught instanceof DOMException && caught.name === "AbortError"
+          ? "Authorization timed out. Please try again."
+          : caught instanceof Error
+            ? caught.message
+            : "Could not complete authorization.";
       error.classList.remove("hidden");
+    } finally {
+      clearTimeout(timeout);
       allow.disabled = false;
       deny.disabled = false;
     }

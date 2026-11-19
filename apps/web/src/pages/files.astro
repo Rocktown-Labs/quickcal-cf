@@ -40,7 +40,7 @@ import DashLayout from "../layouts/DashLayout.astro";
     const safe = escapeHtml(u.fileName);
     const date = new Date(u.createdAt).toLocaleDateString();
     const completed = u.status === "completed" && u.shareToken;
-    return `<div class="rounded-xl border border-border bg-card p-4" data-card="${u.id}">
+    return `<div class="rounded-xl border border-border bg-card p-4" data-card="${escapeHtml(u.id)}">
       <div class="flex items-center justify-between gap-3 flex-wrap">
         <div class="flex items-center gap-3 min-w-0">
           <span class="text-3xl">🖼</span>
@@ -49,20 +49,27 @@ import DashLayout from "../layouts/DashLayout.astro";
             <p class="text-xs text-muted-foreground">${date} · ${escapeHtml(u.fileType)}</p>
           </div>
         </div>
-        <span class="text-xs font-bold px-2.5 py-1 rounded-full ${statusColor(u.status)}">${u.status}</span>
+        <span class="text-xs font-bold px-2.5 py-1 rounded-full ${statusColor(u.status)}">${escapeHtml(u.status)}</span>
       </div>
       ${completed ? `<div class="mt-3 flex flex-wrap gap-2">
-        <button data-act="download" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-3 py-2">Download .ics</button>
-        <button data-act="review" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Review events</button>
-        <button data-act="copy" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Copy link</button>
-        <button data-act="share" data-id="${u.id}" data-token="${u.shareToken}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Share</button>
-        ${emailEnabled ? `<button data-act="email" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Email</button>` : ""}
-        ${smsEnabled ? `<button data-act="sms" data-id="${u.id}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">SMS</button>` : ""}
-        <button data-act="revoke" data-id="${u.id}" class="text-xs font-bold border border-warning/40 text-warning hover:bg-warning/10 rounded-lg px-3 py-2">Revoke share link</button>
-        <button data-act="delete" data-id="${u.id}" class="text-xs font-bold text-danger hover:text-danger/80 border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-2">Delete</button>
+        <button data-act="download" data-id="${escapeHtml(u.id)}" data-token="${escapeHtml(u.shareToken ?? "")}" class="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-3 py-2">Download .ics</button>
+        <button data-act="review" data-id="${escapeHtml(u.id)}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Review events</button>
+        <button data-act="copy" data-id="${escapeHtml(u.id)}" data-token="${escapeHtml(u.shareToken ?? "")}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Copy link</button>
+        <button data-act="share" data-id="${escapeHtml(u.id)}" data-token="${escapeHtml(u.shareToken ?? "")}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Share</button>
+        ${emailEnabled ? `<button data-act="email" data-id="${escapeHtml(u.id)}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">Email</button>` : ""}
+        ${smsEnabled ? `<button data-act="sms" data-id="${escapeHtml(u.id)}" class="text-xs font-bold border border-input hover:bg-accent hover:text-accent-foreground rounded-lg px-3 py-2">SMS</button>` : ""}
+        <button data-act="revoke" data-id="${escapeHtml(u.id)}" class="text-xs font-bold border border-warning/40 text-warning hover:bg-warning/10 rounded-lg px-3 py-2">Revoke share link</button>
+        <button data-act="delete" data-id="${escapeHtml(u.id)}" class="text-xs font-bold text-danger hover:text-danger/80 border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-2">Delete</button>
       </div>
-      <div data-review="${u.id}" class="hidden mt-3 space-y-2"></div>` : ""}
+      <div data-review="${escapeHtml(u.id)}" class="hidden mt-3 space-y-2"></div>` : ""}
     </div>`;
+  }
+
+  async function renderUploads() {
+    const { uploads } = await api.listUploads(50);
+    document.getElementById("files-loading")!.classList.add("hidden");
+    document.getElementById("files-empty")!.classList.toggle("hidden", uploads.length > 0);
+    document.getElementById("files-list")!.innerHTML = uploads.map(card).join("");
   }
 
   /**
@@ -99,19 +106,22 @@ import DashLayout from "../layouts/DashLayout.astro";
     return `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full ${tone}">${pct}%</span>`;
   }
 
-  function reviewRow(event: {
-    id: string;
-    title: string;
-    startTime: string;
-    isAllDay: boolean;
-    confidence: number | null;
-    sourceQuote: string | null;
-  }): string {
+  function reviewRow(
+    event: {
+      id: string;
+      title: string;
+      startTime: string;
+      isAllDay: boolean;
+      confidence: number | null;
+      sourceQuote: string | null;
+    },
+    uploadId: string,
+  ): string {
     const start = new Date(event.startTime);
     const pad = (n: number) => String(n).padStart(2, "0");
     const date = `${start.getUTCFullYear()}-${pad(start.getUTCMonth() + 1)}-${pad(start.getUTCDate())}`;
     const time = event.isAllDay ? "" : `${pad(start.getUTCHours())}:${pad(start.getUTCMinutes())}`;
-    return `<div class="rounded-lg border border-border bg-background p-3" data-event-row="${event.id}">
+    return `<div class="rounded-lg border border-border bg-background p-3" data-event-row="${escapeHtml(event.id)}">
       <div class="flex flex-wrap items-center gap-2">
         <input data-field="title" value="${escapeHtml(event.title)}" class="flex-1 min-w-40 px-3 bg-input border border-input rounded-lg h-9 text-sm" />
         ${confidenceBadge(event.confidence)}
@@ -120,8 +130,8 @@ import DashLayout from "../layouts/DashLayout.astro";
       </div>
       ${event.sourceQuote ? `<p class="mt-2 text-xs text-muted-foreground italic border-l-2 border-border pl-2">"${escapeHtml(event.sourceQuote)}"</p>` : ""}
       <div class="mt-2 flex gap-2">
-        <button data-act="save-event" data-event="${event.id}" class="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-3 py-1.5">Save</button>
-        <button data-act="delete-event" data-event="${event.id}" class="text-xs font-bold text-danger border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-1.5">Delete event</button>
+        <button data-act="save-event" data-id="${escapeHtml(uploadId)}" data-event="${escapeHtml(event.id)}" class="text-xs font-bold bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-3 py-1.5">Save</button>
+        <button data-act="delete-event" data-id="${escapeHtml(uploadId)}" data-event="${escapeHtml(event.id)}" class="text-xs font-bold text-danger border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-1.5">Delete event</button>
       </div>
     </div>`;
   }
@@ -138,7 +148,7 @@ import DashLayout from "../layouts/DashLayout.astro";
         panel.innerHTML = `<p class="text-sm text-muted-foreground">No events in this upload.</p>`;
         return;
       }
-      panel.innerHTML = events.map(reviewRow).join("");
+      panel.innerHTML = events.map((event) => reviewRow(event, uploadId)).join("");
     } catch (err) {
       panel.innerHTML = `<p class="text-sm text-danger">${escapeHtml(err instanceof Error ? err.message : "Could not load events.")}</p>`;
     }
@@ -190,14 +200,8 @@ import DashLayout from "../layouts/DashLayout.astro";
         smsEnabled = me.smsEnabled;
       } catch { /* prompts just won't be prefilled */ }
 
-      const { uploads } = await api.listUploads(50);
-      document.getElementById("files-loading")!.classList.add("hidden");
-      if (uploads.length === 0) {
-        document.getElementById("files-empty")!.classList.remove("hidden");
-        return;
-      }
+      await renderUploads();
       const list = document.getElementById("files-list")!;
-      list.innerHTML = uploads.map(card).join("");
 
       list.addEventListener("click", async (e) => {
         const btn = (e.target as HTMLElement).closest("[data-act]") as HTMLElement | null;
@@ -244,7 +248,7 @@ import DashLayout from "../layouts/DashLayout.astro";
           if (!confirm("Revoke the public share link? Anyone with the link will lose access immediately.")) return;
           try {
             await api.revokeShare(id);
-            document.querySelector(`[data-card="${id}"]`)?.remove();
+            await renderUploads();
           } catch (err) {
             alert(err instanceof Error ? err.message : "Revoke failed.");
           }
@@ -252,7 +256,7 @@ import DashLayout from "../layouts/DashLayout.astro";
           if (!confirm("Delete this upload and its events?")) return;
           try {
             await api.deleteUpload(id);
-            document.querySelector(`[data-card="${id}"]`)?.remove();
+            await renderUploads();
           } catch (err) {
             alert(err instanceof Error ? err.message : "Delete failed.");
           }
@@ -260,9 +264,9 @@ import DashLayout from "../layouts/DashLayout.astro";
       });
 
       // Deep link from the uploader's "Review & edit events" button.
-      const hash = window.location.hash.replace("#", "");
-      if (hash) {
-        const target = document.querySelector(`[data-card="${hash}"]`);
+      const hash = decodeURIComponent(window.location.hash.replace("#", ""));
+      if (/^[0-9a-f-]{36}$/i.test(hash)) {
+        const target = document.querySelector(`[data-card="${CSS.escape(hash)}"]`);
         target?.scrollIntoView({ behavior: "smooth", block: "center" });
         void openReview(hash);
       }

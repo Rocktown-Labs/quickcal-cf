@@ -101,8 +101,14 @@ import Uploader from "../components/Uploader.astro";
       const subtitle = document.getElementById("dash-subtitle");
       // Use cases are stored as a comma-separated list (step 1 is
       // multi-select) — personalize from the first one.
-      const primaryUseCase = me?.useCase?.split(",")[0];
-      if (subtitle && primaryUseCase) subtitle.textContent = SUBTITLES[primaryUseCase] ?? subtitle.textContent;
+      const primaryUseCase = me?.useCase?.split(",")[0]?.trim();
+      if (
+        subtitle &&
+        primaryUseCase &&
+        Object.prototype.hasOwnProperty.call(SUBTITLES, primaryUseCase)
+      ) {
+        subtitle.textContent = SUBTITLES[primaryUseCase]!;
+      }
       document.getElementById("stat-uploads")!.textContent = String(stats.totalUploads);
       document.getElementById("stat-completed")!.textContent = String(stats.completedUploads);
       document.getElementById("stat-events")!.textContent = String(stats.totalEvents);
@@ -118,7 +124,15 @@ import Uploader from "../components/Uploader.astro";
                 <span class="text-2xl">🖼</span>
                 <div class="min-w-0">
                   <p class="font-medium text-sm truncate">${escapeHtml(u.fileName)}</p>
-                  <p class="text-xs text-muted-foreground">${new Date(u.createdAt).toLocaleDateString()} • ${u.status}</p>
+                  <p class="text-xs text-muted-foreground">${new Date(u.createdAt).toLocaleDateString()} • ${escapeHtml(
+                    {
+                      pending: "Pending",
+                      processing: "Processing",
+                      completed: "Completed",
+                      failed: "Failed",
+                      no_events: "No events found",
+                    }[u.status] ?? u.status,
+                  )}</p>
                 </div>
               </div>
               <a href="/files" class="shrink-0 rounded-lg border border-input px-3 py-1.5 text-xs font-bold hover:bg-accent">Open</a>

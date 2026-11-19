@@ -3,7 +3,7 @@ import Logo from "../components/Logo.astro";
 import Layout from "../layouts/Layout.astro";
 
 const params = Astro.url.searchParams;
-const hasParams = Boolean(params.get("token") && params.get("email"));
+const hasParams = Boolean(params.get("token"));
 ---
 
 <Layout title="Verify Email — QuickCalAI">
@@ -17,28 +17,28 @@ const hasParams = Boolean(params.get("token") && params.get("email"));
         <h1 class="font-serif text-3xl tracking-tight">Email verification</h1>
       </div>
 
-      <div id="pending" class={`rounded-xl border border-border bg-card p-10 text-center ${hasParams ? "" : "hidden"}`}>
-        <div class="text-4xl mb-3 animate-pulse">✉️</div>
+      <div id="pending" role="status" aria-live="polite" class={`rounded-xl border border-border bg-card p-10 text-center ${hasParams ? "" : "hidden"}`}>
+        <div aria-hidden="true" class="text-4xl mb-3 animate-pulse">✉️</div>
         <h2 class="font-semibold mb-1">Verifying your email…</h2>
         <p class="text-sm text-muted-foreground">Hang tight, this should only take a moment.</p>
       </div>
 
       <div id="missing" class={`rounded-xl border border-warning/40 bg-warning/10 p-6 text-center ${hasParams ? "hidden" : ""}`}>
-        <div class="text-4xl mb-3">🔗</div>
+        <div aria-hidden="true" class="text-4xl mb-3">🔗</div>
         <h2 class="font-semibold mb-1">This link isn't complete</h2>
         <p class="text-sm text-muted-foreground mb-4">Verification links come from the email we send you.</p>
         <a href="/dashboard" class="inline-block rounded-lg bg-primary text-primary-foreground font-bold px-5 py-2.5 text-sm hover:bg-primary/90">Go to dashboard</a>
       </div>
 
-      <div id="success" class="hidden rounded-xl border border-success/30 bg-success/10 p-10 text-center">
-        <div class="text-4xl mb-3">✅</div>
+      <div id="success" role="status" aria-live="polite" class="hidden rounded-xl border border-success/30 bg-success/10 p-10 text-center">
+        <div aria-hidden="true" class="text-4xl mb-3">✅</div>
         <h2 class="font-semibold mb-1">Email verified!</h2>
         <p class="text-sm text-muted-foreground mb-4">Your email address is confirmed. Thanks for securing your account.</p>
         <a href="/dashboard" class="inline-block rounded-lg bg-primary text-primary-foreground font-bold px-5 py-2.5 text-sm hover:bg-primary/90">Continue to dashboard</a>
       </div>
 
-      <div id="failed" class="hidden rounded-xl border border-danger/40 bg-danger/10 p-6 text-center">
-        <div class="text-4xl mb-3">⚠️</div>
+      <div id="failed" role="alert" aria-live="polite" class="hidden rounded-xl border border-danger/40 bg-danger/10 p-6 text-center">
+        <div aria-hidden="true" class="text-4xl mb-3">⚠️</div>
         <h2 class="font-semibold mb-1">Couldn't verify your email</h2>
         <p class="text-sm text-muted-foreground mb-4">This link may have expired or already been used. You can request a new one from your dashboard.</p>
         <a href="/dashboard" class="inline-block rounded-lg bg-primary text-primary-foreground font-bold px-5 py-2.5 text-sm hover:bg-primary/90">Go to dashboard</a>
@@ -53,8 +53,7 @@ const hasParams = Boolean(params.get("token") && params.get("email"));
   async function init() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
-    const email = params.get("email");
-    if (!token || !email) return;
+    if (!token) return;
 
     try {
       const { error } = await authClient.verifyEmail({
@@ -66,7 +65,8 @@ const hasParams = Boolean(params.get("token") && params.get("email"));
       } else {
         document.getElementById("success")!.classList.remove("hidden");
       }
-    } catch {
+    } catch (error) {
+      console.error("[verify-email] verification failed", error);
       document.getElementById("pending")!.classList.add("hidden");
       document.getElementById("failed")!.classList.remove("hidden");
     }

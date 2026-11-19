@@ -185,22 +185,25 @@ import DashLayout from "../layouts/DashLayout.astro";
       (document.getElementById("set-calendar") as HTMLInputElement).value =
         (me.calendarApp && CALENDAR_APP_LABELS[me.calendarApp]) || "Not set yet";
 
-      document.getElementById("save-profile")!.addEventListener("click", async () => {
+      document.getElementById("save-profile")!.addEventListener("click", () => {
         const status = document.getElementById("profile-status")!;
+        const button = document.getElementById("save-profile") as HTMLButtonElement;
         const phone = (document.getElementById("set-phone") as HTMLInputElement).value.trim();
         if (phone && !/^\+[1-9]\d{6,14}$/.test(phone)) {
           status.textContent = "Use international format, e.g. +15551234567.";
           status.className = "ml-3 text-sm text-danger";
           return;
         }
-        try {
-          await api.updateMe({ phoneNumber: phone });
-          status.textContent = "Saved.";
-          status.className = "ml-3 text-sm text-success";
-        } catch (err) {
-          status.textContent = err instanceof Error ? err.message : "Save failed.";
-          status.className = "ml-3 text-sm text-danger";
-        }
+        void withBusy(button, "Saving…", async () => {
+          try {
+            await api.updateMe({ phoneNumber: phone });
+            status.textContent = "Saved.";
+            status.className = "ml-3 text-sm text-success";
+          } catch (err) {
+            status.textContent = err instanceof Error ? err.message : "Save failed.";
+            status.className = "ml-3 text-sm text-danger";
+          }
+        });
       });
 
       // Subscription
@@ -277,8 +280,16 @@ import DashLayout from "../layouts/DashLayout.astro";
         }),
       );
       const params = new URLSearchParams(window.location.search);
-      if (params.get("upgraded")) subStatus.textContent = "Subscription active — welcome to Premium!";
-      if (params.get("canceled")) subStatus.textContent = "Checkout canceled — no changes made.";
+      if (params.get("upgraded")) {
+        subStatus.textContent = "Subscription active — welcome to Premium!";
+        btnUpgrade.classList.add("hidden");
+        btnUpgradeAnnual.classList.add("hidden");
+        btnPortal.classList.remove("hidden");
+        btnCancel.classList.remove("hidden");
+      }
+      if (params.get("canceled")) {
+        subStatus.textContent = "Checkout canceled — no changes made.";
+      }
 
       // API keys
       async function refreshKeys() {
@@ -368,16 +379,30 @@ import DashLayout from "../layouts/DashLayout.astro";
       webhookSecret.textContent = me.webhookSecret;
 
       document.getElementById("btn-copy-feed")!.addEventListener("click", async () => {
+        const value = feedUrl.textContent?.trim();
+        if (!value) {
+          toast("Calendar feed URL is not available yet.", false);
+          return;
+        }
         try {
-          await navigator.clipboard.writeText(feedUrl.textContent || "");
+          await navigator.clipboard.writeText(value);
           toast("Calendar feed URL copied.");
-        } catch { /* clipboard unavailable */ }
+        } catch {
+          toast("Could not copy the feed URL.", false);
+        }
       });
       document.getElementById("btn-copy-secret")!.addEventListener("click", async () => {
+        const value = webhookSecret.textContent?.trim();
+        if (!value) {
+          toast("Webhook secret is not available.", false);
+          return;
+        }
         try {
-          await navigator.clipboard.writeText(webhookSecret.textContent || "");
+          await navigator.clipboard.writeText(value);
           toast("Webhook secret copied.");
-        } catch { /* clipboard unavailable */ }
+        } catch {
+          toast("Could not copy the webhook secret.", false);
+        }
       });
       document.getElementById("btn-rotate-feed")!.addEventListener("click", () => {
         if (!confirm("Rotate the calendar feed token? Old subscription URLs stop working immediately.")) return;

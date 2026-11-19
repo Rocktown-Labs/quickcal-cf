@@ -14,8 +14,28 @@ export function oauthAuthorizeUrl(): string | null {
 
   const params = new URLSearchParams(window.location.search);
   if (!params.get("client_id") || !params.get("sig")) return null;
+  // A failed authorization returns here with `error`; continuing would loop.
+  if (params.get("error")) return null;
 
-  return `${SERVER_ORIGIN}${OAUTH_AUTHORIZE_PATH}${window.location.search}`;
+  // Forward only OAuth parameters, not arbitrary tracking/next params.
+  const allowed = [
+    "client_id",
+    "sig",
+    "scope",
+    "state",
+    "response_type",
+    "redirect_uri",
+    "code_challenge",
+    "code_challenge_method",
+    "resource",
+  ];
+  const forwarded = new URLSearchParams();
+  for (const key of allowed) {
+    const value = params.get(key);
+    if (value) forwarded.set(key, value);
+  }
+
+  return `${SERVER_ORIGIN}${OAUTH_AUTHORIZE_PATH}?${forwarded.toString()}`;
 }
 
 export function oauthConsentUrl(): string {

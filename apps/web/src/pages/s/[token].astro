@@ -50,7 +50,10 @@ const { token } = Astro.params;
 
   async function init() {
     const token = document.getElementById("share-token")?.getAttribute("data-token");
-    if (!token) return;
+    if (!token) {
+      document.getElementById("share-error")!.classList.remove("hidden");
+      return;
+    }
 
     try {
       const data = await api.share(token);
@@ -69,12 +72,23 @@ const { token } = Astro.params;
 
       document.getElementById("share-events")!.innerHTML = data.events.map((event) => {
         const start = new Date(event.startTime);
-        const month = start.toLocaleDateString("en-US", { month: "short" });
-        const day = start.getDate();
+        // Stored times are wall-clock encoded as UTC — render the UTC parts.
+        const month = start.toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+        const day = start.getUTCDate();
         const time = event.isAllDay
           ? "All day"
-          : start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) +
-            (event.endTime ? ` – ${new Date(event.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : "");
+          : start.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              timeZone: "UTC",
+            }) +
+            (event.endTime
+              ? ` – ${new Date(event.endTime).toLocaleTimeString("en-US", {
+                  hour: "numeric",
+                  minute: "2-digit",
+                  timeZone: "UTC",
+                })}`
+              : "");
         return `<div class="bg-card border border-border rounded-xl p-4 md:p-5">
           <div class="flex items-start gap-3">
             <div class="flex flex-col items-center justify-center w-12 h-12 bg-primary/10 rounded-lg shrink-0">
@@ -91,8 +105,8 @@ const { token } = Astro.params;
       }).join("");
 
       document.getElementById("share-body")!.classList.remove("hidden");
-    } catch {
-      document.getElementById("share-title")!.textContent = "Schedule not found";
+    } catch (error) {
+      console.error("[share] failed to load schedule", error);
       document.getElementById("share-error")!.classList.remove("hidden");
     }
   }
