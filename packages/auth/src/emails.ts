@@ -30,7 +30,25 @@ function shell(inner: string): string {
 }
 
 function button(url: string, label: string): string {
-  return `<a href="${escapeHtml(url)}" style="display:inline-block;background:#c23326;color:#fff;font-weight:bold;padding:12px 24px;border-radius:8px;text-decoration:none;">${label}</a>`;
+  return `<a href="${escapeHtml(url)}" style="display:inline-block;background:#c23326;color:#fff;font-weight:bold;padding:12px 24px;border-radius:8px;text-decoration:none;">${escapeHtml(label)}</a>`;
+}
+
+async function sendViaResend(
+  apiKey: string,
+  payload: {
+    from: string;
+    to: string;
+    subject: string;
+    html: string;
+    text: string;
+  },
+  errorPrefix: string,
+): Promise<void> {
+  const resend = new Resend(apiKey);
+  const { error } = await resend.emails.send(payload);
+  if (error) {
+    throw new Error(`${errorPrefix}: ${error.message}`);
+  }
 }
 
 /**
@@ -58,10 +76,10 @@ export async function sendAuthEmail(
   const from = fromAddress(config);
 
   const html = shell(`
-    <h1 style="color:#efefef;font-size:20px;margin:0 0 16px;">${input.heading}</h1>
+    <h1 style="color:#efefef;font-size:20px;margin:0 0 16px;">${escapeHtml(input.heading)}</h1>
     <p style="color:#888;font-size:16px;">${input.bodyHtml}</p>
     <p>${button(input.actionUrl, input.actionLabel)}</p>
-    <p style="color:#888;font-size:14px;">${input.fallbackNote}</p>
+    <p style="color:#888;font-size:14px;">${escapeHtml(input.fallbackNote)}</p>
     <p style="color:#666;font-size:12px;">Or paste this link into your browser:<br />
     <a href="${escapeHtml(input.actionUrl)}" style="color:#c23326;word-break:break-all;">${escapeHtml(input.actionUrl)}</a></p>
   `);
@@ -76,18 +94,17 @@ export async function sendAuthEmail(
     input.fallbackNote,
   ].join("\n");
 
-  const resend = new Resend(apiKey);
-  const { error } = await resend.emails.send({
-    from,
-    to: input.to,
-    subject: input.subject,
-    html,
-    text,
-  });
-
-  if (error) {
-    throw new Error(`Failed to send email: ${error.message}`);
-  }
+  await sendViaResend(
+    apiKey,
+    {
+      from,
+      to: input.to,
+      subject: input.subject.replace(/[\r\n]+/g, " "),
+      html,
+      text,
+    },
+    "Failed to send email",
+  );
   return true;
 }
 
@@ -111,17 +128,16 @@ export async function sendWelcomeEmail(
     freeCredits: 1,
   });
 
-  const resend = new Resend(apiKey);
-  const { error } = await resend.emails.send({
-    from: fromAddress(config),
-    to: input.to,
-    subject: "Welcome to QuickCalAI",
-    html,
-    text,
-  });
-
-  if (error) {
-    throw new Error(`Failed to send welcome email: ${error.message}`);
-  }
+  await sendViaResend(
+    apiKey,
+    {
+      from: fromAddress(config),
+      to: input.to,
+      subject: "Welcome to QuickCalAI",
+      html,
+      text,
+    },
+    "Failed to send welcome email",
+  );
   return true;
 }

@@ -15,7 +15,6 @@ import ThemeSwitcher from "./ThemeSwitcher.astro";
         <div class="hidden md:flex items-center gap-8">
           <a href="#features" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
           <a href="#pricing" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
-          <a href="#testimonials" class="text-sm text-muted-foreground hover:text-foreground transition-colors">Reviews</a>
           <div class="w-px h-4 bg-border"></div>
           <ThemeSwitcher />
           <span data-auth-out class="hidden items-center gap-2">
@@ -39,9 +38,6 @@ import ThemeSwitcher from "./ThemeSwitcher.astro";
       </a>
       <a href="#pricing" data-nav="pricing" class="nav-item flex flex-col items-center justify-center gap-1 transition-colors rounded-lg px-3 py-1.5 text-muted-foreground">
         <span class="text-xl">💳</span><span class="text-[10px] font-medium">Pricing</span>
-      </a>
-      <a href="#testimonials" data-nav="testimonials" class="nav-item flex flex-col items-center justify-center gap-1 transition-colors rounded-lg px-3 py-1.5 text-muted-foreground">
-        <span class="text-xl">💬</span><span class="text-[10px] font-medium">Reviews</span>
       </a>
     </div>
   </nav>
@@ -81,7 +77,7 @@ import ThemeSwitcher from "./ThemeSwitcher.astro";
       el.classList.toggle("bg-transparent", !scrolled);
     }
 
-    const ids = ["hero", "features", "pricing", "testimonials"];
+    const ids = ["hero", "features", "pricing"];
     const pos = window.scrollY + 100;
     let active = "hero";
     for (const id of ids) {

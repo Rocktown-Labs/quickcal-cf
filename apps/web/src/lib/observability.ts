@@ -10,9 +10,9 @@ import { ENV } from "../env.public";
 
 const dsn = import.meta.env.PUBLIC_SENTRY_DSN;
 // Auth/reset/share pages carry sensitive tokens; exclude their DOM from replay.
-const sensitivePage = /^\/(?:s\/|reset-password|verify-email|consent)/.test(
-  window.location.pathname,
-);
+const sensitivePage =
+  typeof window !== "undefined" &&
+  /^\/(?:s\/|reset-password|verify-email|consent)/.test(window.location.pathname);
 if (dsn) {
   Sentry.init({
     dsn,

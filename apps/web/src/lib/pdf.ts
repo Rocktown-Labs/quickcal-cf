@@ -34,12 +34,17 @@ async function loadPdfLib(): Promise<typeof PdfJsLib> {
     const worker = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
     lib.GlobalWorkerOptions.workerSrc = worker;
     return lib;
-  })();
+  })().catch((error) => {
+    // Don't pin a rejected import for the rest of the session.
+    libPromise = null;
+    throw error;
+  });
   return libPromise;
 }
 
 function hasTextLayer(text: string): boolean {
-  return (text.match(/[a-z0-9]/gi) ?? []).length >= MIN_TEXT_CHARS;
+  // Unicode-aware: CJK/Cyrillic/etc. text layers are still text.
+  return (text.match(/[\p{L}\p{N}]/gu) ?? []).length >= MIN_TEXT_CHARS;
 }
 
 async function extractText(doc: PdfJsLib.PDFDocumentProxy, pageLimit: number): Promise<string> {
@@ -125,13 +130,17 @@ async function renderStitchedJpeg(
 export async function preparePdfForUpload(file: File): Promise<File | null> {
   try {
     const pdfjs = await loadPdfLib();
-    const doc = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+    const loadingTask = pdfjs.getDocument({ data: await file.arrayBuffer() });
+    const doc = await loadingTask.promise;
+    try {
+      const text = await extractText(doc, TEXT_PAGES_LIMIT);
+      if (hasTextLayer(text)) return null; // digital PDF — server reads it exactly
 
-    const text = await extractText(doc, TEXT_PAGES_LIMIT);
-    if (hasTextLayer(text)) return null; // digital PDF — server reads it exactly
-
-    const baseName = file.name.replace(/\.pdf$/i, "") || "document";
-    return await renderStitchedJpeg(doc, RENDER_PAGES_LIMIT, `${baseName}.jpg`);
+      const baseName = file.name.replace(/\.pdf$/i, "") || "document";
+      return await renderStitchedJpeg(doc, RENDER_PAGES_LIMIT, `${baseName}.jpg`);
+    } finally {
+      await loadingTask.destroy().catch(() => undefined);
+    }
   } catch (err) {
     // Can't open or render? Fall back to the original file — the server's
     // pipeline produces the most accurate error message for it.

@@ -29,7 +29,7 @@ import Layout from "../layouts/Layout.astro";
         </div>
       </div>
 
-      <p id="ob-error" class="mb-4 hidden text-sm text-danger"></p>
+      <p id="ob-error" role="alert" aria-live="polite" class="mb-4 hidden text-sm text-danger"></p>
 
       <!-- Step 1: primary use cases (multi-select) -->
       <div data-step="1" class="hidden space-y-3">
@@ -113,7 +113,7 @@ import Layout from "../layouts/Layout.astro";
           autocomplete="tel"
           class="w-full rounded-lg border border-input bg-input px-4 py-2.5 placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
-        <p id="ob-phone-error" class="hidden text-sm text-danger"></p>
+        <p id="ob-phone-error" role="alert" aria-live="polite" class="hidden text-sm text-danger"></p>
         <p class="text-xs text-muted-foreground">
           International format works best (e.g. +15551234567). Used only to deliver your calendar files — never marketing.
         </p>
@@ -165,6 +165,7 @@ import Layout from "../layouts/Layout.astro";
 
   let useCases = new Set<UseCase>();
   let calendarApp: CalendarApp | null = null;
+  let submitting = false;
   let firstName = "";
 
   const IMPORT_TIPS: Record<string, string> = {
@@ -243,8 +244,16 @@ import Layout from "../layouts/Layout.astro";
     });
   }
   document.getElementById("ob-usecase-next")!.addEventListener("click", async () => {
-    if (useCases.size === 0) return;
-    if (await save({ useCase: [...useCases] })) showStep(2);
+    if (useCases.size === 0 || submitting) return;
+    submitting = true;
+    const button = document.getElementById("ob-usecase-next") as HTMLButtonElement;
+    button.disabled = true;
+    try {
+      if (await save({ useCase: [...useCases] })) showStep(2);
+    } finally {
+      submitting = false;
+      button.disabled = false;
+    }
   });
 
   // Step 2 — calendar app
@@ -257,34 +266,73 @@ import Layout from "../layouts/Layout.astro";
     });
   }
   document.getElementById("ob-calendar-next")!.addEventListener("click", async () => {
-    if (!calendarApp) return;
-    if (await save({ calendarApp })) showStep(3);
+    if (!calendarApp || submitting) return;
+    submitting = true;
+    const button = document.getElementById("ob-calendar-next") as HTMLButtonElement;
+    button.disabled = true;
+    try {
+      if (await save({ calendarApp })) showStep(3);
+    } finally {
+      submitting = false;
+      button.disabled = false;
+    }
   });
   document.getElementById("ob-calendar-back")!.addEventListener("click", () => showStep(1));
 
   // Step 3 — phone (optional)
-  function digitsOf(value: string): number {
-    return value.replace(/\D/g, "").length;
+  function normalizePhone(value: string): string | null {
+    const stripped = value.replace(/[()\s.-]/g, "");
+    return /^\+?[1-9]\d{6,14}$/.test(stripped) ? stripped : null;
   }
   document.getElementById("ob-phone-next")!.addEventListener("click", async () => {
+    if (submitting) return;
     const phone = phoneInput.value.trim();
     phoneError.classList.add("hidden");
-    if (phone && digitsOf(phone) < 7) {
-      phoneError.textContent = "That doesn't look like a phone number — include country and area code, e.g. +15551234567.";
+    if (phone && !normalizePhone(phone)) {
+      phoneError.textContent =
+        "That doesn't look like a phone number — include country and area code, e.g. +15551234567.";
       phoneError.classList.remove("hidden");
       return;
     }
-    if (await save({ phoneNumber: phone, isOnboarded: true })) finish();
+    submitting = true;
+    const button = document.getElementById("ob-phone-next") as HTMLButtonElement;
+    button.disabled = true;
+    try {
+      const payload = phone
+        ? { phoneNumber: normalizePhone(phone)!, isOnboarded: true }
+        : { isOnboarded: true };
+      if (await save(payload)) finish();
+    } finally {
+      submitting = false;
+      button.disabled = false;
+    }
   });
   document.getElementById("ob-phone-skip")!.addEventListener("click", async () => {
-    if (await save({ isOnboarded: true })) finish();
+    if (submitting) return;
+    submitting = true;
+    const button = document.getElementById("ob-phone-skip") as HTMLButtonElement;
+    button.disabled = true;
+    try {
+      if (await save({ isOnboarded: true })) finish();
+    } finally {
+      submitting = false;
+      button.disabled = false;
+    }
   });
   document.getElementById("ob-phone-back")!.addEventListener("click", () => showStep(2));
 
   // Skip setup — never trap the user; mark onboarded and let them through.
   document.getElementById("ob-skip")!.addEventListener("click", async () => {
-    if (await save({ isOnboarded: true }, { quiet: true })) track("onboarding_completed", { outcome: "skipped" });
-    window.location.href = "/dashboard";
+    if (submitting) return;
+    submitting = true;
+    try {
+      if (await save({ isOnboarded: true })) {
+        track("onboarding_completed", { outcome: "skipped" });
+        window.location.href = "/dashboard";
+      }
+    } finally {
+      submitting = false;
+    }
   });
 
   function finish() {

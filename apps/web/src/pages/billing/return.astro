@@ -15,17 +15,23 @@ const copy =
           title: "Checkout canceled",
           body: "No charge was made. You can return to the app and try again whenever you're ready.",
         }
-      : {
-          icon: "💳",
-          title: "Billing",
-          body: "Return to the QuickCalAI app to continue.",
-        };
+      : status === "portal"
+        ? {
+            icon: "⚙️",
+            title: "Subscription updated",
+            body: "Your billing changes are saved. Return to the app to see your current plan.",
+          }
+        : {
+            icon: "💳",
+            title: "Billing",
+            body: "Return to the QuickCalAI app to continue.",
+          };
 ---
 
 <Layout title={`${copy.title} — QuickCalAI`}>
   <div class="flex min-h-screen items-center justify-center px-4 py-12">
     <div class="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center">
-      <div class="mb-4 text-5xl">{copy.icon}</div>
+      <div aria-hidden="true" class="mb-4 text-5xl">{copy.icon}</div>
       <h1 class="mb-2 text-2xl font-bold">{copy.title}</h1>
       <p class="mb-6 text-sm text-muted-foreground">{copy.body}</p>
 

@@ -78,6 +78,7 @@ export async function deleteEventsForUpload(db: Database, uploadId: string) {
 export async function getUserEventRows(db: Database, userId: string) {
   return db
     .select({
+      id: events.id,
       title: events.title,
       description: events.description,
       location: events.location,

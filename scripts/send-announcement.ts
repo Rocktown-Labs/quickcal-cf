@@ -32,10 +32,7 @@ import { chmod, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import {
-  ANNOUNCEMENT_SUBJECT,
-  renderAnnouncementEmail,
-} from "../packages/email/src/index.ts";
+import { ANNOUNCEMENT_SUBJECT, renderAnnouncementEmail } from "../packages/email/src/index.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -72,11 +69,9 @@ function parseArgs(argv: string[]): Options {
   let database: string | undefined;
   let loginUrl = process.env.ANNOUNCEMENT_LOGIN_URL?.trim() || "https://quickcalai.com/login";
   let from =
-    process.env.RESEND_FROM_EMAIL?.trim() ||
-    "QuickCalAI <noreply@extractions.quickcalai.com>";
+    process.env.RESEND_FROM_EMAIL?.trim() || "QuickCalAI <noreply@extractions.quickcalai.com>";
   let replyTo = process.env.ANNOUNCEMENT_REPLY_TO?.trim();
-  let senderName =
-    process.env.ANNOUNCEMENT_SENDER_NAME?.trim() || "The QuickCalAI team";
+  let senderName = process.env.ANNOUNCEMENT_SENDER_NAME?.trim() || "The QuickCalAI team";
   let unsubscribeUrl =
     process.env.ANNOUNCEMENT_UNSUBSCRIBE_URL?.trim() ||
     "mailto:unsubscribe@quickcalai.com?subject=Unsubscribe";
@@ -324,10 +319,7 @@ async function main() {
   const database = await resolveDatabase(options.database);
   const allRecipients = await fetchRecipients(database);
 
-  const { recipients, skippedBanned, skippedUnverified } = filterRecipients(
-    allRecipients,
-    options,
-  );
+  const { recipients, skippedBanned, skippedUnverified } = filterRecipients(allRecipients, options);
 
   const previewRecipient = recipients[0];
   const workDir = await mkdtemp(join(tmpdir(), "quickcal-announcement-"));
@@ -404,7 +396,7 @@ async function main() {
       senderName: options.senderName,
       loginUrl: options.loginUrl,
       unsubscribeUrl: options.unsubscribeUrl,
-      mailingAddress: options.mailingAddress,
+      mailingAddress: options.mailingAddress ?? "[mailing address]",
     });
 
     try {

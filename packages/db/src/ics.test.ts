@@ -3,6 +3,7 @@ import { generateICS, generateICSForAI, generateICSForManual, generateICSFromRow
 
 describe("generateICSFromRows (review edits / aggregate feed)", () => {
   const timedRow = {
+    id: "event-1",
     title: "Biology 101",
     description: null,
     location: "Room 214",
@@ -37,8 +38,33 @@ describe("generateICSFromRows (review edits / aggregate feed)", () => {
     expect(ics.match(/BEGIN:VEVENT/g)?.length).toBe(2);
   });
 
+  test("keeps a stored description alongside the title", () => {
+    const ics = generateICSFromRows([{ ...timedRow, description: "Bring the lab manual." }]);
+    expect(ics).toContain("DESCRIPTION:Biology 101\\n\\nBring the lab manual.");
+  });
+
+  test("uses the end date for events crossing midnight", () => {
+    const ics = generateICSFromRows([
+      {
+        ...timedRow,
+        startTime: new Date("2026-10-01T23:00:00Z"),
+        endTime: new Date("2026-10-02T01:00:00Z"),
+      },
+    ]);
+    expect(ics).toContain("DTSTART:20261001T230000");
+    expect(ics).toContain("DTEND:20261002T010000");
+  });
+
+  test("keeps a stable UID across regenerations", () => {
+    const first = generateICSFromRows([timedRow]);
+    const second = generateICSFromRows([timedRow]);
+    expect(first).toContain("UID:event-1");
+    expect(second).toContain("UID:event-1");
+  });
+
   function allDayRow() {
     return {
+      id: "event-2",
       title: "Holiday",
       description: null,
       location: null,
@@ -85,6 +111,15 @@ describe("generateICSForAI", () => {
       generateICSForAI([{ date: "2026-10-01", time: "nope", description: "x" }]),
     ).toThrow("Invalid time format");
   });
+
+  test("throws on out-of-range hours and minutes", () => {
+    expect(() =>
+      generateICSForAI([{ date: "2026-10-01", time: "25:00", description: "x" }]),
+    ).toThrow("Invalid time");
+    expect(() =>
+      generateICSForAI([{ date: "2026-10-01", time: "12:70", description: "x" }]),
+    ).toThrow("Invalid time");
+  });
 });
 
 describe("generateICSForManual", () => {
@@ -94,6 +129,29 @@ describe("generateICSForManual", () => {
     ]);
     expect(ics).toContain("SUMMARY:Dentist");
     expect(ics).toContain("DTSTART:20261105T081500");
+  });
+
+  test("rolls an overnight end time into the next day", () => {
+    const ics = generateICSForManual([
+      { date: "2026-11-05", time: "23:00", endTime: "01:00", description: "Late shift" },
+    ]);
+    expect(ics).toContain("DTSTART:20261105T230000");
+    expect(ics).toContain("DTEND:20261106T010000");
+  });
+
+  test("treats an equal start/end as a one-hour event", () => {
+    const ics = generateICSForManual([
+      { date: "2026-11-05", time: "10:00", endTime: "10:00", description: "Quick sync" },
+    ]);
+    expect(ics).toContain("DURATION:PT1H");
+  });
+
+  test("rejects an end date without an end time", () => {
+    expect(() =>
+      generateICSForManual([
+        { date: "2026-11-05", time: "10:00", endDate: "2026-11-06", description: "Broken" },
+      ]),
+    ).toThrow("endDate requires endTime");
   });
 });
 

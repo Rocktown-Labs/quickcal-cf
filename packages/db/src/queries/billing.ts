@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../index";
 import { subscription } from "../schema";
 
@@ -20,6 +20,7 @@ export async function getActiveSubscription(db: Database, userId: string) {
     .select()
     .from(subscription)
     .where(and(eq(subscription.referenceId, userId), inArray(subscription.status, ACTIVE_STATUSES)))
+    .orderBy(desc(subscription.createdAt))
     .limit(1);
 
   return rows[0] ?? null;

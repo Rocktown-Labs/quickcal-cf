@@ -47,7 +47,9 @@ export function EmailShell({ preview, children, footer }: EmailShellProps) {
               QuickCalAI
             </Text>
           </Section>
-          <Section style={{ padding: "32px" }}>{children}</Section>
+          <Section style={{ padding: "32px", color: "#efefef", lineHeight: "1.6" }}>
+            {children}
+          </Section>
           <Section style={{ borderTop: "1px solid #333333", padding: "24px 32px" }}>
             {footer ?? (
               <Text

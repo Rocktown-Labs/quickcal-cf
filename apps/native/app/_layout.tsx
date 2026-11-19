@@ -10,9 +10,15 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { authClient } from "@/lib/auth-client";
 import { AppThemeProvider } from "@/contexts/app-theme-context";
 
+import { StyleSheet } from "react-native";
+
 export const unstable_settings = {
-  initialRouteName: "(tabs)",
+  anchor: "(tabs)",
 };
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,12 +54,12 @@ function SessionCacheGuard() {
 function StackLayout() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false, animation: "fade" }} />
-      <Stack.Screen name="login" options={{ headerShown: false, animation: "fade" }} />
-      <Stack.Screen name="signup" options={{ headerShown: false, animation: "fade" }} />
-      <Stack.Screen name="forgot-password" options={{ headerShown: false, animation: "fade" }} />
-      <Stack.Screen name="reset-password" options={{ headerShown: false, animation: "fade" }} />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="onboarding" options={{ animation: "fade" }} />
+      <Stack.Screen name="login" options={{ animation: "fade" }} />
+      <Stack.Screen name="signup" options={{ animation: "fade" }} />
+      <Stack.Screen name="forgot-password" options={{ animation: "fade" }} />
+      <Stack.Screen name="reset-password" options={{ animation: "fade" }} />
     </Stack>
   );
 }
@@ -61,7 +67,7 @@ function StackLayout() {
 export default function Layout() {
   return (
     <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureHandlerRootView style={styles.root}>
         <KeyboardProvider>
           <AppThemeProvider>
             <HeroUINativeProvider>

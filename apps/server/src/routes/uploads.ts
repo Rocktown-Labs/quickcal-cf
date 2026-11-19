@@ -7,6 +7,7 @@ import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
 import createMessageObjectSchema from "stoker/openapi/schemas/create-message-object";
 import {
   deleteUpload,
+  failUploadIfActive,
   getUploadById,
   getUploadEventCount,
   getUploadEventsForReview,
@@ -50,10 +51,18 @@ app.use(
 app.use("/text", bodyLimit({ maxSize: MAX_TEXT_BYTES + 16 * 1024, onError: payloadTooLarge }));
 app.use("/from-url", bodyLimit({ maxSize: 16 * 1024, onError: payloadTooLarge }));
 app.use("/events", bodyLimit({ maxSize: 2 * 1024 * 1024, onError: payloadTooLarge }));
-// AI ingestion is expensive — strict per-user caps per method.
-app.use("/", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
-app.use("/text", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
-app.use("/from-url", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
+// AI ingestion is expensive — strict per-user caps per method. These must use
+// distinct prefixes: the limiter key is `${keyPrefix}:${userId}`.
+app.on(
+  "POST",
+  "/",
+  rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:file:user" }),
+);
+app.use("/text", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:text:user" }));
+app.use(
+  "/from-url",
+  rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:url:user" }),
+);
 // Structured events are free (no AI) — a slightly looser cap.
 app.use(
   "/events",
@@ -178,7 +187,10 @@ app.openapi(createUpload, async (c) => {
   // Reject an oversized body before `formData()` buffers it. The per-file
   // check below runs after parsing, which is too late for a 100MB request.
   const declaredLength = Number(c.req.header("content-length") ?? "0");
-  if (declaredLength > MAX_UPLOAD_FILE_SIZE_BYTES + 1024 * 1024) {
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_UPLOAD_FILE_SIZE_BYTES + 1024 * 1024
+  ) {
     return c.json({ message: "File exceeds 10MB limit" }, HttpStatusCodes.REQUEST_TOO_LONG);
   }
 
@@ -188,8 +200,10 @@ app.openapi(createUpload, async (c) => {
       return c.json(ingestionForbiddenResponse(), HttpStatusCodes.FORBIDDEN);
     }
 
-    const fail = (message: string) => {
-      void refundIngestion(db, userId, access);
+    const fail = async (message: string) => {
+      // Await the refund: a fire-and-forget promise may be canceled once the
+      // Worker response is returned, permanently consuming the credit.
+      await refundIngestion(db, userId, access).catch(() => undefined);
       return c.json({ message }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
     };
 
@@ -197,12 +211,12 @@ app.openapi(createUpload, async (c) => {
     try {
       formData = await c.req.formData();
     } catch {
-      return fail("Invalid multipart form data");
+      return await fail("Invalid multipart form data");
     }
     const file = formData.get("file");
 
-    if (!(file instanceof File)) return fail("No file provided");
-    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) return fail("File exceeds 10MB limit");
+    if (!(file instanceof File)) return await fail("No file provided");
+    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) return await fail("File exceeds 10MB limit");
 
     // Validate the real content — the client-supplied Content-Type is only a
     // hint, so check magic bytes before anything is stored or sent to the AI.
@@ -210,16 +224,16 @@ app.openapi(createUpload, async (c) => {
     try {
       bytes = new Uint8Array(await file.arrayBuffer());
     } catch {
-      return fail("Could not read the uploaded file.");
+      return await fail("Could not read the uploaded file.");
     }
     const detectedType = detectMimeType(bytes);
     if (!detectedType) {
-      return fail("Unsupported file type — could not read the file contents.");
+      return await fail("Unsupported file type — could not read the file contents.");
     }
 
     const callbackUrl = validateCallbackUrl(String(formData.get("callbackUrl") ?? "")) ?? null;
     if (formData.has("callbackUrl") && !callbackUrl) {
-      return fail("callbackUrl must be an https:// URL (http allowed for localhost).");
+      return await fail("callbackUrl must be an https:// URL (http allowed for localhost).");
     }
 
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "upload";
@@ -265,7 +279,14 @@ const createTextUpload = createRoute({
   request: {
     body: jsonContentRequired(
       z.object({
-        content: z.string().trim().min(1).max(MAX_TEXT_BYTES),
+        content: z
+          .string()
+          .trim()
+          .min(1)
+          .refine(
+            (value) => new TextEncoder().encode(value).length <= MAX_TEXT_BYTES,
+            `Text must be ${Math.round(MAX_TEXT_BYTES / 1024)}KB or smaller`,
+          ),
         title: z.string().trim().max(120).optional(),
         callbackUrl: z.string().optional(),
       }),
@@ -291,7 +312,7 @@ app.openapi(createTextUpload, async (c) => {
   const db = getDb();
 
   const declaredLength = Number(c.req.header("content-length") ?? "0");
-  if (declaredLength > MAX_TEXT_BYTES + 16 * 1024) {
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_TEXT_BYTES + 16 * 1024) {
     return c.json({ message: "Text exceeds the 100KB limit" }, HttpStatusCodes.REQUEST_TOO_LONG);
   }
 
@@ -383,7 +404,7 @@ app.openapi(createUrlUpload, async (c) => {
   const db = getDb();
 
   const declaredLength = Number(c.req.header("content-length") ?? "0");
-  if (declaredLength > 16 * 1024) {
+  if (Number.isFinite(declaredLength) && declaredLength > 16 * 1024) {
     return c.json({ message: "Request body too large" }, HttpStatusCodes.REQUEST_TOO_LONG);
   }
 
@@ -407,7 +428,7 @@ app.openapi(createUrlUpload, async (c) => {
     try {
       doc = await fetchIngestDocument(url);
     } catch (error) {
-      await refundIngestion(db, userId, access);
+      await refundIngestion(db, userId, access).catch(() => undefined);
       const message = error instanceof Error ? error.message : "Could not fetch that document.";
       const status = error instanceof IngestUrlError ? error.status : 422;
       if (status === 502) {
@@ -515,7 +536,7 @@ app.openapi(createDirectEvents, async (c) => {
   const db = getDb();
 
   const declaredLength = Number(c.req.header("content-length") ?? "0");
-  if (declaredLength > 2 * 1024 * 1024) {
+  if (Number.isFinite(declaredLength) && declaredLength > 2 * 1024 * 1024) {
     return c.json({ message: "Request body too large" }, HttpStatusCodes.REQUEST_TOO_LONG);
   }
 
@@ -677,18 +698,21 @@ app.openapi(getUploadStatusByRun, async (c) => {
       const state = await instance.status();
       if (state.status === "errored" || state.status === "terminated") {
         const failureReason = upload.failureReason ?? "Workflow failed during processing.";
-        await updateUploadRecord(db, upload.id, {
-          status: "failed",
-          failureReason,
-        });
-        return c.json(
-          await buildStatusResponse(db, {
-            ...upload,
-            status: "failed",
-            failureReason,
-          }),
-          HttpStatusCodes.OK,
-        );
+        const updated = await failUploadIfActive(db, upload.id, failureReason);
+        if (updated.length > 0) {
+          return c.json(
+            await buildStatusResponse(db, {
+              ...upload,
+              status: "failed",
+              failureReason,
+            }),
+            HttpStatusCodes.OK,
+          );
+        }
+        // The workflow finished between our read and write — return the
+        // terminal row instead of clobbering it.
+        const current = await getUploadById(db, upload.id);
+        return c.json(await buildStatusResponse(db, current ?? upload), HttpStatusCodes.OK);
       }
     } catch {
       // Workflow handle unavailable — fall back to the stored DB status.
@@ -725,11 +749,13 @@ app.openapi(deleteUploadRoute, async (c) => {
     return c.json({ message: "Upload not found" }, HttpStatusCodes.NOT_FOUND);
   }
 
+  // Delete the DB row first: if object cleanup fails, an orphaned R2 object
+  // is far safer than a live upload/share token pointing at missing files.
+  await deleteUpload(db, id);
   await ENV.FILES.delete(upload.storageKey).catch(() => undefined);
   if (upload.icsKey) {
     await ENV.FILES.delete(upload.icsKey).catch(() => undefined);
   }
-  await deleteUpload(db, id);
   return c.json({ message: "Upload deleted" }, HttpStatusCodes.OK);
 });
 
@@ -762,10 +788,12 @@ app.openapi(revokeShareRoute, async (c) => {
     return c.json({ message: "Upload not found" }, HttpStatusCodes.NOT_FOUND);
   }
 
+  // Clear the token first: revocation must take effect even if the object
+  // delete fails (an orphaned R2 object is harmless).
+  await updateUploadRecord(db, upload.id, { icsKey: null, shareToken: null });
   if (upload.icsKey) {
     await ENV.FILES.delete(upload.icsKey).catch(() => undefined);
   }
-  await updateUploadRecord(db, upload.id, { icsKey: null, shareToken: null });
   return c.json({ message: "Share link revoked" }, HttpStatusCodes.OK);
 });
 

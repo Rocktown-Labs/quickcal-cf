@@ -22,16 +22,29 @@ export interface WebhookPayload {
   sentAt: string;
 }
 
+export class WebhookDeliveryError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly retryable: boolean,
+  ) {
+    super(message);
+  }
+}
+
 /**
  * Sends a signed webhook. `t=<unix-seconds>,v1=<hex>` header format matches
- * Stripe/GitHub conventions. Any failure throws — workflow steps retry, which
- * is exactly the durability we want for agent callbacks.
+ * Stripe/GitHub conventions.
+ *
+ * Transient failures (5xx/408/429/network) throw so the workflow retries.
+ * Permanent 4xx failures are logged and returned as `delivered: false` so a
+ * misconfigured endpoint doesn't burn five retries with backoff.
  */
 export async function sendWebhook(
   callbackUrl: string,
   secret: string,
   payload: WebhookPayload,
-): Promise<void> {
+): Promise<{ delivered: boolean; status?: number }> {
   const body = JSON.stringify(payload);
   const ts = Math.floor(Date.now() / 1000);
   const signature = await hmacSha256Hex(secret, `${ts}.${body}`);
@@ -46,6 +59,8 @@ export async function sendWebhook(
       "Content-Type": "application/json",
       "User-Agent": "QuickCalAI-Webhooks/1.0",
       "X-QuickCal-Event": payload.event,
+      // Stable per terminal outcome so receivers can dedupe retries.
+      "X-QuickCal-Delivery": `${payload.uploadId}:${payload.status}`,
       "X-QuickCal-Signature": `t=${ts},v1=${signature}`,
     },
     body,
@@ -53,8 +68,17 @@ export async function sendWebhook(
   });
 
   if (!res.ok) {
-    throw new Error(`Webhook target responded ${res.status}`);
+    const retryable = res.status === 408 || res.status === 429 || res.status >= 500;
+    const detail = (await res.text().catch(() => "")).slice(0, 500);
+    const message = `Webhook target responded ${res.status}${detail ? `: ${detail}` : ""}`;
+    if (!retryable) {
+      console.warn(`[webhook] permanent delivery failure (${res.status}): ${callbackUrl}`);
+      return { delivered: false, status: res.status };
+    }
+    throw new WebhookDeliveryError(message, res.status, true);
   }
+
+  return { delivered: true, status: res.status };
 }
 
 async function hmacSha256Hex(secret: string, message: string): Promise<string> {

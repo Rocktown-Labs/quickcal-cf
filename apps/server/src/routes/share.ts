@@ -8,7 +8,9 @@ import { getDb } from "../services";
 
 const app = new OpenAPIHono();
 
-const tokenParams = z.object({ token: z.string().min(1) });
+const tokenParams = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{16,128}$/, "Invalid share token"),
+});
 
 const sharedEventSchema = z.object({
   id: z.string(),
@@ -68,7 +70,7 @@ app.openapi(getShare, async (c) => {
         endTime: e.endTime?.toISOString() ?? null,
         isAllDay: e.isAllDay,
       })),
-      downloadPath: `/api/share/${token}/ics`,
+      downloadPath: `/api/share/${encodeURIComponent(token)}/ics`,
     },
     HttpStatusCodes.OK,
   );
@@ -117,12 +119,12 @@ app.openapi(getShareIcs, async (c) => {
       .slice(0, 80) || "calendar-events";
   c.header("Content-Type", "text/calendar; charset=utf-8");
   c.header("X-Content-Type-Options", "nosniff");
-  c.header("Content-Disposition", `attachment; filename="${baseName}.ics"`);
+  c.header("Content-Disposition", `inline; filename="${baseName}.ics"`);
   // Revocation must take effect immediately: a shared cache (or the browser)
   // holding the old file for an hour would keep serving an event the owner
   // deleted or a link they revoked. Calendar clients poll this URL directly.
   c.header("Cache-Control", "no-store");
-  return c.body(await object.arrayBuffer());
+  return c.body(object.body);
 });
 
 export default app;

@@ -290,12 +290,19 @@ const tools: McpToolDef[] = [
         : `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
       const date = args.date ?? existingDate;
       const time = args.time !== undefined ? args.time : existingTime;
+      const newStart = new Date(`${date}T${time || "00:00"}:00Z`);
+      const oldStart = new Date(existing.startTime).getTime();
+      const oldEnd = existing.endTime ? new Date(existing.endTime).getTime() : null;
+      const durationMs =
+        oldEnd !== null && !existing.isAllDay ? Math.max(oldEnd - oldStart, 0) : null;
+      const newEnd = time && durationMs !== null ? new Date(newStart.getTime() + durationMs) : null;
 
       const updated = await updateEventAndRefreshIcs(db, ENV.FILES, ctx.userId, args.eventId, {
         ...(args.title !== undefined ? { title: args.title } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),
         ...(args.location !== undefined ? { location: args.location } : {}),
-        startTime: new Date(`${date}T${time || "00:00"}:00Z`),
+        startTime: newStart,
+        endTime: newEnd,
         isAllDay: !time,
       });
       if (!updated) return JSON.stringify({ message: "Event not found" });

@@ -1,4 +1,4 @@
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import type { Database } from "../index";
 import { uploads, events, type UploadStatus } from "../schema";
 
@@ -70,7 +70,7 @@ export async function updateUploadRecord(
   return db
     .update(uploads)
     .set({
-      ...(updates.status ? { status: updates.status } : {}),
+      ...(updates.status !== undefined ? { status: updates.status } : {}),
       ...(updates.workflowRunId !== undefined ? { workflowRunId: updates.workflowRunId } : {}),
       ...(updates.icsKey !== undefined ? { icsKey: updates.icsKey } : {}),
       ...(updates.shareToken !== undefined ? { shareToken: updates.shareToken } : {}),
@@ -78,6 +78,15 @@ export async function updateUploadRecord(
       updatedAt: new Date(),
     })
     .where(eq(uploads.id, uploadId));
+}
+
+/** Marks an upload failed only while it is still non-terminal. */
+export async function failUploadIfActive(db: Database, uploadId: string, failureReason: string) {
+  return db
+    .update(uploads)
+    .set({ status: "failed", failureReason, updatedAt: new Date() })
+    .where(and(eq(uploads.id, uploadId), inArray(uploads.status, ["pending", "processing"])))
+    .returning({ id: uploads.id });
 }
 
 const uploadColumns = {
@@ -101,16 +110,6 @@ export async function getUploadById(db: Database, uploadId: string) {
     .select(uploadColumns)
     .from(uploads)
     .where(eq(uploads.id, uploadId))
-    .limit(1);
-
-  return result[0] ?? null;
-}
-
-export async function getUploadByWorkflowRunId(db: Database, workflowRunId: string) {
-  const result = await db
-    .select(uploadColumns)
-    .from(uploads)
-    .where(eq(uploads.workflowRunId, workflowRunId))
     .limit(1);
 
   return result[0] ?? null;
@@ -159,12 +158,8 @@ export async function getUploadByShareToken(db: Database, shareToken: string) {
     .select({
       id: uploads.id,
       fileName: uploads.fileName,
-      fileType: uploads.fileType,
       icsKey: uploads.icsKey,
-      shareToken: uploads.shareToken,
       status: uploads.status,
-      userId: uploads.userId,
-      createdAt: uploads.createdAt,
     })
     .from(uploads)
     .where(eq(uploads.shareToken, shareToken))

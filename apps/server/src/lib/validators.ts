@@ -82,7 +82,6 @@ export const manualEventSchema = z.object({
     .optional()
     .default(""),
   description: z.string().trim().max(2000).optional().default(""),
-  timezone: z.string().trim().refine(isValidTimeZone, "Invalid IANA timezone").optional(),
 });
 
 export const createApiKeySchema = z.object({

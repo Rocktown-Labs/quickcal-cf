@@ -30,7 +30,11 @@ export class RateLimiter extends DurableObject {
     if (!bucket || bucket.resetAt <= now) {
       bucket = { count: 0, resetAt: now + windowMs };
       this.buckets.set(key, bucket);
-      await this.ctx.storage.setAlarm(bucket.resetAt);
+      // Don't push an existing earlier alarm later.
+      const existingAlarm = await this.ctx.storage.getAlarm();
+      if (existingAlarm === null || bucket.resetAt < existingAlarm) {
+        await this.ctx.storage.setAlarm(bucket.resetAt);
+      }
     }
     bucket.count += 1;
     if (bucket.count > limit) {

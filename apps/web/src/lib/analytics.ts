@@ -22,5 +22,15 @@ declare global {
 
 // Accept only fixed categories. Never pass user, document, or token data.
 export function track(name: AnalyticsEvent, props?: Props): void {
-  if (typeof window !== "undefined") window.traks?.(name, props);
+  if (typeof window === "undefined") return;
+  try {
+    const cleanProps = props
+      ? (Object.fromEntries(
+          Object.entries(props).filter(([, value]) => value !== undefined),
+        ) as Record<string, string>)
+      : undefined;
+    window.traks?.(name, cleanProps);
+  } catch {
+    // Analytics must never break signup/login/checkout.
+  }
 }

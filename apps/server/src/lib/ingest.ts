@@ -48,9 +48,13 @@ export async function createDirectEventsRecord(
   shareToken: string;
   downloadPath: string;
 }> {
-  const valid = input.events.filter((e) => e.date.trim() !== "");
+  const valid = input.events.filter((e) => {
+    if (e.date.trim() === "") return false;
+    const parsed = new Date(`${e.date}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === e.date;
+  });
   if (valid.length === 0) {
-    throw new Error("At least one event with a date is required.");
+    throw new Error("At least one event with a valid date is required.");
   }
 
   const shareToken = generateShareToken();
@@ -83,13 +87,17 @@ export async function createDirectEventsRecord(
 
   for (const e of valid) {
     const startTime = new Date(`${e.date}T${e.time || "00:00"}:00Z`);
+    let endTime = e.time && e.endTime ? new Date(`${e.date}T${e.endTime}:00Z`) : null;
+    if (endTime && endTime <= startTime) {
+      endTime = new Date(endTime.getTime() + 24 * 60 * 60 * 1000);
+    }
     await db.insert(events).values({
       id: crypto.randomUUID(),
       title: e.title,
       description: e.description || null,
       location: e.location || null,
       startTime,
-      endTime: e.time && e.endTime ? new Date(`${e.date}T${e.endTime}:00Z`) : null,
+      endTime,
       isAllDay: !e.time,
       uploadId: upload.id,
       userId,
@@ -323,7 +331,12 @@ export async function withIdempotency<T>(
 
   const result = await produce();
   if (result instanceof Response) {
-    const serialized = await serializeIdempotentResponse(result);
+    // Cache deterministic outcomes; never pin a transient 5xx/429/408 for
+    // the full 24h TTL.
+    const cacheable =
+      result.ok ||
+      (result.status >= 400 && result.status < 500 && ![408, 429].includes(result.status));
+    const serialized = cacheable ? await serializeIdempotentResponse(result) : null;
     if (serialized) {
       await storeIdempotentResponse(db, userId, keyHash, serialized).catch(() => undefined);
     }

@@ -12,7 +12,10 @@ function slugify(name: string): string {
 }
 
 function writeCacheFile(fileName: string, content: string): string {
-  const file = new File(Paths.cache, slugify(fileName));
+  // Unique suffix: concurrent shares must not clobber a file the share sheet
+  // is still reading.
+  const unique = `${slugify(fileName).replace(/\.ics$/, "")}-${Date.now().toString(36)}.ics`;
+  const file = new File(Paths.cache, unique);
   file.create({ overwrite: true });
   file.write(content, { encoding: "utf8" });
   return file.uri;
@@ -35,11 +38,15 @@ async function shareFromCache(uri: string): Promise<void> {
  * any installed calendar app).
  */
 export async function downloadAndShareIcs(shareToken: string, fileName: string): Promise<void> {
-  const res = await apiFetch(`/api/share/${shareToken}/ics`);
+  const res = await apiFetch(`/api/share/${encodeURIComponent(shareToken)}/ics`);
   if (!res.ok) {
     throw new Error("The calendar file is not available.");
   }
+  const contentType = res.headers.get("content-type") ?? "";
   const content = await res.text();
+  if (!contentType.includes("text/calendar") || !content.includes("BEGIN:VCALENDAR")) {
+    throw new Error("The server returned an invalid calendar file.");
+  }
   await shareFromCache(writeCacheFile(fileName, content));
 }
 

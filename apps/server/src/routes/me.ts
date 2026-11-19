@@ -50,6 +50,25 @@ function deliveryFlags() {
   };
 }
 
+async function buildProfileResponse(db: ReturnType<typeof getDb>, userId: string) {
+  const [profile, premium] = await Promise.all([getUserProfile(db, userId), isPremium(db, userId)]);
+  if (!profile) return null;
+
+  const [calToken, webhookSecret] = await Promise.all([
+    ensureCalToken(db, userId),
+    webhookSecretFor(ENV.BETTER_AUTH_SECRET, userId),
+  ]);
+
+  return {
+    id: userId,
+    ...profile,
+    isPremium: premium,
+    calendarFeedPath: `/api/calendar/${calToken}`,
+    webhookSecret,
+    ...deliveryFlags(),
+  };
+}
+
 const getMe = createRoute({
   method: "get",
   path: "/me",
@@ -67,25 +86,11 @@ const getMe = createRoute({
 app.openapi(getMe, async (c) => {
   const userId = c.get("userId");
   const db = getDb();
-  const [profile, premium] = await Promise.all([getUserProfile(db, userId), isPremium(db, userId)]);
-  if (!profile) {
+  const response = await buildProfileResponse(db, userId);
+  if (!response) {
     return c.json({ message: "Profile not found" }, HttpStatusCodes.NOT_FOUND);
   }
-  const [calToken, webhookSecret] = await Promise.all([
-    ensureCalToken(db, userId),
-    webhookSecretFor(ENV.BETTER_AUTH_SECRET, userId),
-  ]);
-  return c.json(
-    {
-      id: userId,
-      ...profile,
-      isPremium: premium,
-      calendarFeedPath: `/api/calendar/${calToken}`,
-      webhookSecret,
-      ...deliveryFlags(),
-    },
-    HttpStatusCodes.OK,
-  );
+  return c.json(response, HttpStatusCodes.OK);
 });
 
 const updateMeBody = z.object({
@@ -103,6 +108,10 @@ const updateMe = createRoute({
   request: { body: jsonContentRequired(updateMeBody, "Fields to update") },
   responses: {
     [HttpStatusCodes.OK]: jsonContent(profileSchema, "Updated profile"),
+    [HttpStatusCodes.NOT_FOUND]: jsonContent(
+      z.object({ message: z.string() }),
+      "Profile not found",
+    ),
   },
 });
 
@@ -111,29 +120,23 @@ app.openapi(updateMe, async (c) => {
   const body = c.req.valid("json");
   const db = getDb();
 
-  await updateUserProfile(db, userId, {
+  const updates = {
     ...(body.phoneNumber !== undefined ? { phoneNumber: body.phoneNumber } : {}),
     ...(body.useCase !== undefined ? { useCase: body.useCase } : {}),
     ...(body.calendarApp !== undefined ? { calendarApp: body.calendarApp } : {}),
     ...(body.isOnboarded !== undefined ? { isOnboarded: body.isOnboarded } : {}),
-  });
+  };
 
-  const [profile, premium] = await Promise.all([getUserProfile(db, userId), isPremium(db, userId)]);
-  const [calToken, webhookSecret] = await Promise.all([
-    ensureCalToken(db, userId),
-    webhookSecretFor(ENV.BETTER_AUTH_SECRET, userId),
-  ]);
-  return c.json(
-    {
-      id: userId,
-      ...profile!,
-      isPremium: premium,
-      calendarFeedPath: `/api/calendar/${calToken}`,
-      webhookSecret,
-      ...deliveryFlags(),
-    },
-    HttpStatusCodes.OK,
-  );
+  // Drizzle throws on `UPDATE ... SET` with no assignments.
+  if (Object.keys(updates).length > 0) {
+    await updateUserProfile(db, userId, updates);
+  }
+
+  const response = await buildProfileResponse(db, userId);
+  if (!response) {
+    return c.json({ message: "Profile not found" }, HttpStatusCodes.NOT_FOUND);
+  }
+  return c.json(response, HttpStatusCodes.OK);
 });
 
 export default app;

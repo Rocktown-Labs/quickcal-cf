@@ -1,7 +1,7 @@
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 import * as Sentry from "@sentry/cloudflare";
+import { safePath } from "@quickcal-cf/observability";
 import { sentryOptions } from "./lib/observability";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import defaultHook from "stoker/openapi/default-hook";
@@ -41,7 +41,12 @@ app.use(async (c, next) => {
   else if (c.res.status >= 400) Sentry.logger.warn("API request rejected", attributes);
 });
 
-app.use(logger());
+// Redact share/feed tokens before writing the request line to logs.
+app.use(async (c, next) => {
+  const started = Date.now();
+  await next();
+  console.log(`${c.req.method} ${safePath(c.req.path)} ${c.res.status} ${Date.now() - started}ms`);
+});
 app.use(async (c, next) => {
   await next();
   // Defense-in-depth for JSON/ICS responses (and the API reference page).
@@ -165,7 +170,9 @@ export const RateLimiter = Sentry.instrumentDurableObjectWithSentry(sentryOption
 
 app.notFound(notFound);
 app.onError((err, c) => {
-  const status = (err as { status?: number }).status ?? 500;
+  const rawStatus = (err as { status?: number }).status;
+  const status =
+    typeof rawStatus === "number" && rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
   if (status >= 500) {
     Sentry.captureException(err);
     // Full detail stays in server logs; never echo provider/DB internals to

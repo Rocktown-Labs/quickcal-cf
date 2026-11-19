@@ -39,7 +39,6 @@ describe("manualEventSchema", () => {
       date: "2026-11-05",
       time: "08:15",
       description: "Cleaning",
-      timezone: "America/Chicago",
     });
     expect(parsed.title).toBe("Dentist");
   });
@@ -51,20 +50,12 @@ describe("manualEventSchema", () => {
     });
     expect(parsed.time).toBe("");
     expect(parsed.description).toBe("");
-    expect(parsed.timezone).toBeUndefined();
   });
 
-  test("rejects bad date, time, and timezone", () => {
+  test("rejects bad date and time", () => {
     expect(() => manualEventSchema.parse({ title: "x", date: "11/05/2026" })).toThrow();
     expect(() =>
       manualEventSchema.parse({ title: "x", date: "2026-11-05", time: "25:99" }),
-    ).toThrow();
-    expect(() =>
-      manualEventSchema.parse({
-        title: "x",
-        date: "2026-11-05",
-        timezone: "Mars/Olympus",
-      }),
     ).toThrow();
     expect(() => manualEventSchema.parse({ title: "", date: "2026-11-05" })).toThrow();
   });

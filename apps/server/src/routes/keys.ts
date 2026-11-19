@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { createMiddleware } from "hono/factory";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 import jsonContent from "stoker/openapi/helpers/json-content";
 import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
@@ -10,6 +11,16 @@ import { createApiKeySchema } from "../lib/validators";
 import { rateLimit } from "../middleware/rate-limit";
 
 const app = new OpenAPIHono<AuthEnv>();
+// API keys must not be able to mint or revoke other API keys — that turns a
+// narrow agent credential into a permanent account takeover primitive.
+app.use(
+  createMiddleware<AuthEnv>(async (c, next) => {
+    if (c.get("authMethod") !== "session") {
+      return c.json({ message: "Sign in to manage API keys." }, HttpStatusCodes.FORBIDDEN);
+    }
+    await next();
+  }),
+);
 app.use(rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "keys:user" }));
 
 const keySummarySchema = z.object({

@@ -10,7 +10,10 @@ import { getErrorMessage } from "@/lib/form-error";
 
 const signInSchema = z.object({
   email: z.string().trim().min(1, "Email is required").email("Enter a valid email address"),
-  password: z.string().min(1, "Password is required").min(8, "Use at least 8 characters"),
+  // Login only requires a non-empty password; the server validates the
+  // credential. Enforcing the signup minimum here would lock out legacy
+  // accounts that predate the policy.
+  password: z.string().min(1, "Password is required"),
 });
 
 export default function LoginScreen() {
@@ -28,16 +31,21 @@ export default function LoginScreen() {
     validators: { onSubmit: signInSchema },
     onSubmit: async ({ value }) => {
       setPending(true);
-      const { error } = await authClient.signIn.email({
-        email: value.email.trim(),
-        password: value.password,
-      });
-      setPending(false);
-      if (error) {
-        toast.show({ variant: "danger", label: error.message || "Failed to sign in" });
-      } else {
-        toast.show({ variant: "success", label: "Welcome back!" });
-        router.replace("/");
+      try {
+        const { error } = await authClient.signIn.email({
+          email: value.email.trim(),
+          password: value.password,
+        });
+        if (error) {
+          toast.show({ variant: "danger", label: error.message || "Failed to sign in" });
+        } else {
+          toast.show({ variant: "success", label: "Welcome back!" });
+          router.replace("/");
+        }
+      } catch {
+        toast.show({ variant: "danger", label: "Failed to sign in. Please try again." });
+      } finally {
+        setPending(false);
       }
     },
   });
@@ -118,11 +126,23 @@ export default function LoginScreen() {
 
             <Button
               variant="outline"
-              onPress={() => {
-                void authClient.signIn.social({
-                  provider: "google",
-                  callbackURL: "/",
-                });
+              isDisabled={pending}
+              onPress={async () => {
+                if (pending) return;
+                setPending(true);
+                try {
+                  await authClient.signIn.social({
+                    provider: "google",
+                    callbackURL: "/",
+                  });
+                } catch {
+                  toast.show({
+                    variant: "danger",
+                    label: "Google sign-in failed. Please try again.",
+                  });
+                } finally {
+                  setPending(false);
+                }
               }}
             >
               <Button.Label>Continue with Google</Button.Label>

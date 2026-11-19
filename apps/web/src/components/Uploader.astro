@@ -18,23 +18,23 @@
         </div>
         <p class="text-muted-foreground text-base max-w-md">Upload an image or PDF with dates and times to extract calendar events instantly</p>
       </div>
-      <div class="flex w-fit mx-auto md:mx-0 bg-card p-1 rounded-xl border border-border">
-        <button data-tab="ai" class="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap bg-primary text-primary-foreground shadow-md">
+      <div role="tablist" aria-label="Upload mode" class="flex w-fit mx-auto md:mx-0 bg-card p-1 rounded-xl border border-border">
+        <button role="tab" aria-selected="true" aria-controls="panel-ai" tabindex="0" data-tab="ai" class="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap bg-primary text-primary-foreground shadow-md">
           <span>⚡</span><span>AI Upload</span>
         </button>
-        <button data-tab="text" class="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap text-muted-foreground hover:text-foreground">
+        <button role="tab" aria-selected="false" aria-controls="panel-text" tabindex="-1" data-tab="text" class="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap text-muted-foreground hover:text-foreground">
           <span>📋</span><span>Paste Text</span>
         </button>
-        <button data-tab="manual" class="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap text-muted-foreground hover:text-foreground">
+        <button role="tab" aria-selected="false" aria-controls="panel-manual" tabindex="-1" data-tab="manual" class="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap text-muted-foreground hover:text-foreground">
           <span>✏️</span><span>Manual</span>
         </button>
       </div>
     </div>
 
     <!-- AI tab -->
-    <div data-panel="ai">
+    <div id="panel-ai" role="tabpanel" data-panel="ai">
       <div data-dropzone class="hidden relative border-2 border-dashed rounded-2xl p-10 text-center transition-all duration-500 w-full border-border hover:border-primary/40 bg-card">
-        <input data-file-input type="file" accept="image/*,application/pdf" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+        <input data-file-input type="file" accept="image/*,application/pdf" aria-label="Choose an image or PDF" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
         <div class="space-y-4 pointer-events-none">
           <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">📤</div>
           <div>
@@ -60,7 +60,7 @@
     </div>
 
     <!-- Paste text tab -->
-    <div data-panel="text" class="hidden bg-card rounded-2xl border border-border p-6 space-y-4">
+    <div id="panel-text" role="tabpanel" data-panel="text" class="hidden bg-card rounded-2xl border border-border p-6 space-y-4">
       <p class="text-sm text-muted-foreground">Paste a schedule as plain text, Markdown, or CSV — the AI reads dates and times straight from it. Same thing an API agent sends to <code class="text-foreground">POST /api/uploads/text</code>.</p>
       <div class="space-y-2">
         <label class="text-sm font-semibold ml-1" for="text-title">Title (optional)</label>
@@ -79,7 +79,7 @@
     </div>
 
     <!-- Manual tab -->
-    <div data-panel="manual" class="hidden bg-card rounded-2xl border border-border p-6 space-y-4">
+    <div id="panel-manual" role="tabpanel" data-panel="manual" class="hidden bg-card rounded-2xl border border-border p-6 space-y-4">
       <div data-tz-note class="hidden p-3 bg-primary/10 border border-primary/30 rounded-xl text-sm">
         Events will be created in: <strong class="text-primary" data-tz></strong>
       </div>
@@ -262,6 +262,8 @@
   function toast(message: string, ok = true) {
     const el = document.createElement("div");
     el.textContent = message;
+    el.setAttribute("role", ok ? "status" : "alert");
+    el.setAttribute("aria-live", ok ? "polite" : "assertive");
     el.className = `fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-sm font-semibold shadow-xl ${ok ? "bg-success text-background" : "bg-danger text-white"}`;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 3500);
@@ -271,6 +273,8 @@
     for (const btn of $$("[data-tab]")) {
       const active = btn.getAttribute("data-tab") === tab;
       btn.className = `flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${active ? "bg-primary text-primary-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`;
+      btn.setAttribute("aria-selected", String(active));
+      btn.setAttribute("tabindex", active ? "0" : "-1");
     }
     $('[data-panel="ai"]')?.classList.toggle("hidden", tab !== "ai");
     $('[data-panel="text"]')?.classList.toggle("hidden", tab !== "text");
@@ -310,10 +314,18 @@
     fileName = "";
     manualRows.length = 0;
     renderManualList();
+    clearManualForm();
     const input = $("[data-file-input]") as HTMLInputElement | null;
     if (input) input.value = "";
     const urlInput = qs("[data-url-input]") as HTMLInputElement | null;
     if (urlInput) urlInput.value = "";
+    const textTitle = document.getElementById("text-title") as HTMLInputElement | null;
+    if (textTitle) textTitle.value = "";
+    const textContent = document.getElementById("text-content") as HTMLTextAreaElement | null;
+    if (textContent) textContent.value = "";
+    qs("[data-text-error]")?.classList.add("hidden");
+    qs("[data-manual-error]")?.classList.add("hidden");
+    qs("[data-delivery-status]")?.classList.add("hidden");
     $('[data-delivery-form]')?.classList.add("hidden");
     const hint = $("[data-delivery-hint]");
     if (hint) hint.textContent = "Send file directly";
@@ -479,19 +491,28 @@
     return shareToken ? `${window.location.origin}/s/${shareToken}` : null;
   }
 
+  function icsFileName(): string {
+    const base = fileName.replace(/\.[^/.]+$/, "").trim() || "calendar-events";
+    return `${base}.ics`;
+  }
+
   async function downloadIcs() {
     if (!downloadPath) { toast("The calendar file is not ready yet.", false); return; }
-    const res = await fetch(`${api.serverUrl()}${downloadPath}`, { credentials: "include" });
-    if (!res.ok) { toast("Download failed.", false); return; }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${fileName.replace(/\.[^/.]+$/, "") || "calendar-events"}.ics`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    try {
+      const res = await fetch(`${api.serverUrl()}${downloadPath}`, { credentials: "include" });
+      if (!res.ok) { toast("Download failed.", false); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = icsFileName();
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast("Download failed — check your connection.", false);
+    }
   }
 
   async function copyLink() {
@@ -530,8 +551,23 @@
   }
 
   // Wire up static controls
-  for (const btn of $$("[data-tab]")) {
-    btn.addEventListener("click", () => setTab(btn.getAttribute("data-tab") as "ai" | "text" | "manual"));
+  const uploadTabs = Array.from($$("[data-tab]")) as HTMLElement[];
+  for (const btn of uploadTabs) {
+    btn.addEventListener("click", () =>
+      setTab(btn.getAttribute("data-tab") as "ai" | "text" | "manual"),
+    );
+    btn.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      const index = uploadTabs.indexOf(btn);
+      const next =
+        event.key === "ArrowRight"
+          ? uploadTabs[(index + 1) % uploadTabs.length]
+          : uploadTabs[(index - 1 + uploadTabs.length) % uploadTabs.length];
+      if (!next) return;
+      next.focus();
+      setTab(next.getAttribute("data-tab") as "ai" | "text" | "manual");
+    });
   }
   for (const btn of $$("[data-reset]")) {
     btn.addEventListener("click", reset);
@@ -665,6 +701,8 @@
 
   $('[data-manual-submit]')?.addEventListener("click", async () => {
     const errEl = $("[data-manual-error]");
+    const submit = $("[data-manual-submit]") as HTMLButtonElement | null;
+    if (submit?.disabled) return;
     errEl?.classList.add("hidden");
 
     // If the form has a fresh row, pull it in first.
@@ -679,6 +717,7 @@
       return;
     }
 
+    if (submit) submit.disabled = true;
     try {
       const data = await api.createDirectEvents(manualRows);
       track("manual_events_created");
@@ -691,7 +730,7 @@
       downloadPath = data.downloadPath;
       for (const el of $$("[data-event-count]")) el.textContent = String(eventCount);
       const nameEl = $("[data-result-name]");
-      if (nameEl) nameEl.textContent = `${eventCount} manual event${eventCount === 1 ? "" : "s"}-events.ics`;
+      if (nameEl) nameEl.textContent = icsFileName();
       show("complete");
       toast(`Created ${eventCount} event${eventCount === 1 ? "" : "s"} — review them on the Files page.`);
     } catch (err) {
@@ -699,6 +738,8 @@
         errEl.textContent = err instanceof ApiError ? err.message : "Failed to create events.";
         errEl.classList.remove("hidden");
       }
+    } finally {
+      if (submit) submit.disabled = false;
     }
   });
 

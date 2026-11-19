@@ -18,28 +18,58 @@ export function safePath(value: string): string {
 }
 
 function safeText(value: string): string {
-  return value
-    .replace(/https?:\/\/[^\s"'<>]+/g, safePath)
-    .replace(/(\/s\/)[^/?#\s]+/g, "$1[redacted]")
-    .replace(/(\/api\/(?:share|calendar)\/)[^/?#\s]+/g, "$1[redacted]")
-    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
-    .replace(/\b(?:qc_|sk_live_|sk_test_|re_)[a-zA-Z0-9_-]+/g, "[secret]")
-    .replace(/Bearer\s+[^\s"'<>]+/gi, "Bearer [redacted]");
+  return (
+    value
+      .replace(/https?:\/\/[^\s"'<>]+/g, safePath)
+      .replace(/(\/s\/)[^/?#\s]+/g, "$1[redacted]")
+      .replace(/(\/api\/(?:share|calendar)\/)[^/?#\s]+/g, "$1[redacted]")
+      // Redact query parameter values in relative paths and any leftover URLs.
+      .replace(/([?&][^=\s&#"'<>]+)=([^&\s#"'<>]*)/g, "$1=[redacted]")
+      .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+      .replace(/\b(?:qc_|sk_live_|sk_test_|re_)[a-zA-Z0-9_-]+/g, "[secret]")
+      .replace(/Bearer\s+[^\s"'<>]+/gi, "Bearer [redacted]")
+  );
 }
 
 const sensitiveKey =
   /(?:authorization|cookie|token|password|secret|email|phone|user[_.]?id|file[_.]?name|storage[_.]?key|prompt|completion|source[_.]?text|db\.statement|db\.query\.text)/i;
+
+function isPlainObject(value: object): boolean {
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
+
 function clean(value: unknown, depth = 0): unknown {
-  if (depth > 12) return "[truncated]";
+  if (depth > 12) return null;
   if (typeof value === "string") return safeText(value);
   if (Array.isArray(value)) return value.map((entry) => clean(entry, depth + 1));
-  if (value && typeof value === "object")
+  if (value instanceof Date) return value.toISOString();
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: safeText(value.message),
+      stack: value.stack ? safeText(value.stack) : undefined,
+    };
+  }
+  if (value instanceof Map) {
+    return Object.fromEntries(
+      [...value.entries()].map(([key, entry]) => [String(key), clean(entry, depth + 1)]),
+    );
+  }
+  if (value instanceof Set) return [...value].map((entry) => clean(entry, depth + 1));
+  if (ArrayBuffer.isView(value)) return Array.from(value as unknown as ArrayLike<number>);
+  if (value instanceof ArrayBuffer) return `[ArrayBuffer ${value.byteLength}]`;
+  if (value && typeof value === "object") {
+    // Rebuilding class instances with Object.fromEntries would silently turn
+    // them into `{}`; keep their string form instead.
+    if (!isPlainObject(value)) return String(value);
     return Object.fromEntries(
       Object.entries(value).map(([key, entry]) => [
         key,
         sensitiveKey.test(key) ? "[redacted]" : clean(entry, depth + 1),
       ]),
     );
+  }
   return value;
 }
 

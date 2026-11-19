@@ -216,7 +216,7 @@ async function main() {
       senderName,
       loginUrl,
       unsubscribeUrl,
-      mailingAddress: mailingAddress || undefined,
+      mailingAddress,
     });
 
     if (!send) {
