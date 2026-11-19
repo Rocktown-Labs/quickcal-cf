@@ -1,5 +1,9 @@
-export class NotificationConfigurationError extends Error {}
-export class NotificationInputError extends Error {}
+export class NotificationConfigurationError extends Error {
+  override name = "NotificationConfigurationError";
+}
+export class NotificationInputError extends Error {
+  override name = "NotificationInputError";
+}
 
 export async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -24,7 +28,9 @@ export function normalizeEmail(email: string) {
   if (
     normalized.length === 0 ||
     normalized.length > 254 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
+    !/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/.test(
+      normalized,
+    )
   ) {
     throw new NotificationInputError("A valid email address is required");
   }

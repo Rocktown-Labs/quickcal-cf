@@ -208,8 +208,10 @@ export async function fetchIngestDocument(rawUrl: string): Promise<FetchedDocume
 
   let fileName = "fetched-document";
   try {
-    fileName =
-      decodeURIComponent(url.pathname.split("/").filter(Boolean).pop() ?? "") || "fetched-document";
+    const decoded = decodeURIComponent(url.pathname.split("/").filter(Boolean).pop() ?? "");
+    // Strip separators/control characters before this reaches storage keys,
+    // DB rows, or email subjects.
+    fileName = decoded.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "fetched-document";
   } catch {
     // Malformed percent-encoding in the path — keep the safe default.
   }

@@ -7,6 +7,7 @@ import jsonContentRequired from "stoker/openapi/helpers/json-content-required";
 import createMessageObjectSchema from "stoker/openapi/schemas/create-message-object";
 import {
   deleteUpload,
+  failUploadIfActive,
   getUploadById,
   getUploadEventCount,
   getUploadEventsForReview,
@@ -186,7 +187,10 @@ app.openapi(createUpload, async (c) => {
   // Reject an oversized body before `formData()` buffers it. The per-file
   // check below runs after parsing, which is too late for a 100MB request.
   const declaredLength = Number(c.req.header("content-length") ?? "0");
-  if (declaredLength > MAX_UPLOAD_FILE_SIZE_BYTES + 1024 * 1024) {
+  if (
+    Number.isFinite(declaredLength) &&
+    declaredLength > MAX_UPLOAD_FILE_SIZE_BYTES + 1024 * 1024
+  ) {
     return c.json({ message: "File exceeds 10MB limit" }, HttpStatusCodes.REQUEST_TOO_LONG);
   }
 
@@ -275,7 +279,14 @@ const createTextUpload = createRoute({
   request: {
     body: jsonContentRequired(
       z.object({
-        content: z.string().trim().min(1).max(MAX_TEXT_BYTES),
+        content: z
+          .string()
+          .trim()
+          .min(1)
+          .refine(
+            (value) => new TextEncoder().encode(value).length <= MAX_TEXT_BYTES,
+            `Text must be ${Math.round(MAX_TEXT_BYTES / 1024)}KB or smaller`,
+          ),
         title: z.string().trim().max(120).optional(),
         callbackUrl: z.string().optional(),
       }),
@@ -301,7 +312,7 @@ app.openapi(createTextUpload, async (c) => {
   const db = getDb();
 
   const declaredLength = Number(c.req.header("content-length") ?? "0");
-  if (declaredLength > MAX_TEXT_BYTES + 16 * 1024) {
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_TEXT_BYTES + 16 * 1024) {
     return c.json({ message: "Text exceeds the 100KB limit" }, HttpStatusCodes.REQUEST_TOO_LONG);
   }
 
@@ -393,7 +404,7 @@ app.openapi(createUrlUpload, async (c) => {
   const db = getDb();
 
   const declaredLength = Number(c.req.header("content-length") ?? "0");
-  if (declaredLength > 16 * 1024) {
+  if (Number.isFinite(declaredLength) && declaredLength > 16 * 1024) {
     return c.json({ message: "Request body too large" }, HttpStatusCodes.REQUEST_TOO_LONG);
   }
 
@@ -417,7 +428,7 @@ app.openapi(createUrlUpload, async (c) => {
     try {
       doc = await fetchIngestDocument(url);
     } catch (error) {
-      await refundIngestion(db, userId, access);
+      await refundIngestion(db, userId, access).catch(() => undefined);
       const message = error instanceof Error ? error.message : "Could not fetch that document.";
       const status = error instanceof IngestUrlError ? error.status : 422;
       if (status === 502) {
@@ -525,7 +536,7 @@ app.openapi(createDirectEvents, async (c) => {
   const db = getDb();
 
   const declaredLength = Number(c.req.header("content-length") ?? "0");
-  if (declaredLength > 2 * 1024 * 1024) {
+  if (Number.isFinite(declaredLength) && declaredLength > 2 * 1024 * 1024) {
     return c.json({ message: "Request body too large" }, HttpStatusCodes.REQUEST_TOO_LONG);
   }
 
@@ -687,18 +698,21 @@ app.openapi(getUploadStatusByRun, async (c) => {
       const state = await instance.status();
       if (state.status === "errored" || state.status === "terminated") {
         const failureReason = upload.failureReason ?? "Workflow failed during processing.";
-        await updateUploadRecord(db, upload.id, {
-          status: "failed",
-          failureReason,
-        });
-        return c.json(
-          await buildStatusResponse(db, {
-            ...upload,
-            status: "failed",
-            failureReason,
-          }),
-          HttpStatusCodes.OK,
-        );
+        const updated = await failUploadIfActive(db, upload.id, failureReason);
+        if (updated.length > 0) {
+          return c.json(
+            await buildStatusResponse(db, {
+              ...upload,
+              status: "failed",
+              failureReason,
+            }),
+            HttpStatusCodes.OK,
+          );
+        }
+        // The workflow finished between our read and write — return the
+        // terminal row instead of clobbering it.
+        const current = await getUploadById(db, upload.id);
+        return c.json(await buildStatusResponse(db, current ?? upload), HttpStatusCodes.OK);
       }
     } catch {
       // Workflow handle unavailable — fall back to the stored DB status.
@@ -774,10 +788,12 @@ app.openapi(revokeShareRoute, async (c) => {
     return c.json({ message: "Upload not found" }, HttpStatusCodes.NOT_FOUND);
   }
 
+  // Clear the token first: revocation must take effect even if the object
+  // delete fails (an orphaned R2 object is harmless).
+  await updateUploadRecord(db, upload.id, { icsKey: null, shareToken: null });
   if (upload.icsKey) {
     await ENV.FILES.delete(upload.icsKey).catch(() => undefined);
   }
-  await updateUploadRecord(db, upload.id, { icsKey: null, shareToken: null });
   return c.json({ message: "Share link revoked" }, HttpStatusCodes.OK);
 });
 

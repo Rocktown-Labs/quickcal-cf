@@ -3,6 +3,7 @@ import { generateICS, generateICSForAI, generateICSForManual, generateICSFromRow
 
 describe("generateICSFromRows (review edits / aggregate feed)", () => {
   const timedRow = {
+    id: "event-1",
     title: "Biology 101",
     description: null,
     location: "Room 214",
@@ -54,8 +55,16 @@ describe("generateICSFromRows (review edits / aggregate feed)", () => {
     expect(ics).toContain("DTEND:20261002T010000");
   });
 
+  test("keeps a stable UID across regenerations", () => {
+    const first = generateICSFromRows([timedRow]);
+    const second = generateICSFromRows([timedRow]);
+    expect(first).toContain("UID:event-1");
+    expect(second).toContain("UID:event-1");
+  });
+
   function allDayRow() {
     return {
+      id: "event-2",
       title: "Holiday",
       description: null,
       location: null,
@@ -128,6 +137,21 @@ describe("generateICSForManual", () => {
     ]);
     expect(ics).toContain("DTSTART:20261105T230000");
     expect(ics).toContain("DTEND:20261106T010000");
+  });
+
+  test("treats an equal start/end as a one-hour event", () => {
+    const ics = generateICSForManual([
+      { date: "2026-11-05", time: "10:00", endTime: "10:00", description: "Quick sync" },
+    ]);
+    expect(ics).toContain("DURATION:PT1H");
+  });
+
+  test("rejects an end date without an end time", () => {
+    expect(() =>
+      generateICSForManual([
+        { date: "2026-11-05", time: "10:00", endDate: "2026-11-06", description: "Broken" },
+      ]),
+    ).toThrow("endDate requires endTime");
   });
 });
 

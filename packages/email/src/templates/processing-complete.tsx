@@ -10,6 +10,16 @@ export interface ProcessingCompleteEmailProps {
   icsUrl?: string;
 }
 
+function httpUrl(value?: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const headingStyle = {
   color: "#efefef",
   fontSize: "20px",
@@ -62,8 +72,14 @@ export function ProcessingCompleteEmail({
   shareUrl,
   icsUrl,
 }: ProcessingCompleteEmailProps) {
-  const displayName = fileName.replace(/\.[^/.]+$/, "").trim() || "your upload";
+  const displayName =
+    fileName
+      .replace(/\.[^/.]+$/, "")
+      .trim()
+      .slice(0, 120) || "your upload";
   const eventWord = eventCount === 1 ? "event" : "events";
+  const shareHref = httpUrl(shareUrl);
+  const icsHref = httpUrl(icsUrl);
 
   return (
     <EmailShell preview={`Your calendar from ${displayName} is ready.`}>
@@ -77,7 +93,7 @@ export function ProcessingCompleteEmail({
         in <strong style={{ color: "#efefef" }}>{displayName}</strong>.
       </Text>
 
-      {shareUrl ? (
+      {shareHref ? (
         <Section style={cardStyle}>
           <Text
             style={{
@@ -99,15 +115,15 @@ export function ProcessingCompleteEmail({
           >
             Send this link so others can view and download the calendar without signing up.
           </Text>
-          <Button href={shareUrl} style={primaryButtonStyle}>
+          <Button href={shareHref} style={primaryButtonStyle}>
             View shared schedule
           </Button>
         </Section>
       ) : null}
 
-      {icsUrl ? (
+      {icsHref ? (
         <>
-          <Button href={icsUrl} style={{ ...secondaryButtonStyle, marginBottom: "24px" }}>
+          <Button href={icsHref} style={{ ...secondaryButtonStyle, marginBottom: "24px" }}>
             Download .ics file
           </Button>
           <Text
@@ -131,5 +147,5 @@ ProcessingCompleteEmail.PreviewProps = {
   fileName: "Fall Basketball Schedule.pdf",
   eventCount: 12,
   shareUrl: "https://quickcalai.com/s/example",
-  icsUrl: "https://quickcal-server.rocktown-labs.workers.dev/api/share/example/ics",
+  icsUrl: "https://example.com/api/share/example/ics",
 } satisfies ProcessingCompleteEmailProps;

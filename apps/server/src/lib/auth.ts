@@ -40,21 +40,26 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
     // Session check failure falls through to bearer auth
   }
 
-  // 2. Bearer header check
+  // 2. Bearer header check (scheme is case-insensitive per RFC 7235)
   const header = c.req.header("Authorization");
-  if (header?.startsWith("Bearer ")) {
-    const token = header.slice("Bearer ".length).trim();
+  const bearerMatch = header?.match(/^Bearer\s+(.+)$/i);
+  if (bearerMatch) {
+    const token = bearerMatch[1]!.trim();
 
     // Option A: API Key (qc_...) for direct agent / CLI usage
     if (token.startsWith("qc_")) {
-      const record = await verifyApiKey(db, token);
-      if (record) {
-        // Banning deletes sessions, but API keys and OAuth tokens outlive
-        // them; enforce the moderation flag on every credential type.
-        if (await isUserBanned(db, record.userId)) return suspended();
-        c.set("userId", record.userId);
-        c.set("authMethod", "api-key");
-        return next();
+      try {
+        const record = await verifyApiKey(db, token);
+        if (record) {
+          // Banning deletes sessions, but API keys and OAuth tokens outlive
+          // them; enforce the moderation flag on every credential type.
+          if (await isUserBanned(db, record.userId)) return suspended();
+          c.set("userId", record.userId);
+          c.set("authMethod", "api-key");
+          return next();
+        }
+      } catch {
+        // DB/key lookup failure falls through to 401.
       }
     } else if (isMcpRequest) {
       // Option B: OAuth 2.1 JWT access token issued by Better-Auth MCP plugin.

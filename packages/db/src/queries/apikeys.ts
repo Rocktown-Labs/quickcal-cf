@@ -67,8 +67,24 @@ export async function verifyApiKey(db: Database, key: string) {
   for (const candidate of candidates) {
     if (candidate.keyHash !== hash) continue;
     if (candidate.expiresAt && candidate.expiresAt < now) return null;
-    await db.update(apiKeys).set({ lastUsedAt: now }).where(eq(apiKeys.id, candidate.id));
-    return candidate;
+    // Bookkeeping only; don't write on every agent request.
+    if (!candidate.lastUsedAt || now.getTime() - candidate.lastUsedAt.getTime() > 5 * 60_000) {
+      await db
+        .update(apiKeys)
+        .set({ lastUsedAt: now })
+        .where(eq(apiKeys.id, candidate.id))
+        .catch(() => undefined);
+    }
+    // Never return the hash to callers (it may be logged/serialized).
+    return {
+      id: candidate.id,
+      userId: candidate.userId,
+      name: candidate.name,
+      keyPrefix: candidate.keyPrefix,
+      lastUsedAt: candidate.lastUsedAt,
+      expiresAt: candidate.expiresAt,
+      createdAt: candidate.createdAt,
+    };
   }
 
   return null;

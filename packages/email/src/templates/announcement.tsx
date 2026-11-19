@@ -55,14 +55,19 @@ const buttonStyle = {
   textAlign: "center",
 } as const;
 
-/** Allow only web/mailto links in email CTAs (React escapes quotes, not schemes). */
-function safeHref(value: string): string {
+/** Validate email CTAs; React escapes quotes but not dangerous schemes. */
+function safeHref(value: string, allowMailto = false): string {
+  let url: URL;
   try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "mailto:" ? value : "#";
+    url = new URL(value);
   } catch {
-    return "#";
+    throw new Error(`Invalid email URL: ${value}`);
   }
+  const allowed = allowMailto ? ["https:", "mailto:"] : ["https:"];
+  if (!allowed.includes(url.protocol)) {
+    throw new Error(`Unsupported email URL scheme: ${url.protocol}`);
+  }
+  return value;
 }
 
 export function AnnouncementEmail({
@@ -74,6 +79,13 @@ export function AnnouncementEmail({
 }: AnnouncementEmailProps) {
   const greeting = firstName?.trim() ? `Hey ${firstName.trim()},` : "Hey there,";
   const signOff = senderName?.trim() || "The QuickCalAI team";
+  const loginHref = safeHref(loginUrl);
+  const unsubscribeHref = safeHref(unsubscribeUrl, true);
+  const address = mailingAddress?.trim();
+  if (!address) {
+    // CAN-SPAM requires a physical postal address in commercial email.
+    throw new Error("A physical mailing address is required for the announcement email.");
+  }
 
   return (
     <EmailShell
@@ -90,10 +102,7 @@ export function AnnouncementEmail({
             }}
           >
             You are receiving this because you have a QuickCalAI account.{" "}
-            <Link
-              href={safeHref(unsubscribeUrl)}
-              style={{ color: "#888888", textDecoration: "underline" }}
-            >
+            <Link href={unsubscribeHref} style={{ color: "#888888", textDecoration: "underline" }}>
               Unsubscribe
             </Link>
             .
@@ -106,7 +115,7 @@ export function AnnouncementEmail({
               margin: "8px 0 0",
             }}
           >
-            Rocktown Labs{mailingAddress.trim() ? `, ${mailingAddress.trim()}` : ""}
+            Rocktown Labs, {address}
           </Text>
         </>
       }
@@ -178,7 +187,7 @@ export function AnnouncementEmail({
           margin: "0 0 24px",
         }}
       >
-        1. Go to {loginUrl}
+        1. Go to {loginHref}
         <br />
         2. If you used Google before, continue with Google.
         <br />
@@ -186,7 +195,7 @@ export function AnnouncementEmail({
         &quot;Forgot password&quot; to set a new one.
       </Text>
 
-      <Button href={safeHref(loginUrl)} style={buttonStyle}>
+      <Button href={loginHref} style={buttonStyle}>
         Open the new QuickCalAI
       </Button>
 

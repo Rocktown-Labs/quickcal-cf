@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gt, sql } from "drizzle-orm";
+import { and, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import type { Database } from "../index";
 import { events, uploads, user } from "../schema";
 import { generateShareToken } from "./uploads";
@@ -116,7 +116,9 @@ export async function consumeFreeCredit(db: Database, userId: string): Promise<b
 export async function refundFreeCredit(db: Database, userId: string): Promise<void> {
   await db
     .update(user)
-    .set({ freeCredits: sql`${user.freeCredits} + 1` })
+    // Cap at the one-time signup allowance so a duplicated/retried refund
+    // cannot mint extra free runs.
+    .set({ freeCredits: sql`min(${user.freeCredits} + 1, 1)` })
     .where(eq(user.id, userId));
 }
 
@@ -130,8 +132,18 @@ export async function ensureCalToken(db: Database, userId: string): Promise<stri
   if (existing[0]?.calToken) return existing[0].calToken;
 
   const token = generateShareToken();
-  await db.update(user).set({ calToken: token }).where(eq(user.id, userId));
-  return token;
+  // Conditional write: if two requests race, only the first sets the token.
+  await db
+    .update(user)
+    .set({ calToken: token })
+    .where(and(eq(user.id, userId), isNull(user.calToken)));
+
+  const winner = await db
+    .select({ calToken: user.calToken })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  return winner[0]?.calToken ?? token;
 }
 
 /** Rotate the calendar feed token (invalidates old subscription URLs). */
@@ -167,12 +179,14 @@ export async function updateUserProfile(
 }
 
 export async function getDashboardStats(db: Database, userId: string) {
-  const [total] = await db.select({ n: count() }).from(uploads).where(eq(uploads.userId, userId));
-  const [completed] = await db
-    .select({ n: count() })
-    .from(uploads)
-    .where(and(eq(uploads.userId, userId), eq(uploads.status, "completed")));
-  const [eventsRow] = await db.select({ n: count() }).from(events).where(eq(events.userId, userId));
+  const [[total], [completed], [eventsRow]] = await Promise.all([
+    db.select({ n: count() }).from(uploads).where(eq(uploads.userId, userId)),
+    db
+      .select({ n: count() })
+      .from(uploads)
+      .where(and(eq(uploads.userId, userId), eq(uploads.status, "completed"))),
+    db.select({ n: count() }).from(events).where(eq(events.userId, userId)),
+  ]);
 
   return {
     totalUploads: total?.n ?? 0,

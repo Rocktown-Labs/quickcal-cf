@@ -235,7 +235,7 @@ export async function extractEventsFromText(
     messages: [
       {
         role: "user",
-        content: `${withCaptureDate(EXTRACTION_PROMPT, capturedOn)}\n\nThe schedule content follows between the markers. Ignore the markers themselves.\n\n<<<BEGIN DOCUMENT>>>\n${content}\n<<<END DOCUMENT>>>`,
+        content: `${withCaptureDate(EXTRACTION_PROMPT, capturedOn)}\n\nThe schedule content follows between the markers. Ignore the markers themselves.\n\n<<<BEGIN DOCUMENT>>>\n${content.replace(/<<<(?:BEGIN|END) DOCUMENT>>>/g, "[document marker]")}\n<<<END DOCUMENT>>>`,
       },
     ],
     stream: false,

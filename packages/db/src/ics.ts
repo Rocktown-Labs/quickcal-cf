@@ -7,15 +7,19 @@ export interface CalendarEvent {
   endDate?: string;
   /** Optional end time (HH:MM) — defaults to time+1h / 1-day duration. */
   endTime?: string;
+  /** Stable identifier so feed regeneration updates instead of duplicating. */
+  uid?: string;
   /** Display title. Falls back to `description` when omitted. */
   title?: string;
   description: string;
   location?: string;
 }
 
+const MAX_LOCATION_LENGTH = 300;
+
 function parseDateParts(event: { date: string }): [number, number, number] {
   const [year, month, day] = event.date.split("-").map(Number);
-  if (!year || !month || !day || [year, month, day].some(isNaN)) {
+  if (!year || !month || !day) {
     throw new Error(`Invalid date format: ${event.date}`);
   }
   const check = new Date(Date.UTC(year, month - 1, day));
@@ -49,8 +53,11 @@ function nextDay([year, month, day]: [number, number, number]): [number, number,
 
 function toIcsEvent(event: CalendarEvent): EventAttributes {
   const start = parseDateParts(event);
-  const location = event.location?.trim() ? event.location.trim().slice(0, 300) : undefined;
+  const location = event.location?.trim()
+    ? event.location.trim().slice(0, MAX_LOCATION_LENGTH)
+    : undefined;
   const title = event.title?.trim() || event.description;
+  const uid = event.uid ? { uid: event.uid } : {};
 
   // If a specific time is provided, create a timed event with a 1-hour
   // duration (or until the provided end time).
@@ -58,13 +65,31 @@ function toIcsEvent(event: CalendarEvent): EventAttributes {
     const [hour, minute] = parseTimeParts(event.time);
     const hasEnd = Boolean(event.endTime && event.endTime.trim() !== "");
 
+    if (!hasEnd && event.endDate) {
+      throw new Error("endDate requires endTime");
+    }
+
     if (hasEnd) {
       const [endHour, endMinute] = parseTimeParts(event.endTime!.trim());
       let endDate = event.endDate ? parseDateParts({ date: event.endDate }) : start;
+      const sameDay = endDate[0] === start[0] && endDate[1] === start[1] && endDate[2] === start[2];
+
+      if (sameDay && endHour === hour && endMinute === minute) {
+        // Zero-length event: keep it valid with a 1-hour default.
+        return {
+          title,
+          description: event.description,
+          start: [...start, hour, minute] as [number, number, number, number, number],
+          startOutputType: "local",
+          ...(location ? { location } : {}),
+          ...uid,
+          duration: { hours: 1 },
+        };
+      }
+
       // Overnight event (23:00 → 01:00): roll the end into the next day when
       // the end still falls on the start date.
-      const sameDay = endDate[0] === start[0] && endDate[1] === start[1] && endDate[2] === start[2];
-      if (sameDay && (endHour < hour || (endHour === hour && endMinute <= minute))) {
+      if (sameDay && (endHour < hour || (endHour === hour && endMinute < minute))) {
         endDate = nextDay(endDate);
       }
       return {
@@ -78,6 +103,7 @@ function toIcsEvent(event: CalendarEvent): EventAttributes {
         startOutputType: "local",
         endOutputType: "local",
         ...(location ? { location } : {}),
+        ...uid,
       };
     }
 
@@ -87,6 +113,7 @@ function toIcsEvent(event: CalendarEvent): EventAttributes {
       start: [...start, hour, minute] as [number, number, number, number, number],
       startOutputType: "local",
       ...(location ? { location } : {}),
+      ...uid,
       duration: { hours: 1 },
     };
   }
@@ -97,6 +124,7 @@ function toIcsEvent(event: CalendarEvent): EventAttributes {
     description: event.description,
     start,
     ...(location ? { location } : {}),
+    ...uid,
     duration: { days: 1 },
   };
 }
@@ -127,6 +155,7 @@ export function generateICS(events: CalendarEvent[]): string {
 
 // Shape of an `events` row as selected by the review/feed queries.
 export interface EventRow {
+  id: string;
   title: string;
   description: string | null;
   location: string | null;
@@ -149,6 +178,7 @@ export function generateICSFromRows(rows: EventRow[]): string {
     `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
   return calendarEventsToICS(
     rows.map((row) => ({
+      uid: row.id,
       date: dateOf(row.startTime),
       time: row.isAllDay
         ? ""

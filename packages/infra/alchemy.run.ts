@@ -17,7 +17,10 @@ const webCustomDomain = process.env.WEB_CUSTOM_DOMAIN?.trim() || undefined;
 const configuredAuthUrl = process.env.BETTER_AUTH_URL?.trim() || undefined;
 const configuredPublicServerUrl = process.env.PUBLIC_SERVER_URL?.trim() || undefined;
 const sentryBuildConfigured = Boolean(
-  process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT,
+  process.env.SENTRY_AUTH_TOKEN &&
+  process.env.SENTRY_ORG &&
+  process.env.SENTRY_PROJECT &&
+  process.env.SENTRY_RELEASE,
 );
 const observability = {
   enabled: true,
@@ -83,7 +86,9 @@ export const server = Cloudflare.Worker("server", {
     }),
     CORS_ORIGIN: Config.String("CORS_ORIGIN"),
     BETTER_AUTH_SECRET: Config.Redacted("BETTER_AUTH_SECRET"),
-    BETTER_AUTH_URL: configuredAuthUrl ?? Cloudflare.Worker.URL,
+    BETTER_AUTH_URL:
+      configuredAuthUrl ??
+      (serverCustomDomain ? `https://${serverCustomDomain}` : Cloudflare.Worker.URL),
     GOOGLE_CLIENT_ID: Config.withDefault(Config.String("GOOGLE_CLIENT_ID"), ""),
     GOOGLE_CLIENT_SECRET: Config.withDefault(Config.Redacted("GOOGLE_CLIENT_SECRET"), ""),
     GOOGLE_IOS_CLIENT_ID: Config.withDefault(Config.String("GOOGLE_IOS_CLIENT_ID"), ""),
@@ -130,7 +135,9 @@ export default Alchemy.Stack(
       env: {
         SESSION: Cloudflare.KV.Namespace("session"),
         IMAGES: Cloudflare.Images.Images(),
-        PUBLIC_SERVER_URL: configuredPublicServerUrl ?? serverWorker.url.as<string>(),
+        PUBLIC_SERVER_URL:
+          configuredPublicServerUrl ??
+          (serverCustomDomain ? `https://${serverCustomDomain}` : serverWorker.url.as<string>()),
         PUBLIC_SENTRY_DSN: Config.withDefault(Config.String("SENTRY_DSN"), ""),
         PUBLIC_SENTRY_RELEASE: Config.withDefault(Config.String("SENTRY_RELEASE"), ""),
         SENTRY_DSN: Config.withDefault(Config.String("SENTRY_DSN"), ""),

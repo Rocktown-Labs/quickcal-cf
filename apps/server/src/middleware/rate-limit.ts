@@ -19,6 +19,7 @@ interface WindowEntry {
 // available (unit tests, standalone Node runtimes). Per-isolate only.
 const store = new Map<string, WindowEntry>();
 const MAX_STORE_KEYS = 2000;
+let warnedAboutDoFailure = false;
 
 function getClientIdentifier(c: {
   req: { header: (name: string) => string | undefined };
@@ -34,12 +35,8 @@ function getClientIdentifier(c: {
     return `ip:${cfIp}`;
   }
 
-  const forwarded = c.req.header("x-forwarded-for");
-  const forwardedIp = forwarded?.split(",")[0]?.trim();
-  if (forwardedIp) {
-    return `ip:${forwardedIp}`;
-  }
-
+  // Do not trust x-forwarded-for: it is client-controlled unless a trusted
+  // proxy overwrites it. Cloudflare always supplies cf-connecting-ip.
   return "ip:unknown";
 }
 
@@ -108,8 +105,13 @@ async function isLimited(
       const stub = namespace.get(namespace.idFromName(identifier));
       const result = await stub.check(options.keyPrefix, options.maxRequests, options.windowMs);
       return { limited: !result.ok, retryAfter: result.retryAfter };
-    } catch {
-      // Fall back to in-memory if the DO call fails.
+    } catch (error) {
+      // Fall back to in-memory if the DO call fails. Log once per isolate so
+      // a broken binding is visible without flooding logs.
+      if (!warnedAboutDoFailure) {
+        warnedAboutDoFailure = true;
+        console.warn("[rate-limit] Durable Object unavailable; using in-memory fallback", error);
+      }
     }
   }
 

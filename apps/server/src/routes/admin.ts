@@ -97,7 +97,12 @@ async function getOrCreatePrice(
 }
 
 router.post("/stripe/sync", async (c) => {
-  const raw = await c.req.json();
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    return c.json({ message: "Invalid JSON body" }, HttpStatusCodes.BAD_REQUEST);
+  }
   const parsed = syncSchema.safeParse(raw);
   if (!parsed.success) {
     return c.json(

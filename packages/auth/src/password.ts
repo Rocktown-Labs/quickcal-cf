@@ -6,9 +6,18 @@ import { hashPassword, verifyPassword } from "better-auth/crypto";
 export const password = {
   hash: hashPassword,
   verify: async (input: { hash: string; password: string }) => {
-    if (/^\$2[aby]\$\d{2}\$/.test(input.hash)) {
-      return compare(input.password, input.hash.replace(/^\$2y\$/, "$2b$"));
+    if (!input || typeof input.hash !== "string" || typeof input.password !== "string") {
+      return false;
     }
-    return verifyPassword(input);
+    try {
+      if (/^\$2[aby]\$\d{2}\$/.test(input.hash)) {
+        return await compare(input.password, input.hash.replace(/^\$2y\$/, "$2b$"));
+      }
+      return await verifyPassword(input);
+    } catch {
+      // A malformed stored hash or unsupported algorithm must read as
+      // "invalid credentials", not a 500.
+      return false;
+    }
   },
 };

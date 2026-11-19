@@ -7,10 +7,13 @@ export interface RenderedEmail {
 }
 
 export async function renderEmail(element: ReactElement): Promise<RenderedEmail> {
-  const [html, text] = await Promise.all([
-    render(element, { pretty: false }),
-    render(element, { plainText: true, pretty: false }),
-  ]);
-
-  return { html, text };
+  try {
+    const [html, text] = await Promise.all([
+      render(element, { pretty: false }),
+      render(element, { plainText: true, pretty: false }),
+    ]);
+    return { html, text };
+  } catch (error) {
+    throw new Error("Failed to render email template", { cause: error });
+  }
 }

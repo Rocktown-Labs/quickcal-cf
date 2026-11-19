@@ -30,7 +30,12 @@ export type AuthConfig = {
 };
 
 function webOriginFrom(env: AuthConfig): string {
-  return env.CORS_ORIGIN.split(",")[0]?.trim().replace(/\/+$/, "") || env.BETTER_AUTH_URL;
+  const origin = env.CORS_ORIGIN.split(",")[0]?.trim().replace(/\/+$/, "");
+  if (!origin) {
+    console.warn("[auth] CORS_ORIGIN is empty — email links will use BETTER_AUTH_URL");
+    return env.BETTER_AUTH_URL;
+  }
+  return origin;
 }
 
 /**
@@ -205,16 +210,22 @@ export function createAuth(
       requireEmailVerification: false,
       sendResetPassword: async ({ user, token }) => {
         const url = `${webOrigin}/reset-password?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}`;
-        const sent = await sendAuthEmail(emailConfig, {
-          to: user.email,
-          subject: "Reset your QuickCalAI password",
-          heading: "Reset your password",
-          bodyHtml:
-            "We received a request to reset the password for your QuickCalAI account. If you didn't make this request, you can safely ignore this email.",
-          actionUrl: url,
-          actionLabel: "Choose a new password",
-          fallbackNote: "This link expires in 1 hour. For security, it can only be used once.",
-        });
+        let sent = false;
+        try {
+          sent = await sendAuthEmail(emailConfig, {
+            to: user.email,
+            subject: "Reset your QuickCalAI password",
+            heading: "Reset your password",
+            bodyHtml:
+              "We received a request to reset the password for your QuickCalAI account. If you didn't make this request, you can safely ignore this email.",
+            actionUrl: url,
+            actionLabel: "Choose a new password",
+            fallbackNote: "This link expires in 1 hour. For security, it can only be used once.",
+          });
+        } catch (error) {
+          console.warn("[auth] password reset email failed", error);
+          throw new Error("Could not send the reset email. Please try again.");
+        }
         if (!sent) {
           throw new Error(
             "Password reset emails are not configured on the server. Contact support.",
