@@ -1,4 +1,5 @@
 import { and, count, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { FREE_CREDITS } from "@quickcal-cf/config/pricing";
 import type { Database } from "../index";
 import { events, uploads, user } from "../schema";
 import { generateShareToken } from "./uploads";
@@ -118,7 +119,7 @@ export async function refundFreeCredit(db: Database, userId: string): Promise<vo
     .update(user)
     // Cap at the one-time signup allowance so a duplicated/retried refund
     // cannot mint extra free runs.
-    .set({ freeCredits: sql`min(${user.freeCredits} + 1, 1)` })
+    .set({ freeCredits: sql`min(${user.freeCredits} + 1, ${FREE_CREDITS})` })
     .where(eq(user.id, userId));
 }
 

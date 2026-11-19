@@ -1,11 +1,21 @@
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, lt, ne } from "drizzle-orm";
 import type { Database } from "../index";
 import { idempotencyKeys } from "../schema";
 
 export const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const IDEMPOTENCY_PENDING = "__pending__";
 
 const CLEANUP_INTERVAL_MS = 60_000;
 let lastCleanupAt = 0;
+
+export interface IdempotencyClaim {
+  /** True when this caller owns the claim and must run the operation. */
+  claimed: boolean;
+  /** Stored response when another caller already completed the operation. */
+  responseJson: string | null;
+  /** True when another caller is still running the operation. */
+  pending: boolean;
+}
 
 export async function hashIdempotencyKey(rawKey: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(rawKey));
@@ -38,34 +48,106 @@ export async function findIdempotentResponse(
         eq(idempotencyKeys.keyHash, keyHash),
         // Correctness must not depend on the best-effort cleanup above.
         gt(idempotencyKeys.expiresAt, now),
+        ne(idempotencyKeys.responseJson, IDEMPOTENCY_PENDING),
       ),
     )
     .limit(1);
   return rows[0]?.responseJson ?? null;
 }
 
-/** Stores the response for replay. Best-effort — a race simply results in
- * two processed requests, which is the pre-existing behavior. */
+/**
+ * Atomically claims an Idempotency-Key. The unique index on
+ * (user_id, key_hash) makes exactly one concurrent caller the winner.
+ */
+export async function claimIdempotencyKey(
+  db: Database,
+  userId: string,
+  keyHash: string,
+): Promise<IdempotencyClaim> {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + IDEMPOTENCY_TTL_MS);
+
+  const inserted = await db
+    .insert(idempotencyKeys)
+    .values({
+      id: crypto.randomUUID(),
+      userId,
+      keyHash,
+      responseJson: IDEMPOTENCY_PENDING,
+      expiresAt,
+    })
+    .onConflictDoNothing()
+    .returning({ id: idempotencyKeys.id });
+  if (inserted.length > 0) return { claimed: true, responseJson: null, pending: false };
+
+  const read = () =>
+    db
+      .select({
+        responseJson: idempotencyKeys.responseJson,
+        expiresAt: idempotencyKeys.expiresAt,
+      })
+      .from(idempotencyKeys)
+      .where(and(eq(idempotencyKeys.userId, userId), eq(idempotencyKeys.keyHash, keyHash)))
+      .limit(1);
+
+  const row = (await read())[0];
+  // Deleted between the insert attempt and the read: treat as claimable.
+  if (!row) return { claimed: true, responseJson: null, pending: false };
+
+  if (row.expiresAt <= now) {
+    const updated = await db
+      .update(idempotencyKeys)
+      .set({ responseJson: IDEMPOTENCY_PENDING, expiresAt })
+      .where(
+        and(
+          eq(idempotencyKeys.userId, userId),
+          eq(idempotencyKeys.keyHash, keyHash),
+          lt(idempotencyKeys.expiresAt, now),
+        ),
+      )
+      .returning({ id: idempotencyKeys.id });
+    if (updated.length > 0) return { claimed: true, responseJson: null, pending: false };
+  }
+
+  const current = (await read())[0];
+  if (!current || current.responseJson === IDEMPOTENCY_PENDING) {
+    return { claimed: false, responseJson: null, pending: true };
+  }
+  return { claimed: false, responseJson: current.responseJson, pending: false };
+}
+
+/** Stores the response and releases the claim for replay. */
 export async function storeIdempotentResponse(
   db: Database,
   userId: string,
   keyHash: string,
   responseJson: string,
 ): Promise<void> {
-  const expiresAt = new Date(Date.now() + IDEMPOTENCY_TTL_MS);
   await db
-    .insert(idempotencyKeys)
-    .values({
-      id: crypto.randomUUID(),
-      userId,
-      keyHash,
-      responseJson,
-      expiresAt,
-    })
-    // Refresh only an expired row; a live row keeps its original response.
-    .onConflictDoUpdate({
-      target: [idempotencyKeys.userId, idempotencyKeys.keyHash],
-      set: { responseJson, expiresAt },
-      setWhere: lt(idempotencyKeys.expiresAt, new Date()),
-    });
+    .update(idempotencyKeys)
+    .set({ responseJson, expiresAt: new Date(Date.now() + IDEMPOTENCY_TTL_MS) })
+    .where(
+      and(
+        eq(idempotencyKeys.userId, userId),
+        eq(idempotencyKeys.keyHash, keyHash),
+        eq(idempotencyKeys.responseJson, IDEMPOTENCY_PENDING),
+      ),
+    );
+}
+
+/** Removes a pending claim so a failed operation can be retried. */
+export async function releaseIdempotentClaim(
+  db: Database,
+  userId: string,
+  keyHash: string,
+): Promise<void> {
+  await db
+    .delete(idempotencyKeys)
+    .where(
+      and(
+        eq(idempotencyKeys.userId, userId),
+        eq(idempotencyKeys.keyHash, keyHash),
+        eq(idempotencyKeys.responseJson, IDEMPOTENCY_PENDING),
+      ),
+    );
 }

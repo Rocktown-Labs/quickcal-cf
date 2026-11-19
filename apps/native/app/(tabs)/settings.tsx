@@ -7,6 +7,11 @@ import { Button, Input, Label, Spinner, TextField, useToast } from "heroui-nativ
 import { authClient } from "@/lib/auth-client";
 import { api, webUrl } from "@/lib/api";
 import {
+  PREMIUM_ANNUAL_DISPLAY,
+  PREMIUM_ANNUAL_MONTHLY_DISPLAY,
+  PREMIUM_MONTHLY_DISPLAY,
+} from "@quickcal-cf/config/pricing";
+import {
   useApiKeys,
   useCreateApiKey,
   useDeleteApiKey,
@@ -262,10 +267,10 @@ export default function SettingsScreen() {
               </Text>
               <View className="gap-2">
                 <Button className="bg-[#c23326]" onPress={() => void upgrade()}>
-                  <Button.Label>Upgrade to Premium — $12.99/mo</Button.Label>
+                  <Button.Label>{`Upgrade to Premium — ${PREMIUM_MONTHLY_DISPLAY}/mo`}</Button.Label>
                 </Button>
                 <Button variant="outline" onPress={() => void upgrade(true)}>
-                  <Button.Label>Annual — $5.99/mo ($71.88/yr)</Button.Label>
+                  <Button.Label>{`Annual — ${PREMIUM_ANNUAL_MONTHLY_DISPLAY}/mo (${PREMIUM_ANNUAL_DISPLAY}/yr)`}</Button.Label>
                 </Button>
               </View>
             </>

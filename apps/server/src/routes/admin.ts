@@ -6,6 +6,7 @@ import Stripe from "stripe";
 import { createAuth, getDb } from "../services";
 import { isUserBanned, upsertPlan } from "@quickcal-cf/db";
 import { ENV } from "../env.server";
+import { PREMIUM_ANNUAL_CENTS, PREMIUM_MONTHLY_CENTS } from "@quickcal-cf/config/pricing";
 import * as HttpStatusCodes from "stoker/http-status-codes";
 
 const router = new Hono();
@@ -39,8 +40,8 @@ const syncSchema = z.object({
 });
 
 const CENTS = {
-  premiumMonthly: 1299,
-  premiumAnnual: 7188,
+  premiumMonthly: PREMIUM_MONTHLY_CENTS,
+  premiumAnnual: PREMIUM_ANNUAL_CENTS,
 };
 
 async function getOrCreateProduct(

@@ -45,10 +45,7 @@ export const uploads = sqliteTable(
       .references(() => user.id, { onDelete: "cascade" }),
     ...timestamps(),
   },
-  (table) => [
-    index("uploads_userId_idx").on(table.userId),
-    index("uploads_shareToken_idx").on(table.shareToken),
-  ],
+  (table) => [index("uploads_userId_idx").on(table.userId)],
 );
 
 export const events = sqliteTable(
@@ -97,5 +94,8 @@ export const idempotencyKeys = sqliteTable(
       .notNull(),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
   },
-  (table) => [uniqueIndex("idempotency_user_key_idx").on(table.userId, table.keyHash)],
+  (table) => [
+    uniqueIndex("idempotency_user_key_idx").on(table.userId, table.keyHash),
+    index("idempotency_expiresAt_idx").on(table.expiresAt),
+  ],
 );

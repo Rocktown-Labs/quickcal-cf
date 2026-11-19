@@ -6,6 +6,7 @@ import { Html } from "@react-email/html";
 import { Preview } from "@react-email/preview";
 import { Section } from "@react-email/section";
 import { Text } from "@react-email/text";
+import { EMAIL_COLORS } from "../theme";
 
 export interface EmailShellProps {
   preview: string;
@@ -20,7 +21,7 @@ export function EmailShell({ preview, children, footer }: EmailShellProps) {
       <Body
         style={{
           margin: 0,
-          background: "#0a0a0a",
+          background: EMAIL_COLORS.page,
           fontFamily: "Arial, Helvetica, sans-serif",
           padding: "32px 0",
         }}
@@ -30,12 +31,12 @@ export function EmailShell({ preview, children, footer }: EmailShellProps) {
           style={{
             maxWidth: "600px",
             margin: "0 auto",
-            background: "#161616",
+            background: EMAIL_COLORS.card,
             borderRadius: "12px",
             overflow: "hidden",
           }}
         >
-          <Section style={{ background: "#c23326", padding: "24px 32px" }}>
+          <Section style={{ background: EMAIL_COLORS.brand, padding: "24px 32px" }}>
             <Text
               style={{
                 color: "#ffffff",
@@ -47,14 +48,14 @@ export function EmailShell({ preview, children, footer }: EmailShellProps) {
               QuickCalAI
             </Text>
           </Section>
-          <Section style={{ padding: "32px", color: "#efefef", lineHeight: "1.6" }}>
+          <Section style={{ padding: "32px", color: EMAIL_COLORS.foreground, lineHeight: "1.6" }}>
             {children}
           </Section>
-          <Section style={{ borderTop: "1px solid #333333", padding: "24px 32px" }}>
+          <Section style={{ borderTop: `1px solid ${EMAIL_COLORS.border}`, padding: "24px 32px" }}>
             {footer ?? (
               <Text
                 style={{
-                  color: "#666666",
+                  color: EMAIL_COLORS.faint,
                   fontSize: "12px",
                   textAlign: "center",
                   margin: 0,

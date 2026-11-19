@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import { isSensitivePage } from "@quickcal-cf/observability";
 
 interface Props {
   title?: string;
@@ -10,7 +11,7 @@ const {
   title = "QuickCalAI - AI-Powered Calendar Extraction",
   description = "Extract dates and events from images and PDFs with AI. Generate calendar files (.ics) and get reminders via download, email, or SMS.",
 } = Astro.props;
-const trackPage = !/^\/(?:s\/|reset-password|verify-email|consent)/.test(Astro.url.pathname);
+const trackPage = !isSensitivePage(Astro.url.pathname);
 ---
 
 <!doctype html>

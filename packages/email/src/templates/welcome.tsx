@@ -2,6 +2,8 @@ import { Button } from "@react-email/button";
 import { Section } from "@react-email/section";
 import { Text } from "@react-email/text";
 import { EmailShell } from "../components/email-shell";
+import { EMAIL_COLORS } from "../theme";
+import { FREE_CREDITS } from "@quickcal-cf/config/pricing";
 
 export interface WelcomeEmailProps {
   name?: string;
@@ -10,21 +12,21 @@ export interface WelcomeEmailProps {
 }
 
 const headingStyle = {
-  color: "#efefef",
+  color: EMAIL_COLORS.foreground,
   fontSize: "20px",
   fontWeight: "bold",
   margin: "0 0 16px",
 } as const;
 
 const bodyStyle = {
-  color: "#888888",
+  color: EMAIL_COLORS.muted,
   fontSize: "16px",
   lineHeight: "1.6",
   margin: "0 0 24px",
 } as const;
 
 const cardStyle = {
-  background: "#1a1a1a",
+  background: EMAIL_COLORS.raised,
   borderRadius: "8px",
   padding: "20px",
   margin: "0 0 24px",
@@ -33,7 +35,7 @@ const cardStyle = {
 const buttonStyle = {
   display: "block",
   boxSizing: "border-box",
-  background: "#c23326",
+  background: EMAIL_COLORS.brand,
   color: "#ffffff",
   fontWeight: "bold",
   padding: "12px 24px",
@@ -42,7 +44,11 @@ const buttonStyle = {
   textAlign: "center",
 } as const;
 
-export function WelcomeEmail({ name, dashboardUrl, freeCredits = 1 }: WelcomeEmailProps) {
+export function WelcomeEmail({
+  name,
+  dashboardUrl,
+  freeCredits = FREE_CREDITS,
+}: WelcomeEmailProps) {
   const firstName = name?.trim().split(/\s+/)[0];
   const creditLine =
     freeCredits > 0
@@ -61,7 +67,7 @@ export function WelcomeEmail({ name, dashboardUrl, freeCredits = 1 }: WelcomeEma
       <Section style={cardStyle}>
         <Text
           style={{
-            color: "#efefef",
+            color: EMAIL_COLORS.foreground,
             fontSize: "16px",
             fontWeight: "bold",
             margin: "0 0 8px",
@@ -71,7 +77,7 @@ export function WelcomeEmail({ name, dashboardUrl, freeCredits = 1 }: WelcomeEma
         </Text>
         <Text
           style={{
-            color: "#888888",
+            color: EMAIL_COLORS.muted,
             fontSize: "14px",
             lineHeight: "1.6",
             margin: 0,
@@ -93,7 +99,7 @@ export function WelcomeEmail({ name, dashboardUrl, freeCredits = 1 }: WelcomeEma
 
       <Text
         style={{
-          color: "#888888",
+          color: EMAIL_COLORS.muted,
           fontSize: "14px",
           lineHeight: "1.6",
           margin: "24px 0 0",

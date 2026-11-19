@@ -1,6 +1,8 @@
 import * as Sentry from "@sentry/browser";
 import {
   privateDataCollection,
+  isSensitivePage,
+  SENTRY_TRACES_SAMPLE_RATE,
   scrubEvent,
   scrubBreadcrumb,
   scrubLog,
@@ -10,9 +12,7 @@ import { ENV } from "../env.public";
 
 const dsn = import.meta.env.PUBLIC_SENTRY_DSN;
 // Auth/reset/share pages carry sensitive tokens; exclude their DOM from replay.
-const sensitivePage =
-  typeof window !== "undefined" &&
-  /^\/(?:s\/|reset-password|verify-email|consent)/.test(window.location.pathname);
+const sensitivePage = typeof window !== "undefined" && isSensitivePage(window.location.pathname);
 if (dsn) {
   Sentry.init({
     dsn,
@@ -30,7 +30,7 @@ if (dsn) {
           ]
         : []),
     ],
-    tracesSampleRate: 0.2,
+    tracesSampleRate: SENTRY_TRACES_SAMPLE_RATE,
     tracePropagationTargets: [new URL(ENV.PUBLIC_SERVER_URL).origin],
     replaysSessionSampleRate: 0.05,
     replaysOnErrorSampleRate: 1,

@@ -1,6 +1,11 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import Logo from "../components/Logo.astro";
+import {
+  PREMIUM_ANNUAL_DISPLAY,
+  PREMIUM_ANNUAL_MONTHLY_DISPLAY,
+  PREMIUM_MONTHLY_DISPLAY,
+} from "@quickcal-cf/config/pricing";
 ---
 
 <Layout title="Admin — QuickCalAI">
@@ -81,13 +86,13 @@ import Logo from "../components/Logo.astro";
               <span class="mt-0.5 shrink-0 w-4 h-4 rounded-full border border-primary/40 flex items-center justify-center">
                 <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
               </span>
-              <span>Monthly price: <strong class="text-foreground">$12.99</strong></span>
+              <span>Monthly price: <strong class="text-foreground">{PREMIUM_MONTHLY_DISPLAY}</strong></span>
             </li>
             <li class="flex items-start gap-3">
               <span class="mt-0.5 shrink-0 w-4 h-4 rounded-full border border-primary/40 flex items-center justify-center">
                 <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
               </span>
-              <span>Annual price: <strong class="text-foreground">$71.88/year</strong> (displayed as $5.99/mo)</span>
+              <span>Annual price: <strong class="text-foreground">{PREMIUM_ANNUAL_DISPLAY}/year</strong> (displayed as {PREMIUM_ANNUAL_MONTHLY_DISPLAY}/mo)</span>
             </li>
           </ul>
         </section>

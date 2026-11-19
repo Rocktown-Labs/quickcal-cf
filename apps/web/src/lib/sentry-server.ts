@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/cloudflare";
 import {
   privateDataCollection,
+  SENTRY_TRACES_SAMPLE_RATE,
   scrubEvent,
   scrubBreadcrumb,
   scrubLog,
@@ -9,13 +10,14 @@ import {
 export function webSentryOptions(env: {
   SENTRY_DSN?: string;
   SENTRY_RELEASE?: string;
+  NODE_ENV?: string;
 }): Sentry.CloudflareOptions {
   return {
     dsn: env.SENTRY_DSN || undefined,
     enabled: Boolean(env.SENTRY_DSN),
     release: env.SENTRY_RELEASE || undefined,
-    environment: "production",
-    tracesSampleRate: 0.2,
+    environment: env.NODE_ENV ?? "production",
+    tracesSampleRate: SENTRY_TRACES_SAMPLE_RATE,
     dataCollection: { ...privateDataCollection, httpBodies: [] },
     beforeSend: scrubEvent,
     beforeSendTransaction: scrubEvent,

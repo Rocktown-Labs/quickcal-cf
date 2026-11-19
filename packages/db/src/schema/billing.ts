@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 // Mirrors the better-auth stripe plugin schema
 // (provider: sqlite, default model/table names).
@@ -33,7 +33,11 @@ export const subscription = sqliteTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("subscription_referenceId_idx").on(table.referenceId)],
+  (table) => [
+    index("subscription_referenceId_idx").on(table.referenceId),
+    index("subscription_stripeCustomerId_idx").on(table.stripeCustomerId),
+    uniqueIndex("subscription_stripeSubscriptionId_idx").on(table.stripeSubscriptionId),
+  ],
 );
 
 // Plans synced from Stripe (or seeded) so the auth config can build
@@ -59,5 +63,8 @@ export const plan = sqliteTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("plan_name_idx").on(table.name)],
+  (table) => [
+    uniqueIndex("plan_priceId_idx").on(table.priceId),
+    uniqueIndex("plan_stripeProductId_idx").on(table.stripeProductId),
+  ],
 );

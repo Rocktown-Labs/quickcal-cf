@@ -93,4 +93,50 @@ describe("withIdempotency", () => {
 
     expect(calls).toBe(2);
   });
+
+  test("lets only one concurrent caller produce", async () => {
+    const db = createTestDb();
+    const c = contextWithKey("concurrent-key-123");
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const produce = async () => {
+      calls += 1;
+      await gate;
+      return okResponse();
+    };
+
+    const first = withIdempotency(c, db, "user-1", produce);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const second = withIdempotency(c, db, "user-1", produce);
+    release();
+
+    const [a, b] = await Promise.all([first, second]);
+    expect(calls).toBe(1);
+    expect(a.status).toBe(202);
+    expect(b.status).toBe(202);
+    expect(b.headers.get("Idempotency-Replayed")).toBe("true");
+  });
+
+  test("releases the claim when production throws", async () => {
+    const db = createTestDb();
+    const c = contextWithKey("retry-key-123");
+    let calls = 0;
+
+    await expect(
+      withIdempotency(c, db, "user-1", async () => {
+        calls += 1;
+        throw new Error("boom");
+      }),
+    ).rejects.toThrow("boom");
+
+    const retry = await withIdempotency(c, db, "user-1", async () => {
+      calls += 1;
+      return okResponse();
+    });
+    expect(calls).toBe(2);
+    expect(retry.status).toBe(202);
+  });
 });

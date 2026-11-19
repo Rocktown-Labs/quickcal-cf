@@ -1,36 +1,44 @@
 import { defineRelationsPart, sql } from "drizzle-orm";
-import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { check, sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { FREE_CREDITS } from "@quickcal-cf/config/pricing";
 
-export const user = sqliteTable("user", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  email: text("email").notNull().unique(),
-  emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
-  image: text("image"),
-  stripeCustomerId: text("stripe_customer_id"),
-  phoneNumber: text("phone_number"),
-  // Onboarding answers (POST-SIGNUP questionnaire)
-  useCase: text("use_case"),
-  calendarApp: text("calendar_app"),
-  // Free AI extractions remaining (the "1 free extraction" trial).
-  // Premium users bypass this counter entirely.
-  freeCredits: integer("free_credits").default(1).notNull(),
-  // Secret token for the aggregate calendar feed (webcal:// subscription
-  // containing every event the user owns). Rotatable.
-  calToken: text("cal_token").unique(),
-  isOnboarded: integer("is_onboarded", { mode: "boolean" }).default(false).notNull(),
-  role: text("role").default("user").notNull(),
-  banned: integer("banned", { mode: "boolean" }).default(false).notNull(),
-  banReason: text("ban_reason"),
-  banExpires: integer("ban_expires", { mode: "timestamp_ms" }),
-  createdAt: integer("created_at", { mode: "timestamp_ms" })
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-    .notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
-    .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
-    .$onUpdate(() => /* @__PURE__ */ new Date())
-    .notNull(),
-});
+export const user = sqliteTable(
+  "user",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    emailVerified: integer("email_verified", { mode: "boolean" }).default(false).notNull(),
+    image: text("image"),
+    stripeCustomerId: text("stripe_customer_id"),
+    phoneNumber: text("phone_number"),
+    // Onboarding answers (POST-SIGNUP questionnaire)
+    useCase: text("use_case"),
+    calendarApp: text("calendar_app"),
+    // Free AI extractions remaining (the "1 free extraction" trial).
+    // Premium users bypass this counter entirely.
+    freeCredits: integer("free_credits").default(FREE_CREDITS).notNull(),
+    // Secret token for the aggregate calendar feed (webcal:// subscription
+    // containing every event the user owns). Rotatable.
+    calToken: text("cal_token").unique(),
+    isOnboarded: integer("is_onboarded", { mode: "boolean" }).default(false).notNull(),
+    role: text("role").default("user").notNull(),
+    banned: integer("banned", { mode: "boolean" }).default(false).notNull(),
+    banReason: text("ban_reason"),
+    banExpires: integer("ban_expires", { mode: "timestamp_ms" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .default(sql`(cast(unixepoch('subsecond') * 1000 as integer))`)
+      .$onUpdate(() => /* @__PURE__ */ new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("user_stripeCustomerId_idx").on(table.stripeCustomerId),
+    check("user_freeCredits_non_negative", sql`${table.freeCredits} >= 0`),
+  ],
+);
 
 export const session = sqliteTable(
   "session",
@@ -81,7 +89,10 @@ export const account = sqliteTable(
       .$onUpdate(() => /* @__PURE__ */ new Date())
       .notNull(),
   },
-  (table) => [index("account_userId_idx").on(table.userId)],
+  (table) => [
+    index("account_userId_idx").on(table.userId),
+    uniqueIndex("account_providerId_accountId_idx").on(table.providerId, table.accountId),
+  ],
 );
 
 export const verification = sqliteTable(
@@ -105,6 +116,8 @@ export const verification = sqliteTable(
 export const jwks = sqliteTable("jwks", {
   id: text("id").primaryKey(),
   publicKey: text("public_key").notNull(),
+  // D1 encrypts storage at rest; this column must never be selected into
+  // logs or API responses. Rotation is handled by Better Auth's JWT plugin.
   privateKey: text("private_key").notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   expiresAt: integer("expires_at", { mode: "timestamp_ms" }),
@@ -119,9 +132,9 @@ export const oauthClient = sqliteTable(
     clientId: text("client_id").notNull().unique(),
     clientSecret: text("client_secret"),
     clientDiscoveryId: text("client_discovery_id"),
-    disabled: integer("disabled", { mode: "boolean" }).default(false),
-    skipConsent: integer("skip_consent", { mode: "boolean" }),
-    enableEndSession: integer("enable_end_session", { mode: "boolean" }),
+    disabled: integer("disabled", { mode: "boolean" }).default(false).notNull(),
+    skipConsent: integer("skip_consent", { mode: "boolean" }).default(false).notNull(),
+    enableEndSession: integer("enable_end_session", { mode: "boolean" }).default(false).notNull(),
     subjectType: text("subject_type"),
     scopes: text("scopes", { mode: "json" }),
     clientCredentialsScopes: text("client_credentials_scopes", {
@@ -154,7 +167,9 @@ export const oauthClient = sqliteTable(
     requirePKCE: integer("require_pkce", { mode: "boolean" }),
     dpopBoundAccessTokens: integer("dpop_bound_access_tokens", {
       mode: "boolean",
-    }).default(false),
+    })
+      .default(false)
+      .notNull(),
     referenceId: text("reference_id"),
     metadata: text("metadata", { mode: "json" }),
   },
@@ -173,11 +188,13 @@ export const oauthResource = sqliteTable("oauth_resource", {
   customClaims: text("custom_claims", { mode: "json" }),
   dpopBoundAccessTokensRequired: integer("dpop_bound_access_tokens_required", {
     mode: "boolean",
-  }).default(false),
-  disabled: integer("disabled", { mode: "boolean" }).default(false),
+  })
+    .default(false)
+    .notNull(),
+  disabled: integer("disabled", { mode: "boolean" }).default(false).notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }),
-  policyVersion: integer("policy_version").default(1),
+  policyVersion: integer("policy_version").default(1).notNull(),
   metadata: text("metadata", { mode: "json" }),
 });
 
@@ -196,7 +213,6 @@ export const oauthClientResource = sqliteTable(
   },
   (table) => [
     uniqueIndex("oauthClientResource_clientId_resourceId_idx").on(table.clientId, table.resourceId),
-    index("oauthClientResource_clientId_idx").on(table.clientId),
     index("oauthClientResource_resourceId_idx").on(table.resourceId),
   ],
 );
@@ -245,7 +261,7 @@ export const oauthAccessToken = sqliteTable(
   "oauth_access_token",
   {
     id: text("id").primaryKey(),
-    token: text("token").unique(),
+    token: text("token").notNull().unique(),
     clientId: text("client_id")
       .notNull()
       .references(() => oauthClient.clientId, { onDelete: "cascade" }),
@@ -297,6 +313,7 @@ export const oauthConsent = sqliteTable(
   (table) => [
     index("oauthConsent_clientId_idx").on(table.clientId),
     index("oauthConsent_userId_idx").on(table.userId),
+    uniqueIndex("oauthConsent_clientId_userId_idx").on(table.clientId, table.userId),
   ],
 );
 
