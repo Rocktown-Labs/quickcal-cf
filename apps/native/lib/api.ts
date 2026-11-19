@@ -1,16 +1,9 @@
 import { authClient } from "./auth-client";
+import { normalizeBaseUrl } from "./env-url";
 import { ENV } from "../src/env";
 
 const BASE = normalizeBaseUrl(ENV.EXPO_PUBLIC_SERVER_URL, "EXPO_PUBLIC_SERVER_URL");
 const WEB_BASE = normalizeBaseUrl(ENV.EXPO_PUBLIC_WEB_URL, "EXPO_PUBLIC_WEB_URL");
-
-function normalizeBaseUrl(value: string, name: string): string {
-  const trimmed = value.trim().replace(/\/+$/, "");
-  if (!/^https?:\/\//i.test(trimmed)) {
-    throw new Error(`${name} must be an absolute http(s) URL`);
-  }
-  return trimmed;
-}
 
 /** The web app origin (public share pages, auth emails) — not the API origin. */
 export function webUrl(): string {
