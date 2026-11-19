@@ -3,6 +3,8 @@ import { Link } from "@react-email/link";
 import { Section } from "@react-email/section";
 import { Text } from "@react-email/text";
 import { EmailShell } from "../components/email-shell";
+import { bodyStyle, cardStyle, EMAIL_COLORS, primaryButtonStyle } from "../theme";
+import { PREMIUM_ANNUAL_DISPLAY, PREMIUM_MONTHLY_DISPLAY } from "@quickcal-cf/config/pricing";
 
 export interface AnnouncementEmailProps {
   firstName?: string;
@@ -17,22 +19,8 @@ export const ANNOUNCEMENT_SUBJECT = "QuickCalAI is rebuilt, and it is agent-read
 export const ANNOUNCEMENT_PREVIEW =
   "Paste text, drop a link, or connect Claude or Cursor. One free AI extraction is waiting.";
 
-const bodyStyle = {
-  color: "#888888",
-  fontSize: "16px",
-  lineHeight: "1.6",
-  margin: "0 0 16px",
-} as const;
-
-const cardStyle = {
-  background: "#1a1a1a",
-  borderRadius: "8px",
-  padding: "20px",
-  margin: "0 0 24px",
-} as const;
-
 const bulletStyle = {
-  color: "#efefef",
+  color: EMAIL_COLORS.foreground,
   fontSize: "14px",
   lineHeight: "1.6",
   margin: "0 0 12px",
@@ -41,18 +29,6 @@ const bulletStyle = {
 const lastBulletStyle = {
   ...bulletStyle,
   margin: 0,
-} as const;
-
-const buttonStyle = {
-  display: "block",
-  boxSizing: "border-box",
-  background: "#c23326",
-  color: "#ffffff",
-  fontWeight: "bold",
-  padding: "12px 24px",
-  borderRadius: "8px",
-  textDecoration: "none",
-  textAlign: "center",
 } as const;
 
 /** Validate email CTAs; React escapes quotes but not dangerous schemes. */
@@ -164,8 +140,8 @@ export function AnnouncementEmail({
         </Text>
         <Text style={lastBulletStyle}>
           <strong style={{ color: "#c23326" }}>Free to start.</strong> Every account gets one free
-          AI extraction. Manual events are free forever. Premium is $12.99 per month or $71.88 per
-          year for unlimited AI.
+          AI extraction. Manual events are free forever. Premium is {PREMIUM_MONTHLY_DISPLAY} per
+          month or {PREMIUM_ANNUAL_DISPLAY} per year for unlimited AI.
         </Text>
       </Section>
 
@@ -195,7 +171,7 @@ export function AnnouncementEmail({
         &quot;Forgot password&quot; to set a new one.
       </Text>
 
-      <Button href={loginHref} style={buttonStyle}>
+      <Button href={loginHref} style={primaryButtonStyle}>
         Open the new QuickCalAI
       </Button>
 

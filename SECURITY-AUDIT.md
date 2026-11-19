@@ -226,3 +226,7 @@ filters).
   their ~1h expiry even if the client is revoked.
 - **Banned users’ public share/feed links:** banning a user does not revoke
   already-created public share tokens or calendar feed tokens.
+- **JWK signing keys:** Better Auth’s JWT plugin stores the private key in
+  `jwks.private_key`. Cloudflare D1 encrypts storage at rest and the column is
+  never selected into logs or API responses; app-level envelope encryption
+  would require wrapping Better Auth’s adapter and is deferred.

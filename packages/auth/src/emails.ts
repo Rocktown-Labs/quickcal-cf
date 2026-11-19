@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { renderWelcomeEmail } from "@quickcal-cf/email";
+import { FREE_CREDITS } from "@quickcal-cf/config/pricing";
 
 export interface AuthEmailConfig {
   RESEND_API_KEY?: string;
@@ -125,7 +126,7 @@ export async function sendWelcomeEmail(
   const { html, text } = await renderWelcomeEmail({
     name: input.name,
     dashboardUrl: `${config.WEB_ORIGIN}/dashboard`,
-    freeCredits: 1,
+    freeCredits: FREE_CREDITS,
   });
 
   await sendViaResend(

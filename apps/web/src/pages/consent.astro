@@ -34,7 +34,10 @@ const hasParams = Boolean(clientId && params.get("sig"));
 
       <div id="consent" class={`rounded-xl border border-border bg-card p-6 ${hasParams ? "" : "hidden"}`}>
         <p class="text-sm text-muted-foreground mb-1">Requested by</p>
-        <p class="mb-5 break-all text-sm font-medium text-foreground">{clientId}</p>
+        <p class="mb-1 break-all text-sm font-medium text-foreground">{clientId}</p>
+        <p class="mb-5 text-xs text-muted-foreground">
+          The app name is supplied by the requesting client and is not verified.
+        </p>
 
         <p class="mb-2 text-sm font-medium text-foreground">This app will be able to:</p>
         <ul class="mb-6 space-y-1 text-sm text-muted-foreground">

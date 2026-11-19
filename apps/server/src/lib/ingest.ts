@@ -9,8 +9,10 @@ import {
 import type { Database } from "@quickcal-cf/db";
 import { consumeFreeCredit, refundFreeCredit, isPremium } from "@quickcal-cf/db";
 import {
+  claimIdempotencyKey,
   findIdempotentResponse,
   hashIdempotencyKey,
+  releaseIdempotentClaim,
   storeIdempotentResponse,
 } from "@quickcal-cf/db";
 
@@ -316,35 +318,70 @@ export async function withIdempotency<T>(
   }
 
   const keyHash = await hashIdempotencyKey(rawKey);
-  const stored = await findIdempotentResponse(db, userId, keyHash);
-  if (stored) {
-    const replay = deserializeIdempotentResponse(stored);
-    if (replay) return replay as unknown as T;
+  const claim = await claimIdempotencyKey(db, userId, keyHash);
 
-    // Legacy rows stored a plain JSON body (and an empty `{}` for Response
-    // results). Replay what we have as JSON so old keys don't 500.
-    return new Response(stored, {
-      status: 200,
-      headers: { "content-type": "application/json", "Idempotency-Replayed": "true" },
-    }) as unknown as T;
-  }
+  if (!claim.claimed) {
+    if (claim.responseJson) return replayStoredResponse(claim.responseJson) as unknown as T;
 
-  const result = await produce();
-  if (result instanceof Response) {
-    // Cache deterministic outcomes; never pin a transient 5xx/429/408 for
-    // the full 24h TTL.
-    const cacheable =
-      result.ok ||
-      (result.status >= 400 && result.status < 500 && ![408, 429].includes(result.status));
-    const serialized = cacheable ? await serializeIdempotentResponse(result) : null;
-    if (serialized) {
-      await storeIdempotentResponse(db, userId, keyHash, serialized).catch(() => undefined);
+    // Another caller owns the claim. Wait briefly for it to finish so a
+    // concurrent retry can replay the result instead of erroring.
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const stored = await findIdempotentResponse(db, userId, keyHash);
+      if (stored) return replayStoredResponse(stored) as unknown as T;
     }
-  } else {
-    // Non-Response handlers (none today) keep the original JSON behavior.
-    await storeIdempotentResponse(db, userId, keyHash, JSON.stringify(result)).catch(
-      () => undefined,
-    );
+
+    return new Response(
+      JSON.stringify({ message: "A request with this Idempotency-Key is already in progress." }),
+      {
+        status: 409,
+        headers: { "content-type": "application/json", "Retry-After": "1" },
+      },
+    ) as unknown as T;
   }
-  return result;
+
+  try {
+    const result = await produce();
+    if (result instanceof Response) {
+      // Cache deterministic outcomes; never pin a transient 5xx/429/408 for
+      // the full 24h TTL.
+      const cacheable =
+        result.ok ||
+        (result.status >= 400 && result.status < 500 && ![408, 429].includes(result.status));
+      if (cacheable) {
+        const serialized = await serializeIdempotentResponse(result);
+        if (serialized) {
+          await storeIdempotentResponse(db, userId, keyHash, serialized).catch(async (error) => {
+            console.warn("idempotency store failed", error);
+            await releaseIdempotentClaim(db, userId, keyHash).catch(() => undefined);
+          });
+        }
+      } else {
+        await releaseIdempotentClaim(db, userId, keyHash).catch(() => undefined);
+      }
+    } else {
+      await storeIdempotentResponse(db, userId, keyHash, JSON.stringify(result)).catch(
+        async (error) => {
+          console.warn("idempotency store failed", error);
+          await releaseIdempotentClaim(db, userId, keyHash).catch(() => undefined);
+        },
+      );
+    }
+    return result;
+  } catch (error) {
+    await releaseIdempotentClaim(db, userId, keyHash).catch(() => undefined);
+    throw error;
+  }
+}
+
+function replayStoredResponse(stored: string): Response {
+  const replay = deserializeIdempotentResponse(stored);
+  if (replay) return replay;
+
+  // Legacy rows stored a plain JSON body (and an empty `{}` for Response
+  // results). Replay what we have as JSON so old keys don't 500.
+  return new Response(stored, {
+    status: 200,
+    headers: { "content-type": "application/json", "Idempotency-Replayed": "true" },
+  });
 }

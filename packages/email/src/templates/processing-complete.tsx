@@ -2,6 +2,7 @@ import { Button } from "@react-email/button";
 import { Section } from "@react-email/section";
 import { Text } from "@react-email/text";
 import { EmailShell } from "../components/email-shell";
+import { EMAIL_COLORS } from "../theme";
 
 export interface ProcessingCompleteEmailProps {
   fileName: string;
@@ -21,21 +22,21 @@ function httpUrl(value?: string): string | undefined {
 }
 
 const headingStyle = {
-  color: "#efefef",
+  color: EMAIL_COLORS.foreground,
   fontSize: "20px",
   fontWeight: "bold",
   margin: "0 0 16px",
 } as const;
 
 const bodyStyle = {
-  color: "#888888",
+  color: EMAIL_COLORS.muted,
   fontSize: "16px",
   lineHeight: "1.6",
   margin: "0 0 24px",
 } as const;
 
 const cardStyle = {
-  background: "#1a1a1a",
+  background: EMAIL_COLORS.raised,
   borderRadius: "8px",
   padding: "20px",
   margin: "0 0 16px",
@@ -44,7 +45,7 @@ const cardStyle = {
 const primaryButtonStyle = {
   display: "block",
   boxSizing: "border-box",
-  background: "#c23326",
+  background: EMAIL_COLORS.brand,
   color: "#ffffff",
   fontWeight: "bold",
   padding: "12px 24px",
@@ -56,9 +57,9 @@ const primaryButtonStyle = {
 const secondaryButtonStyle = {
   display: "block",
   boxSizing: "border-box",
-  background: "#212121",
-  border: "1px solid #333333",
-  color: "#efefef",
+  background: EMAIL_COLORS.raised,
+  border: `1px solid ${EMAIL_COLORS.border}`,
+  color: EMAIL_COLORS.foreground,
   fontWeight: "bold",
   padding: "12px 24px",
   borderRadius: "8px",
@@ -87,17 +88,17 @@ export function ProcessingCompleteEmail({
 
       <Text style={bodyStyle}>
         We found{" "}
-        <strong style={{ color: "#efefef" }}>
+        <strong style={{ color: EMAIL_COLORS.foreground }}>
           {eventCount} {eventWord}
         </strong>{" "}
-        in <strong style={{ color: "#efefef" }}>{displayName}</strong>.
+        in <strong style={{ color: EMAIL_COLORS.foreground }}>{displayName}</strong>.
       </Text>
 
       {shareHref ? (
         <Section style={cardStyle}>
           <Text
             style={{
-              color: "#efefef",
+              color: EMAIL_COLORS.foreground,
               fontSize: "16px",
               fontWeight: "bold",
               margin: "0 0 8px",
@@ -107,7 +108,7 @@ export function ProcessingCompleteEmail({
           </Text>
           <Text
             style={{
-              color: "#888888",
+              color: EMAIL_COLORS.muted,
               fontSize: "14px",
               lineHeight: "1.6",
               margin: "0 0 12px",
@@ -128,7 +129,7 @@ export function ProcessingCompleteEmail({
           </Button>
           <Text
             style={{
-              color: "#888888",
+              color: EMAIL_COLORS.muted,
               fontSize: "14px",
               lineHeight: "1.6",
               margin: 0,

@@ -2,6 +2,12 @@
 import Layout from "../layouts/Layout.astro";
 import Navbar from "../components/Navbar.astro";
 import Logo from "../components/Logo.astro";
+import {
+  PREMIUM_ANNUAL_DISPLAY,
+  PREMIUM_ANNUAL_MONTHLY_DISPLAY,
+  PREMIUM_ANNUAL_SAVINGS_LABEL,
+  PREMIUM_MONTHLY_DISPLAY,
+} from "@quickcal-cf/config/pricing";
 
 const stats = [
   { value: "4 Ways In", label: "Photos, PDFs, text, or links" },
@@ -79,7 +85,7 @@ const plans = [
   },
   {
     name: "Premium",
-    price: "$12.99",
+    price: PREMIUM_MONTHLY_DISPLAY,
     period: "/mo",
     description: "Unlimited AI extraction on demand",
     featured: true,
@@ -92,13 +98,13 @@ const plans = [
   },
   {
     name: "Annual",
-    price: "$5.99",
+    price: PREMIUM_ANNUAL_MONTHLY_DISPLAY,
     period: "/mo",
-    description: "$71.88 billed annually (Save 54%)",
+    description: `${PREMIUM_ANNUAL_DISPLAY} billed annually (${PREMIUM_ANNUAL_SAVINGS_LABEL})`,
     featured: false,
     features: [
       "Everything in Premium",
-      "Save 54% vs monthly",
+      PREMIUM_ANNUAL_SAVINGS_LABEL,
       "Cancel anytime",
     ],
   },

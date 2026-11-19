@@ -8,6 +8,13 @@ export const privateDataCollection = {
   genAI: { inputs: false, outputs: false },
 };
 
+/** Pages whose URLs/DOM can contain tokens; exclude them from replay/analytics. */
+export function isSensitivePage(pathname: string): boolean {
+  return /^\/(?:s\/|reset-password|verify-email|consent)/.test(pathname);
+}
+
+export const SENTRY_TRACES_SAMPLE_RATE = 0.2;
+
 export function safePath(value: string): string {
   return value
     .split(/[?#]/)[0]!

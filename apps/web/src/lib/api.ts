@@ -3,23 +3,6 @@ import { captureApiFailure } from "./observability";
 
 const BASE = ENV.PUBLIC_SERVER_URL;
 
-export function getApiKey(): string | null {
-  try {
-    return localStorage.getItem("qc_api_key");
-  } catch {
-    return null;
-  }
-}
-
-export function setApiKey(key: string | null) {
-  try {
-    if (key) localStorage.setItem("qc_api_key", key);
-    else localStorage.removeItem("qc_api_key");
-  } catch {
-    // storage unavailable — session cookies still work
-  }
-}
-
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -34,8 +17,6 @@ async function request<T>(
 ): Promise<T> {
   const { form, json, ...rest } = init;
   const headers = new Headers(rest.headers);
-  const key = getApiKey();
-  if (key) headers.set("Authorization", `Bearer ${key}`);
 
   let body: BodyInit | undefined;
   if (form) {
