@@ -162,9 +162,10 @@ const currentYear = new Date().getFullYear();
 ---
 
 <Layout>
-  <main class="relative overflow-hidden pb-16 md:pb-0">
+  <div class="relative overflow-hidden pb-16 md:pb-0">
     <Navbar />
 
+    <main>
     <!-- Hero Section -->
     <section id="hero" class="relative min-h-[92vh] flex items-center border-b border-border/40">
       <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 w-full">
@@ -683,6 +684,8 @@ const currentYear = new Date().getFullYear();
     </section>
 
     <!-- Footer -->
+    </main>
+
     <footer class="border-t border-border/50 bg-secondary/20">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-2 md:grid-cols-5 gap-10 py-16">
@@ -727,7 +730,7 @@ const currentYear = new Date().getFullYear();
         </div>
       </div>
     </footer>
-  </main>
+  </div>
 
   <script>
     // Tab switcher in hero demo card
