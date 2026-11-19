@@ -1,3 +1,6 @@
+-- Drop invalid access-token rows before making token NOT NULL.
+DELETE FROM `oauth_access_token` WHERE `token` IS NULL;--> statement-breakpoint
+
 -- Deduplicate natural keys before adding unique indexes. Keep the oldest row
 -- in each group so the migration is safe on existing data.
 DELETE FROM `account`
@@ -159,7 +162,7 @@ CREATE TABLE `__new_oauth_client` (
 	CONSTRAINT `fk_oauth_client_user_id_user_id_fk` FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE
 );
 --> statement-breakpoint
-INSERT INTO `__new_oauth_client`(`id`, `client_id`, `client_secret`, `client_discovery_id`, `disabled`, `skip_consent`, `enable_end_session`, `subject_type`, `scopes`, `client_credentials_scopes`, `user_id`, `created_at`, `updated_at`, `name`, `uri`, `icon`, `contacts`, `tos`, `policy`, `software_id`, `software_version`, `software_statement`, `redirect_uris`, `post_logout_redirect_uris`, `backchannel_logout_uri`, `backchannel_logout_session_required`, `token_endpoint_auth_method`, `application_type`, `jwks`, `jwks_uri`, `grant_types`, `response_types`, `require_pkce`, `dpop_bound_access_tokens`, `reference_id`, `metadata`) SELECT `id`, `client_id`, `client_secret`, `client_discovery_id`, `disabled`, `skip_consent`, `enable_end_session`, `subject_type`, `scopes`, `client_credentials_scopes`, `user_id`, `created_at`, `updated_at`, `name`, `uri`, `icon`, `contacts`, `tos`, `policy`, `software_id`, `software_version`, `software_statement`, `redirect_uris`, `post_logout_redirect_uris`, `backchannel_logout_uri`, `backchannel_logout_session_required`, `token_endpoint_auth_method`, `application_type`, `jwks`, `jwks_uri`, `grant_types`, `response_types`, `require_pkce`, `dpop_bound_access_tokens`, `reference_id`, `metadata` FROM `oauth_client`;--> statement-breakpoint
+INSERT INTO `__new_oauth_client`(`id`, `client_id`, `client_secret`, `client_discovery_id`, `disabled`, `skip_consent`, `enable_end_session`, `subject_type`, `scopes`, `client_credentials_scopes`, `user_id`, `created_at`, `updated_at`, `name`, `uri`, `icon`, `contacts`, `tos`, `policy`, `software_id`, `software_version`, `software_statement`, `redirect_uris`, `post_logout_redirect_uris`, `backchannel_logout_uri`, `backchannel_logout_session_required`, `token_endpoint_auth_method`, `application_type`, `jwks`, `jwks_uri`, `grant_types`, `response_types`, `require_pkce`, `dpop_bound_access_tokens`, `reference_id`, `metadata`) SELECT `id`, `client_id`, `client_secret`, `client_discovery_id`, COALESCE(`disabled`, 0), COALESCE(`skip_consent`, 0), COALESCE(`enable_end_session`, 0), `subject_type`, `scopes`, `client_credentials_scopes`, `user_id`, `created_at`, `updated_at`, `name`, `uri`, `icon`, `contacts`, `tos`, `policy`, `software_id`, `software_version`, `software_statement`, `redirect_uris`, `post_logout_redirect_uris`, `backchannel_logout_uri`, `backchannel_logout_session_required`, `token_endpoint_auth_method`, `application_type`, `jwks`, `jwks_uri`, `grant_types`, `response_types`, `require_pkce`, COALESCE(`dpop_bound_access_tokens`, 0), `reference_id`, `metadata` FROM `oauth_client`;--> statement-breakpoint
 DROP TABLE `oauth_client`;--> statement-breakpoint
 ALTER TABLE `__new_oauth_client` RENAME TO `oauth_client`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
@@ -182,7 +185,7 @@ CREATE TABLE `__new_oauth_resource` (
 	`metadata` text
 );
 --> statement-breakpoint
-INSERT INTO `__new_oauth_resource`(`id`, `identifier`, `name`, `access_token_ttl`, `refresh_token_ttl`, `signing_algorithm`, `signing_key_id`, `allowed_scopes`, `custom_claims`, `dpop_bound_access_tokens_required`, `disabled`, `created_at`, `updated_at`, `policy_version`, `metadata`) SELECT `id`, `identifier`, `name`, `access_token_ttl`, `refresh_token_ttl`, `signing_algorithm`, `signing_key_id`, `allowed_scopes`, `custom_claims`, `dpop_bound_access_tokens_required`, `disabled`, `created_at`, `updated_at`, `policy_version`, `metadata` FROM `oauth_resource`;--> statement-breakpoint
+INSERT INTO `__new_oauth_resource`(`id`, `identifier`, `name`, `access_token_ttl`, `refresh_token_ttl`, `signing_algorithm`, `signing_key_id`, `allowed_scopes`, `custom_claims`, `dpop_bound_access_tokens_required`, `disabled`, `created_at`, `updated_at`, `policy_version`, `metadata`) SELECT `id`, `identifier`, `name`, `access_token_ttl`, `refresh_token_ttl`, `signing_algorithm`, `signing_key_id`, `allowed_scopes`, `custom_claims`, COALESCE(`dpop_bound_access_tokens_required`, 0), COALESCE(`disabled`, 0), `created_at`, `updated_at`, COALESCE(`policy_version`, 1), `metadata` FROM `oauth_resource`;--> statement-breakpoint
 DROP TABLE `oauth_resource`;--> statement-breakpoint
 ALTER TABLE `__new_oauth_resource` RENAME TO `oauth_resource`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint

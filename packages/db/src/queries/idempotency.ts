@@ -3,6 +3,7 @@ import type { Database } from "../index";
 import { idempotencyKeys } from "../schema";
 
 export const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const IDEMPOTENCY_PENDING_TTL_MS = 60 * 1000; // claim lease; orphaned claims are reclaimable
 const IDEMPOTENCY_PENDING = "__pending__";
 
 const CLEANUP_INTERVAL_MS = 60_000;
@@ -65,7 +66,7 @@ export async function claimIdempotencyKey(
   keyHash: string,
 ): Promise<IdempotencyClaim> {
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + IDEMPOTENCY_TTL_MS);
+  const expiresAt = new Date(now.getTime() + IDEMPOTENCY_PENDING_TTL_MS);
 
   const inserted = await db
     .insert(idempotencyKeys)
