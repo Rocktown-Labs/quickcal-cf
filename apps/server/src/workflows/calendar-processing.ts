@@ -249,14 +249,19 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
       return this.finish(step, db, uploadId, userId, result);
     } catch (error) {
       await step.do("mark-failed", async () => {
+        // A notification/finish failure must not overwrite a terminal state.
+        const current = await getUploadById(db, uploadId);
+        if (current?.status === "completed" || current?.status === "no_events") return null;
+
         Sentry.captureException(error);
         Sentry.logger.error("Calendar processing failed", { sourceType });
         Sentry.metrics.count("calendar.processing.failed", 1, { attributes: { sourceType } });
         await updateUploadRecord(db, uploadId, {
           workflowRunId: event.instanceId,
           status: "failed",
-          failureReason: error instanceof Error ? error.message : "Unknown workflow failure.",
+          failureReason: "Processing failed. Please try again.",
         });
+        return null;
       });
       // The free trial credit is one-time. It is refunded only if the run
       // never started (validation/storage/workflow-start failure, handled by
@@ -283,86 +288,99 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
     userId: string,
     result: CalendarProcessingResult,
   ): Promise<CalendarProcessingResult> {
-    await step.do("record-processing-outcome", async () => {
-      const attributes = { outcome: result.status, event_count: result.eventCount };
-      Sentry.metrics.count("calendar.processing.finished", 1, {
-        attributes: { outcome: result.status },
-      });
-      Sentry.logger.info("Calendar processing finished", attributes);
-      return null;
-    });
-    const upload = await getUploadById(db, uploadId);
-
-    if (upload?.callbackUrl) {
-      try {
-        await step.do(
-          "webhook",
-          { retries: { limit: 5, delay: "10 seconds", backoff: "exponential" } },
-          async () => {
-            const secret = await webhookSecretFor(this.env.BETTER_AUTH_SECRET, userId);
-            await sendWebhook(upload.callbackUrl!, secret, {
-              event: `upload.${result.status}`,
-              uploadId,
-              status: result.status,
-              eventCount: result.eventCount,
-              failureReason: upload.failureReason ?? null,
-              shareToken: result.shareToken ?? null,
-              downloadPath: result.shareToken ? `/api/share/${result.shareToken}/ics` : null,
-              sentAt: new Date().toISOString(),
-            });
-          },
-        );
-      } catch (err) {
-        Sentry.captureException(err, { tags: { operation: "webhook_delivery" } });
-        // Log only the origin: callback URLs may carry secret query tokens.
-        let callbackOrigin = "invalid";
-        try {
-          callbackOrigin = new URL(upload.callbackUrl).origin;
-        } catch {
-          // keep the placeholder
-        }
-        console.warn(
-          `[webhook] delivery abandoned for upload ${uploadId} (${callbackOrigin}): ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      }
-    }
-
-    // Automatic completion email for browser uploads. Agent/API uploads that
-    // supplied a callback already get their result through the signed webhook,
-    // so skip the inbox noise for those.
-    const shareToken = upload?.shareToken;
-    if (result.status === "completed" && shareToken && !upload?.callbackUrl) {
-      try {
-        await step.do("send-completion-email", async () => {
-          const profile = await getUserProfile(db, userId);
-          if (!profile?.email) return;
-
-          const webOrigin =
-            (this.env.CORS_ORIGIN ?? "").split(",")[0]?.trim().replace(/\/+$/, "") ||
-            this.env.BETTER_AUTH_URL;
-
-          await sendProcessingCompleteEmail({
-            uploadId,
-            userId,
-            to: profile.email,
-            fileName: upload.fileName,
-            eventCount: result.eventCount,
-            shareUrl: `${webOrigin}/s/${shareToken}`,
-            icsUrl: `${this.env.BETTER_AUTH_URL}/api/share/${shareToken}/ics`,
-          });
+    // Notifications are best-effort. A failure here must never bubble into
+    // the outer catch and rewrite an already-completed upload as failed.
+    try {
+      await step.do("record-processing-outcome", async () => {
+        const attributes = { outcome: result.status, event_count: result.eventCount };
+        Sentry.metrics.count("calendar.processing.finished", 1, {
+          attributes: { outcome: result.status },
         });
-      } catch (err) {
-        console.warn(
-          `[email] completion email abandoned for upload ${uploadId}: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-      }
-    }
+        Sentry.logger.info("Calendar processing finished", attributes);
+        return null;
+      });
+      const upload = await step.do("load-upload-for-finish", async () =>
+        getUploadById(db, uploadId),
+      );
 
-    return result;
+      if (upload?.callbackUrl) {
+        try {
+          await step.do(
+            "webhook",
+            { retries: { limit: 5, delay: "10 seconds", backoff: "exponential" } },
+            async () => {
+              const secret = await webhookSecretFor(this.env.BETTER_AUTH_SECRET, userId);
+              await sendWebhook(upload.callbackUrl!, secret, {
+                event: `upload.${result.status}`,
+                uploadId,
+                status: result.status,
+                eventCount: result.eventCount,
+                failureReason: upload.failureReason ?? null,
+                shareToken: result.shareToken ?? null,
+                downloadPath: result.shareToken ? `/api/share/${result.shareToken}/ics` : null,
+                sentAt: new Date().toISOString(),
+              });
+            },
+          );
+        } catch (err) {
+          Sentry.captureException(err, { tags: { operation: "webhook_delivery" } });
+          // Log only the origin: callback URLs may carry secret query tokens.
+          let callbackOrigin = "invalid";
+          try {
+            callbackOrigin = new URL(upload.callbackUrl).origin;
+          } catch {
+            // keep the placeholder
+          }
+          console.warn(
+            `[webhook] delivery abandoned for upload ${uploadId} (${callbackOrigin}): ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }
+
+      // Automatic completion email for browser uploads. Agent/API uploads that
+      // supplied a callback already get their result through the signed webhook,
+      // so skip the inbox noise for those.
+      const shareToken = upload?.shareToken;
+      if (result.status === "completed" && shareToken && !upload?.callbackUrl) {
+        try {
+          await step.do("send-completion-email", async () => {
+            const profile = await getUserProfile(db, userId);
+            if (!profile?.email) return;
+
+            const webOrigin =
+              (this.env.CORS_ORIGIN ?? "").split(",")[0]?.trim().replace(/\/+$/, "") ||
+              this.env.BETTER_AUTH_URL;
+
+            await sendProcessingCompleteEmail({
+              uploadId,
+              userId,
+              to: profile.email,
+              fileName: upload.fileName,
+              eventCount: result.eventCount,
+              shareUrl: `${webOrigin}/s/${shareToken}`,
+              icsUrl: `${this.env.BETTER_AUTH_URL}/api/share/${shareToken}/ics`,
+            });
+          });
+        } catch (err) {
+          console.warn(
+            `[email] completion email abandoned for upload ${uploadId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }
+
+      return result;
+    } catch (err) {
+      console.warn(
+        `[finish] notification step failed for upload ${uploadId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      return result;
+    }
   }
 
   private async insertEvents(
@@ -373,8 +391,22 @@ export class CalendarProcessingWorkflow extends WorkflowEntrypoint<Env, Calendar
   ): Promise<void> {
     for (const event of extractedEvents) {
       const startTime = new Date(`${event.date}T${event.time || "00:00"}:00Z`);
-      const endTime =
-        event.time && event.endTime ? new Date(`${event.date}T${event.endTime}:00Z`) : null;
+      if (
+        Number.isNaN(startTime.getTime()) ||
+        startTime.toISOString().slice(0, 10) !== event.date
+      ) {
+        throw new Error(`Invalid extracted event date: ${event.date}`);
+      }
+      let endTime: Date | null = null;
+      if (event.time && event.endTime) {
+        endTime = new Date(`${event.date}T${event.endTime}:00Z`);
+        if (Number.isNaN(endTime.getTime())) {
+          endTime = null;
+        } else if (endTime <= startTime) {
+          // Overnight event: the end belongs to the next day.
+          endTime = new Date(endTime.getTime() + 24 * 60 * 60 * 1000);
+        }
+      }
       await db.insert(events).values({
         id: crypto.randomUUID(),
         title: event.title || event.description,

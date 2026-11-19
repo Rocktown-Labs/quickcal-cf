@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { ANNOUNCEMENT_PREVIEW, ANNOUNCEMENT_SUBJECT, renderAnnouncementEmail } from "../packages/email/src/index";
+import {
+  ANNOUNCEMENT_PREVIEW,
+  ANNOUNCEMENT_SUBJECT,
+  renderAnnouncementEmail,
+} from "../packages/email/src/index";
 
 describe("Announcement Email", () => {
   test("renders valid html and text without em dashes", async () => {
@@ -8,6 +12,7 @@ describe("Announcement Email", () => {
       senderName: "Rocktown Labs",
       loginUrl: "https://quickcalai.com/login",
       unsubscribeUrl: "mailto:unsubscribe@quickcalai.com",
+      mailingAddress: "123 Main St, City, State 00000",
     });
 
     expect(html).toContain("QuickCalAI");

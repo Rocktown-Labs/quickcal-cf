@@ -23,6 +23,7 @@ function createTestDb(): Database {
       created_at integer not null default 0,
       expires_at integer not null
     );
+    CREATE UNIQUE INDEX idempotency_user_key_idx ON idempotency_keys (user_id, key_hash);
   `);
   return (drizzle as any)({ client: sqlite }) as Database;
 }

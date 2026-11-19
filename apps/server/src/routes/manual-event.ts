@@ -44,13 +44,14 @@ app.openapi(createManualEvent, async (c) => {
   const { title, date, time, description } = c.req.valid("json");
   const db = getDb();
 
-  const startTime = new Date(time ? `${date}T${time}:00` : `${date}T00:00:00`);
+  const startTime = new Date(time ? `${date}T${time}:00Z` : `${date}T00:00:00Z`);
 
   const icsContent = generateICSForManual([
     {
       date,
       time: time || "",
-      description: title + (description ? `\n\n${description}` : ""),
+      title,
+      description: description || "",
     },
   ]);
 
@@ -71,10 +72,12 @@ app.openapi(createManualEvent, async (c) => {
     throw new Error("Failed to create event");
   }
 
-  const fileName = `${title
+  const baseName = title
     .replace(/[^a-zA-Z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
-    .toLowerCase()}.ics`;
+    .toLowerCase()
+    .slice(0, 80);
+  const fileName = `${baseName || `event-${row.id}`}.ics`;
 
   return c.json({ eventId: row.id, icsContent, fileName }, HttpStatusCodes.CREATED);
 });

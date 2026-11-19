@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 import { Button, useToast } from "heroui-native";
 import { authClient } from "@/lib/auth-client";
-import { useMe, useStats } from "@/lib/queries";
+import { useStats } from "@/lib/queries";
 import { Uploader } from "@/components/uploader";
 import { Container } from "@/components/container";
 
@@ -18,7 +18,6 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
 
 export default function DashboardScreen() {
   const { data: session } = authClient.useSession();
-  const me = useMe();
   const stats = useStats();
   const { toast } = useToast();
   const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
@@ -36,16 +35,39 @@ export default function DashboardScreen() {
   async function resendVerification() {
     if (!session?.user?.email) return;
     setResendState("sending");
-    const { error } = await authClient.sendVerificationEmail({
-      email: session.user.email,
-      callbackURL: "/",
-    });
-    setResendState(error ? "idle" : "sent");
-    toast.show({
-      variant: error ? "danger" : "success",
-      label: error ? "Couldn't send — try again" : "Sent! Check your inbox",
-    });
+    try {
+      const { error } = await authClient.sendVerificationEmail({
+        email: session.user.email,
+        callbackURL: "/",
+      });
+      setResendState(error ? "idle" : "sent");
+      toast.show({
+        variant: error ? "danger" : "success",
+        label: error ? "Couldn't send — try again" : "Sent! Check your inbox",
+      });
+    } catch {
+      setResendState("idle");
+      toast.show({ variant: "danger", label: "Couldn't send — try again" });
+    }
   }
+
+  const resendLabels = {
+    idle: "Resend verification email",
+    sending: "Sending…",
+    sent: "Sent ✓",
+  } as const;
+  const resendLabel = resendLabels[resendState];
+
+  const statusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: "Pending",
+      processing: "Processing",
+      completed: "Completed",
+      failed: "Failed",
+      no_events: "No events found",
+    };
+    return labels[status] ?? status.replace(/_/g, " ");
+  };
 
   return (
     <Container className="bg-neutral-950">
@@ -85,13 +107,7 @@ export default function DashboardScreen() {
             onPress={() => void resendVerification()}
             isDisabled={resendState === "sending"}
           >
-            <Button.Label>
-              {resendState === "sending"
-                ? "Sending…"
-                : resendState === "sent"
-                  ? "Sent ✓"
-                  : "Resend verification email"}
-            </Button.Label>
+            <Button.Label>{resendLabel}</Button.Label>
           </Button>
         </View>
       ) : null}
@@ -128,7 +144,7 @@ export default function DashboardScreen() {
                   {u.fileName}
                 </Text>
                 <Text className="text-neutral-500 text-xs">
-                  {new Date(u.createdAt).toLocaleDateString()} • {u.status.replace("_", " ")}
+                  {new Date(u.createdAt).toLocaleDateString()} • {statusLabel(u.status)}
                 </Text>
               </View>
             </View>

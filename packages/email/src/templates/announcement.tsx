@@ -9,7 +9,8 @@ export interface AnnouncementEmailProps {
   senderName?: string;
   loginUrl: string;
   unsubscribeUrl: string;
-  mailingAddress?: string;
+  /** Physical postal address — required by CAN-SPAM for commercial email. */
+  mailingAddress: string;
 }
 
 export const ANNOUNCEMENT_SUBJECT = "QuickCalAI is rebuilt, and it is agent-ready";
@@ -54,6 +55,16 @@ const buttonStyle = {
   textAlign: "center",
 } as const;
 
+/** Allow only web/mailto links in email CTAs (React escapes quotes, not schemes). */
+function safeHref(value: string): string {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "mailto:" ? value : "#";
+  } catch {
+    return "#";
+  }
+}
+
 export function AnnouncementEmail({
   firstName,
   senderName,
@@ -79,7 +90,10 @@ export function AnnouncementEmail({
             }}
           >
             You are receiving this because you have a QuickCalAI account.{" "}
-            <Link href={unsubscribeUrl} style={{ color: "#888888", textDecoration: "underline" }}>
+            <Link
+              href={safeHref(unsubscribeUrl)}
+              style={{ color: "#888888", textDecoration: "underline" }}
+            >
               Unsubscribe
             </Link>
             .
@@ -92,7 +106,7 @@ export function AnnouncementEmail({
               margin: "8px 0 0",
             }}
           >
-            Rocktown Labs{mailingAddress ? `, ${mailingAddress}` : ""}
+            Rocktown Labs{mailingAddress.trim() ? `, ${mailingAddress.trim()}` : ""}
           </Text>
         </>
       }
@@ -172,7 +186,7 @@ export function AnnouncementEmail({
         &quot;Forgot password&quot; to set a new one.
       </Text>
 
-      <Button href={loginUrl} style={buttonStyle}>
+      <Button href={safeHref(loginUrl)} style={buttonStyle}>
         Open the new QuickCalAI
       </Button>
 

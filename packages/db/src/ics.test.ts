@@ -37,6 +37,23 @@ describe("generateICSFromRows (review edits / aggregate feed)", () => {
     expect(ics.match(/BEGIN:VEVENT/g)?.length).toBe(2);
   });
 
+  test("keeps a stored description alongside the title", () => {
+    const ics = generateICSFromRows([{ ...timedRow, description: "Bring the lab manual." }]);
+    expect(ics).toContain("DESCRIPTION:Biology 101\\n\\nBring the lab manual.");
+  });
+
+  test("uses the end date for events crossing midnight", () => {
+    const ics = generateICSFromRows([
+      {
+        ...timedRow,
+        startTime: new Date("2026-10-01T23:00:00Z"),
+        endTime: new Date("2026-10-02T01:00:00Z"),
+      },
+    ]);
+    expect(ics).toContain("DTSTART:20261001T230000");
+    expect(ics).toContain("DTEND:20261002T010000");
+  });
+
   function allDayRow() {
     return {
       title: "Holiday",
@@ -85,6 +102,15 @@ describe("generateICSForAI", () => {
       generateICSForAI([{ date: "2026-10-01", time: "nope", description: "x" }]),
     ).toThrow("Invalid time format");
   });
+
+  test("throws on out-of-range hours and minutes", () => {
+    expect(() =>
+      generateICSForAI([{ date: "2026-10-01", time: "25:00", description: "x" }]),
+    ).toThrow("Invalid time");
+    expect(() =>
+      generateICSForAI([{ date: "2026-10-01", time: "12:70", description: "x" }]),
+    ).toThrow("Invalid time");
+  });
 });
 
 describe("generateICSForManual", () => {
@@ -94,6 +120,14 @@ describe("generateICSForManual", () => {
     ]);
     expect(ics).toContain("SUMMARY:Dentist");
     expect(ics).toContain("DTSTART:20261105T081500");
+  });
+
+  test("rolls an overnight end time into the next day", () => {
+    const ics = generateICSForManual([
+      { date: "2026-11-05", time: "23:00", endTime: "01:00", description: "Late shift" },
+    ]);
+    expect(ics).toContain("DTSTART:20261105T230000");
+    expect(ics).toContain("DTEND:20261106T010000");
   });
 });
 

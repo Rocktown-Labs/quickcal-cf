@@ -125,10 +125,36 @@ import DashLayout from "../layouts/DashLayout.astro";
     setTimeout(() => el.remove(), 3500);
   }
 
-  function showError(message: string) {
-    const el = document.getElementById("sub-error")!;
+  function showError(message: string, targetId?: string) {
+    if (!targetId) {
+      toast(message, false);
+      return;
+    }
+    const el = document.getElementById(targetId);
+    if (!el) {
+      toast(message, false);
+      return;
+    }
     el.textContent = message;
     el.classList.remove("hidden");
+  }
+
+  /** Disable a button while its request is in flight to prevent double submits. */
+  async function withBusy(
+    button: HTMLButtonElement,
+    label: string,
+    fn: () => Promise<void>,
+  ) {
+    if (button.disabled) return;
+    const original = button.textContent;
+    button.disabled = true;
+    button.textContent = label;
+    try {
+      await fn();
+    } finally {
+      button.disabled = false;
+      button.textContent = original;
+    }
   }
 
   const USE_CASE_LABELS: Record<string, string> = {
@@ -161,9 +187,14 @@ import DashLayout from "../layouts/DashLayout.astro";
 
       document.getElementById("save-profile")!.addEventListener("click", async () => {
         const status = document.getElementById("profile-status")!;
+        const phone = (document.getElementById("set-phone") as HTMLInputElement).value.trim();
+        if (phone && !/^\+[1-9]\d{6,14}$/.test(phone)) {
+          status.textContent = "Use international format, e.g. +15551234567.";
+          status.className = "ml-3 text-sm text-danger";
+          return;
+        }
         try {
-          const phone = (document.getElementById("set-phone") as HTMLInputElement).value.trim();
-          await api.updateMe({ phoneNumber: phone, isOnboarded: true });
+          await api.updateMe({ phoneNumber: phone });
           status.textContent = "Saved.";
           status.className = "ml-3 text-sm text-success";
         } catch (err) {
@@ -189,87 +220,119 @@ import DashLayout from "../layouts/DashLayout.astro";
       }
 
       const here = window.location.origin;
-      btnUpgrade.addEventListener("click", async () => {
-        track("checkout_clicked", { interval: "monthly" });
-        try {
-          await authClient.subscription.upgrade({
-            plan: "premium",
-            successUrl: `${here}/settings?upgraded=1`,
-            cancelUrl: `${here}/settings?canceled=1`,
-          });
-        } catch (err) {
-          showError(err instanceof Error ? err.message : "Upgrade failed.");
-        }
-      });
-      btnUpgradeAnnual.addEventListener("click", async () => {
-        track("checkout_clicked", { interval: "annual" });
-        try {
-          await authClient.subscription.upgrade({
-            plan: "premium",
-            annual: true,
-            successUrl: `${here}/settings?upgraded=1`,
-            cancelUrl: `${here}/settings?canceled=1`,
-          });
-        } catch (err) {
-          showError(err instanceof Error ? err.message : "Upgrade failed.");
-        }
-      });
-      btnPortal.addEventListener("click", async () => {
-        try {
-          await authClient.subscription.billingPortal({ returnUrl: `${here}/settings` });
-        } catch (err) {
-          showError(err instanceof Error ? err.message : "Could not open billing portal.");
-        }
-      });
-      btnCancel.addEventListener("click", async () => {
-        if (!confirm("Cancel your premium subscription?")) return;
-        try {
-          await authClient.subscription.cancel({ returnUrl: `${here}/settings` });
-        } catch (err) {
-          showError(err instanceof Error ? err.message : "Cancel failed.");
-        }
-      });
+      const clearSubError = () => document.getElementById("sub-error")?.classList.add("hidden");
+      btnUpgrade.addEventListener("click", () =>
+        withBusy(btnUpgrade as HTMLButtonElement, "Redirecting…", async () => {
+          clearSubError();
+          track("checkout_clicked", { interval: "monthly" });
+          try {
+            await authClient.subscription.upgrade({
+              plan: "premium",
+              successUrl: `${here}/settings?upgraded=1`,
+              cancelUrl: `${here}/settings?canceled=1`,
+            });
+          } catch (err) {
+            showError(err instanceof Error ? err.message : "Upgrade failed.", "sub-error");
+          }
+        }),
+      );
+      btnUpgradeAnnual.addEventListener("click", () =>
+        withBusy(btnUpgradeAnnual as HTMLButtonElement, "Redirecting…", async () => {
+          clearSubError();
+          track("checkout_clicked", { interval: "annual" });
+          try {
+            await authClient.subscription.upgrade({
+              plan: "premium",
+              annual: true,
+              successUrl: `${here}/settings?upgraded=1`,
+              cancelUrl: `${here}/settings?canceled=1`,
+            });
+          } catch (err) {
+            showError(err instanceof Error ? err.message : "Upgrade failed.", "sub-error");
+          }
+        }),
+      );
+      btnPortal.addEventListener("click", () =>
+        withBusy(btnPortal as HTMLButtonElement, "Opening…", async () => {
+          clearSubError();
+          try {
+            await authClient.subscription.billingPortal({ returnUrl: `${here}/settings` });
+          } catch (err) {
+            showError(
+              err instanceof Error ? err.message : "Could not open billing portal.",
+              "sub-error",
+            );
+          }
+        }),
+      );
+      btnCancel.addEventListener("click", () =>
+        withBusy(btnCancel as HTMLButtonElement, "Canceling…", async () => {
+          if (!confirm("Cancel your premium subscription?")) return;
+          clearSubError();
+          try {
+            await authClient.subscription.cancel({ returnUrl: `${here}/settings` });
+          } catch (err) {
+            showError(err instanceof Error ? err.message : "Cancel failed.", "sub-error");
+          }
+        }),
+      );
       const params = new URLSearchParams(window.location.search);
       if (params.get("upgraded")) subStatus.textContent = "Subscription active — welcome to Premium!";
       if (params.get("canceled")) subStatus.textContent = "Checkout canceled — no changes made.";
 
       // API keys
       async function refreshKeys() {
-        const { keys } = await api.listKeys();
         const list = document.getElementById("keys-list")!;
-        list.innerHTML = keys.length === 0
-          ? '<p class="text-sm text-muted-foreground">No API keys yet.</p>'
-          : keys.map((k) => `
-            <div class="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3">
-              <div class="min-w-0">
-                <p class="text-sm font-semibold truncate">${escapeHtml(k.name)}</p>
-                <p class="text-xs text-muted-foreground font-mono">${escapeHtml(k.keyPrefix)}… ${k.lastUsedAt ? `· last used ${new Date(k.lastUsedAt).toLocaleDateString()}` : "· never used"}</p>
-              </div>
-              <button data-revoke="${k.id}" class="shrink-0 text-xs font-bold text-danger hover:text-danger/80 border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-1.5">Revoke</button>
-            </div>`).join("");
-        for (const btn of list.querySelectorAll("[data-revoke]")) {
-          btn.addEventListener("click", async () => {
-            if (!confirm("Revoke this API key?")) return;
-            await api.deleteKey(btn.getAttribute("data-revoke")!);
-            void refreshKeys();
-          });
+        try {
+          const { keys } = await api.listKeys();
+          list.innerHTML = keys.length === 0
+            ? '<p class="text-sm text-muted-foreground">No API keys yet.</p>'
+            : keys.map((k) => `
+              <div class="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3">
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold truncate">${escapeHtml(k.name)}</p>
+                  <p class="text-xs text-muted-foreground font-mono">${escapeHtml(k.keyPrefix)}… ${k.lastUsedAt ? `· last used ${new Date(k.lastUsedAt).toLocaleDateString()}` : "· never used"}</p>
+                </div>
+                <button data-revoke="${escapeHtml(k.id)}" class="shrink-0 text-xs font-bold text-danger hover:text-danger/80 border border-danger/40 hover:bg-danger/10 rounded-lg px-3 py-1.5">Revoke</button>
+              </div>`).join("");
+          for (const btn of list.querySelectorAll("[data-revoke]")) {
+            btn.addEventListener("click", async () => {
+              if (!confirm("Revoke this API key?")) return;
+              const button = btn as HTMLButtonElement;
+              await withBusy(button, "Revoking…", async () => {
+                try {
+                  await api.deleteKey(button.getAttribute("data-revoke")!);
+                  await refreshKeys();
+                } catch (err) {
+                  showError(err instanceof Error ? err.message : "Could not revoke key.");
+                }
+              });
+            });
+          }
+        } catch (err) {
+          // Don't block the rest of the settings page on this non-critical section.
+          list.innerHTML = '<p class="text-sm text-danger">Could not load API keys.</p>';
+          showError(err instanceof Error ? err.message : "Could not load API keys.");
         }
       }
 
-      document.getElementById("btn-create-key")!.addEventListener("click", async () => {
+      document.getElementById("btn-create-key")!.addEventListener("click", () => {
         const nameInput = document.getElementById("key-name") as HTMLInputElement;
         const name = nameInput.value.trim();
         if (!name) return;
-        try {
-          const created = await api.createKey({ name });
-          document.getElementById("new-key-value")!.textContent = created.key;
-          document.getElementById("btn-copy-key")!.textContent = "Copy key";
-          document.getElementById("new-key")!.classList.remove("hidden");
-          nameInput.value = "";
-          void refreshKeys();
-        } catch (err) {
-          showError(err instanceof Error ? err.message : "Could not create key.");
-        }
+        const button = document.getElementById("btn-create-key") as HTMLButtonElement;
+        void withBusy(button, "Creating…", async () => {
+          try {
+            const created = await api.createKey({ name });
+            document.getElementById("new-key-value")!.textContent = created.key;
+            document.getElementById("btn-copy-key")!.textContent = "Copy key";
+            document.getElementById("new-key")!.classList.remove("hidden");
+            nameInput.value = "";
+            await refreshKeys();
+          } catch (err) {
+            showError(err instanceof Error ? err.message : "Could not create key.");
+          }
+        });
       });
 
       // One-click copy for the freshly created key (shown once).
@@ -316,15 +379,18 @@ import DashLayout from "../layouts/DashLayout.astro";
           toast("Webhook secret copied.");
         } catch { /* clipboard unavailable */ }
       });
-      document.getElementById("btn-rotate-feed")!.addEventListener("click", async () => {
+      document.getElementById("btn-rotate-feed")!.addEventListener("click", () => {
         if (!confirm("Rotate the calendar feed token? Old subscription URLs stop working immediately.")) return;
-        try {
-          const res = await api.rotateCalendarFeed();
-          feedUrl.textContent = `${serverOrigin}${res.feedPath}`;
-          toast("Feed token rotated — re-add the URL in your calendar app.");
-        } catch (err) {
-          showError(err instanceof Error ? err.message : "Could not rotate the feed.");
-        }
+        const button = document.getElementById("btn-rotate-feed") as HTMLButtonElement;
+        void withBusy(button, "Rotating…", async () => {
+          try {
+            const res = await api.rotateCalendarFeed();
+            feedUrl.textContent = `${serverOrigin}${res.feedPath}`;
+            toast("Feed token rotated — re-add the URL in your calendar app.");
+          } catch (err) {
+            showError(err instanceof Error ? err.message : "Could not rotate the feed.");
+          }
+        });
       });
 
       document.getElementById("settings-loading")!.classList.add("hidden");

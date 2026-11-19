@@ -2,7 +2,12 @@ import SentDm from "@sentdm/sentdm";
 import { Resend } from "resend";
 import { renderProcessingCompleteEmail } from "@quickcal-cf/email";
 import { ENV } from "../env.server";
-import { NotificationConfigurationError, normalizePhoneNumber, sha256Hex } from "./notify-helpers";
+import {
+  NotificationConfigurationError,
+  normalizeEmail,
+  normalizePhoneNumber,
+  sha256Hex,
+} from "./notify-helpers";
 
 export { NotificationConfigurationError, NotificationInputError } from "./notify-helpers";
 
@@ -47,6 +52,7 @@ export async function sendCalendarFileEmail(input: {
 }) {
   const resend = getResendClient();
   const from = getFromEmail();
+  const to = normalizeEmail(input.to);
   const { html, text } = await renderProcessingCompleteEmail({
     fileName: input.fileName,
     eventCount: input.eventCount ?? 0,
@@ -64,7 +70,7 @@ export async function sendCalendarFileEmail(input: {
   const { data, error } = await resend.emails.send(
     {
       from,
-      to: input.to,
+      to,
       subject: `Your calendar from ${subjectName || "your upload"} is ready`,
       html,
       text,
@@ -72,12 +78,12 @@ export async function sendCalendarFileEmail(input: {
     {
       // Include the recipient in the key so sending the same upload to a
       // different address isn't (incorrectly) deduped by Resend.
-      idempotencyKey: `calendar-file/${await sha256Hex(`${input.userId}:${input.uploadId}:${input.to}`)}`,
+      idempotencyKey: `calendar-file/${await sha256Hex(`${input.userId}:${input.uploadId}:${to}`)}`,
     },
   );
 
   if (error) {
-    throw new Error(`Failed to send calendar file email: ${error.message}`);
+    throw new Error(`Failed to send calendar file email: ${error.message}`, { cause: error });
   }
 
   return data;
@@ -116,7 +122,9 @@ export async function sendCalendarFileSms(input: {
     // Transactional delivery the user asked for. Keep the link on the verified
     // web domain (not the raw .ics object) and include opt-out language.
     text: `Your QuickCalAI calendar is ready: ${input.shareUrl}\n\nReply STOP to opt out.`,
-    "Idempotency-Key": `calendar-file-${input.userId}-${input.uploadId}-${phoneNumber.slice(1)}`,
+    // Hash the identifiers: the raw phone number is PII and provider/proxy
+    // logs may retain headers.
+    "Idempotency-Key": `calendar-file/${await sha256Hex(`${input.userId}:${input.uploadId}:${phoneNumber}`)}`,
   });
 
   return response.data;

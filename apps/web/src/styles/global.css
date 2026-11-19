@@ -21,6 +21,7 @@
   --input: oklch(0.17 0 0);
   --ring: oklch(0.58 0.22 25);
   --radius: 0.625rem;
+  color-scheme: dark;
 
   /* Status colors — tuned for dark backgrounds (readable text on --background). */
   --success: oklch(0.72 0.19 152);
@@ -30,6 +31,7 @@
 }
 
 .light {
+  color-scheme: light;
   --background: oklch(0.99 0 0);
   --foreground: oklch(0.1 0 0);
   --card: oklch(1 0 0);
@@ -225,38 +227,21 @@
   animation: float 5s ease-in-out infinite;
 }
 
-.delay-100 {
-  animation-delay: 100ms;
-}
-.delay-200 {
-  animation-delay: 200ms;
-}
-.delay-300 {
-  animation-delay: 300ms;
-}
-.delay-400 {
-  animation-delay: 400ms;
-}
-.delay-500 {
-  animation-delay: 500ms;
-}
-.delay-600 {
-  animation-delay: 600ms;
-}
-.delay-700 {
-  animation-delay: 700ms;
-}
-
-/* Scroll-triggered reveal */
+/* Scroll-triggered reveal.
+   Visible by default so a missing/failed script never blanks the page; the
+   client adds .reveal-pending immediately before observing. */
 .reveal {
-  opacity: 0;
-  transform: translateY(20px);
   transition:
     opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
     transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.reveal.in-view {
+.reveal.reveal-pending {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.reveal.reveal-pending.in-view {
   opacity: 1;
   transform: translateY(0);
 }
@@ -316,6 +301,9 @@
   padding: 1px;
   background: linear-gradient(135deg, oklch(0.58 0.22 25 / 0.35), transparent 50%);
   -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -452,30 +440,20 @@ details > summary::-webkit-details-marker {
   display: none;
 }
 
-/* Reveal animation (subtle, no floating motion) */
-.reveal {
-  opacity: 0;
-  transform: translateY(16px);
-  transition:
-    opacity 0.5s ease,
-    transform 0.5s ease;
-}
-.reveal.in-view {
-  opacity: 1;
-  transform: translateY(0);
-}
-.reveal-delay-1 {
-  transition-delay: 0ms;
-}
-.reveal-delay-2 {
-  transition-delay: 70ms;
-}
-.reveal-delay-3 {
-  transition-delay: 140ms;
-}
-.reveal-delay-4 {
-  transition-delay: 210ms;
-}
-.reveal-delay-5 {
-  transition-delay: 280ms;
+/* Motion preferences: keep content readable and skip decorative motion. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-float,
+  .animate-fade-in,
+  .animate-slide-up {
+    animation: none;
+  }
+  .reveal,
+  .reveal.reveal-pending {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }

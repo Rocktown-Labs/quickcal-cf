@@ -62,7 +62,7 @@ export function ProcessingCompleteEmail({
   shareUrl,
   icsUrl,
 }: ProcessingCompleteEmailProps) {
-  const displayName = fileName.replace(/\.[^/.]+$/, "");
+  const displayName = fileName.replace(/\.[^/.]+$/, "").trim() || "your upload";
   const eventWord = eventCount === 1 ? "event" : "events";
 
   return (
@@ -106,22 +106,23 @@ export function ProcessingCompleteEmail({
       ) : null}
 
       {icsUrl ? (
-        <Button href={icsUrl} style={{ ...secondaryButtonStyle, marginBottom: "24px" }}>
-          Download .ics file
-        </Button>
+        <>
+          <Button href={icsUrl} style={{ ...secondaryButtonStyle, marginBottom: "24px" }}>
+            Download .ics file
+          </Button>
+          <Text
+            style={{
+              color: "#888888",
+              fontSize: "14px",
+              lineHeight: "1.6",
+              margin: 0,
+            }}
+          >
+            Import the .ics file into Google Calendar, Outlook, Apple Calendar, or any app that
+            supports calendar files.
+          </Text>
+        </>
       ) : null}
-
-      <Text
-        style={{
-          color: "#888888",
-          fontSize: "14px",
-          lineHeight: "1.6",
-          margin: 0,
-        }}
-      >
-        Import the .ics file into Google Calendar, Outlook, Apple Calendar, or any app that supports
-        calendar files.
-      </Text>
     </EmailShell>
   );
 }

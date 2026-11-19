@@ -50,10 +50,18 @@ app.use(
 app.use("/text", bodyLimit({ maxSize: MAX_TEXT_BYTES + 16 * 1024, onError: payloadTooLarge }));
 app.use("/from-url", bodyLimit({ maxSize: 16 * 1024, onError: payloadTooLarge }));
 app.use("/events", bodyLimit({ maxSize: 2 * 1024 * 1024, onError: payloadTooLarge }));
-// AI ingestion is expensive — strict per-user caps per method.
-app.use("/", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
-app.use("/text", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
-app.use("/from-url", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:user" }));
+// AI ingestion is expensive — strict per-user caps per method. These must use
+// distinct prefixes: the limiter key is `${keyPrefix}:${userId}`.
+app.on(
+  "POST",
+  "/",
+  rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:file:user" }),
+);
+app.use("/text", rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:text:user" }));
+app.use(
+  "/from-url",
+  rateLimit({ windowMs: 60_000, maxRequests: 10, keyPrefix: "ingest:url:user" }),
+);
 // Structured events are free (no AI) — a slightly looser cap.
 app.use(
   "/events",
@@ -188,8 +196,10 @@ app.openapi(createUpload, async (c) => {
       return c.json(ingestionForbiddenResponse(), HttpStatusCodes.FORBIDDEN);
     }
 
-    const fail = (message: string) => {
-      void refundIngestion(db, userId, access);
+    const fail = async (message: string) => {
+      // Await the refund: a fire-and-forget promise may be canceled once the
+      // Worker response is returned, permanently consuming the credit.
+      await refundIngestion(db, userId, access).catch(() => undefined);
       return c.json({ message }, HttpStatusCodes.UNPROCESSABLE_ENTITY);
     };
 
@@ -197,12 +207,12 @@ app.openapi(createUpload, async (c) => {
     try {
       formData = await c.req.formData();
     } catch {
-      return fail("Invalid multipart form data");
+      return await fail("Invalid multipart form data");
     }
     const file = formData.get("file");
 
-    if (!(file instanceof File)) return fail("No file provided");
-    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) return fail("File exceeds 10MB limit");
+    if (!(file instanceof File)) return await fail("No file provided");
+    if (file.size > MAX_UPLOAD_FILE_SIZE_BYTES) return await fail("File exceeds 10MB limit");
 
     // Validate the real content — the client-supplied Content-Type is only a
     // hint, so check magic bytes before anything is stored or sent to the AI.
@@ -210,16 +220,16 @@ app.openapi(createUpload, async (c) => {
     try {
       bytes = new Uint8Array(await file.arrayBuffer());
     } catch {
-      return fail("Could not read the uploaded file.");
+      return await fail("Could not read the uploaded file.");
     }
     const detectedType = detectMimeType(bytes);
     if (!detectedType) {
-      return fail("Unsupported file type — could not read the file contents.");
+      return await fail("Unsupported file type — could not read the file contents.");
     }
 
     const callbackUrl = validateCallbackUrl(String(formData.get("callbackUrl") ?? "")) ?? null;
     if (formData.has("callbackUrl") && !callbackUrl) {
-      return fail("callbackUrl must be an https:// URL (http allowed for localhost).");
+      return await fail("callbackUrl must be an https:// URL (http allowed for localhost).");
     }
 
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "upload";
@@ -725,11 +735,13 @@ app.openapi(deleteUploadRoute, async (c) => {
     return c.json({ message: "Upload not found" }, HttpStatusCodes.NOT_FOUND);
   }
 
+  // Delete the DB row first: if object cleanup fails, an orphaned R2 object
+  // is far safer than a live upload/share token pointing at missing files.
+  await deleteUpload(db, id);
   await ENV.FILES.delete(upload.storageKey).catch(() => undefined);
   if (upload.icsKey) {
     await ENV.FILES.delete(upload.icsKey).catch(() => undefined);
   }
-  await deleteUpload(db, id);
   return c.json({ message: "Upload deleted" }, HttpStatusCodes.OK);
 });
 

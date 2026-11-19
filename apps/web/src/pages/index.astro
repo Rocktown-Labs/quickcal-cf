@@ -236,21 +236,21 @@ const currentYear = new Date().getFullYear();
                 </div>
                 
                 <!-- Input Switcher Tabs -->
-                <div class="flex items-center gap-1 bg-background/60 border border-border/60 rounded-lg p-0.5" id="hero-tabs">
-                  <button type="button" data-hero-tab="visual" class="hero-tab-btn active px-2.5 py-1 text-xs font-medium rounded-md transition-colors bg-primary text-primary-foreground">
+                <div class="flex items-center gap-1 bg-background/60 border border-border/60 rounded-lg p-0.5" id="hero-tabs" role="tablist" aria-label="Demo input types">
+                  <button type="button" id="tab-visual" role="tab" aria-selected="true" aria-controls="panel-visual" tabindex="0" data-hero-tab="visual" class="hero-tab-btn active px-2.5 py-1 text-xs font-medium rounded-md transition-colors bg-primary text-primary-foreground">
                     Photo / PDF
                   </button>
-                  <button type="button" data-hero-tab="text" class="hero-tab-btn px-2.5 py-1 text-xs font-medium rounded-md transition-colors text-muted-foreground hover:text-foreground">
+                  <button type="button" id="tab-text" role="tab" aria-selected="false" aria-controls="panel-text" tabindex="-1" data-hero-tab="text" class="hero-tab-btn px-2.5 py-1 text-xs font-medium rounded-md transition-colors text-muted-foreground hover:text-foreground">
                     Pasted Text
                   </button>
-                  <button type="button" data-hero-tab="agent" class="hero-tab-btn px-2.5 py-1 text-xs font-medium rounded-md transition-colors text-muted-foreground hover:text-foreground">
+                  <button type="button" id="tab-agent" role="tab" aria-selected="false" aria-controls="panel-agent" tabindex="-1" data-hero-tab="agent" class="hero-tab-btn px-2.5 py-1 text-xs font-medium rounded-md transition-colors text-muted-foreground hover:text-foreground">
                     Agent (MCP)
                   </button>
                 </div>
               </div>
 
               <!-- Tab Panel 1: Visual / Document Extraction -->
-              <div id="panel-visual" class="hero-tab-panel p-5 space-y-4">
+              <div id="panel-visual" role="tabpanel" aria-labelledby="tab-visual" class="hero-tab-panel p-5 space-y-4">
                 <div class="rounded-lg border border-border/60 bg-secondary/20 p-3.5 flex items-center justify-between">
                   <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center text-primary font-mono text-xs font-bold">
@@ -317,7 +317,7 @@ const currentYear = new Date().getFullYear();
               </div>
 
               <!-- Tab Panel 2: Pasted Text -->
-              <div id="panel-text" class="hero-tab-panel hidden p-5 space-y-4">
+              <div id="panel-text" role="tabpanel" aria-labelledby="tab-text" hidden class="hero-tab-panel hidden p-5 space-y-4">
                 <div class="rounded-lg border border-border/60 bg-secondary/20 p-3 font-mono text-xs text-muted-foreground leading-relaxed">
                   <span class="text-foreground font-semibold block mb-1">// Raw email pasted into QuickCalAI:</span>
                   &quot;Team offsite next Tuesday Oct 27 starting at 9:00 AM at Downtown Loft. Strategy review at 2:00 PM followed by team dinner at 6:30 PM.&quot;
@@ -346,7 +346,7 @@ const currentYear = new Date().getFullYear();
               </div>
 
               <!-- Tab Panel 3: Agent & MCP -->
-              <div id="panel-agent" class="hero-tab-panel hidden p-5 space-y-4">
+              <div id="panel-agent" role="tabpanel" aria-labelledby="tab-agent" hidden class="hero-tab-panel hidden p-5 space-y-4">
                 <div class="rounded-lg bg-black/90 p-3.5 font-mono text-xs text-muted-foreground border border-border/40">
                   <div class="text-primary font-bold mb-1.5">// Claude Desktop / Cursor MCP Config</div>
                   <div class="text-[#888888]">
@@ -740,27 +740,48 @@ const currentYear = new Date().getFullYear();
         agent: document.getElementById("panel-agent"),
       };
 
-      tabButtons.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const target = btn.getAttribute("data-hero-tab") as keyof typeof panels;
-          tabButtons.forEach((b) => {
-            b.classList.remove("bg-primary", "text-primary-foreground", "active");
-            b.classList.add("text-muted-foreground");
-          });
-          btn.classList.add("bg-primary", "text-primary-foreground", "active");
-          btn.classList.remove("text-muted-foreground");
+      const selectTab = (btn: HTMLButtonElement) => {
+        const target = btn.getAttribute("data-hero-tab") as keyof typeof panels;
+        tabButtons.forEach((b) => {
+          const selected = b === btn;
+          b.classList.toggle("bg-primary", selected);
+          b.classList.toggle("text-primary-foreground", selected);
+          b.classList.toggle("active", selected);
+          b.classList.toggle("text-muted-foreground", !selected);
+          b.setAttribute("aria-selected", String(selected));
+          b.tabIndex = selected ? 0 : -1;
+        });
 
-          Object.entries(panels).forEach(([key, panel]) => {
-            if (panel) {
-              panel.classList.toggle("hidden", key !== target);
-            }
-          });
+        Object.entries(panels).forEach(([key, panel]) => {
+          if (panel) {
+            const show = key === target;
+            panel.classList.toggle("hidden", !show);
+            panel.hidden = !show;
+          }
+        });
+      };
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => selectTab(btn));
+        btn.addEventListener("keydown", (event) => {
+          if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+          event.preventDefault();
+          const index = Array.from(tabButtons).indexOf(btn);
+          const next =
+            event.key === "ArrowRight"
+              ? tabButtons[(index + 1) % tabButtons.length]
+              : tabButtons[(index - 1 + tabButtons.length) % tabButtons.length];
+          next?.focus();
+          if (next) selectTab(next);
         });
       });
     }
 
-    // Intersection observer for scroll-triggered reveals
+    // Intersection observer for scroll-triggered reveals. Elements are visible
+    // by default; only hide them once this script is definitely running.
+    const reveals = document.querySelectorAll(".reveal");
     if (typeof IntersectionObserver !== "undefined") {
+      for (const el of reveals) el.classList.add("reveal-pending");
       const observer = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
@@ -773,12 +794,8 @@ const currentYear = new Date().getFullYear();
         { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
       );
 
-      for (const el of document.querySelectorAll(".reveal")) {
+      for (const el of reveals) {
         observer.observe(el);
-      }
-    } else {
-      for (const el of document.querySelectorAll(".reveal")) {
-        el.classList.add("in-view");
       }
     }
   </script>

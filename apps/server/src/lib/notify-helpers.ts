@@ -17,3 +17,17 @@ export function normalizePhoneNumber(phoneNumber: string) {
 
   return normalized;
 }
+
+export function normalizeEmail(email: string) {
+  const normalized = email.trim().toLowerCase();
+
+  if (
+    normalized.length === 0 ||
+    normalized.length > 254 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
+  ) {
+    throw new NotificationInputError("A valid email address is required");
+  }
+
+  return normalized;
+}

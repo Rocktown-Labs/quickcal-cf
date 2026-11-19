@@ -1,12 +1,20 @@
 import { authClient } from "./auth-client";
 import { ENV } from "../src/env";
 
-const BASE = ENV.EXPO_PUBLIC_SERVER_URL;
-const WEB_BASE = ENV.EXPO_PUBLIC_WEB_URL;
+const BASE = normalizeBaseUrl(ENV.EXPO_PUBLIC_SERVER_URL, "EXPO_PUBLIC_SERVER_URL");
+const WEB_BASE = normalizeBaseUrl(ENV.EXPO_PUBLIC_WEB_URL, "EXPO_PUBLIC_WEB_URL");
+
+function normalizeBaseUrl(value: string, name: string): string {
+  const trimmed = value.trim().replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(trimmed)) {
+    throw new Error(`${name} must be an absolute http(s) URL`);
+  }
+  return trimmed;
+}
 
 /** The web app origin (public share pages, auth emails) — not the API origin. */
 export function webUrl(): string {
-  return WEB_BASE.replace(/\/+$/, "");
+  return WEB_BASE;
 }
 
 export class ApiError extends Error {
@@ -36,11 +44,28 @@ export async function apiFetch(
   try {
     const cookie = await authClient.getCookie();
     if (cookie) headers.set("cookie", cookie);
-  } catch {
-    // No session yet — public and auth endpoints still work.
+  } catch (error) {
+    // No session yet — public and auth endpoints still work. Surface the
+    // cause in development instead of turning it into a confusing 401.
+    if (__DEV__) console.warn("[api] could not read auth cookie", error);
   }
 
-  return fetch(`${BASE}${path}`, { ...init, headers, body });
+  // Bound hung requests on poor mobile networks. 120s still allows large
+  // uploads while preventing an indefinite pending mutation.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 120_000);
+  const forwardAbort = () => controller.abort();
+  if (init.signal) {
+    if (init.signal.aborted) controller.abort();
+    else init.signal.addEventListener("abort", forwardAbort, { once: true });
+  }
+
+  try {
+    return await fetch(`${BASE}${path}`, { ...init, headers, body, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+    init.signal?.removeEventListener("abort", forwardAbort);
+  }
 }
 
 async function request<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
@@ -53,7 +78,10 @@ async function request<T>(path: string, init: RequestInit & { json?: unknown } =
     const message = payload?.message ?? payload?.error ?? `Request failed (${res.status})`;
     throw new ApiError(res.status, message);
   }
-  return (await res.json()) as Promise<T>;
+  // 204/empty bodies are successful mutations, not JSON parse errors.
+  if (res.status === 204) return undefined as T;
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export type UploadStatus = "pending" | "processing" | "completed" | "failed" | "no_events";
@@ -189,31 +217,31 @@ export const api = {
     });
   },
   listUploadEvents(uploadId: string): Promise<{ events: ReviewEvent[] }> {
-    return request(`/api/uploads/${uploadId}/events`);
+    return request(`/api/uploads/${encodeURIComponent(uploadId)}/events`);
   },
   updateEvent(
     eventId: string,
     patch: Partial<Pick<DirectEvent, "title" | "date" | "time">>,
   ): Promise<ReviewEvent> {
-    return request(`/api/events/${eventId}`, { method: "PATCH", json: patch });
+    return request(`/api/events/${encodeURIComponent(eventId)}`, { method: "PATCH", json: patch });
   },
   deleteEvent(eventId: string): Promise<{ message: string }> {
-    return request(`/api/events/${eventId}`, { method: "DELETE" });
+    return request(`/api/events/${encodeURIComponent(eventId)}`, { method: "DELETE" });
   },
   rotateCalendarFeed(): Promise<{ feedPath: string }> {
     return request("/api/calendar/rotate", { method: "POST" });
   },
   uploadStatusById(uploadId: string): Promise<StatusResponse> {
-    return request(`/api/uploads/${uploadId}/status`);
+    return request(`/api/uploads/${encodeURIComponent(uploadId)}/status`);
   },
   uploadStatusByRun(runId: string): Promise<StatusResponse> {
-    return request(`/api/uploads/by-run/${runId}/status`);
+    return request(`/api/uploads/by-run/${encodeURIComponent(runId)}/status`);
   },
   deleteUpload(id: string): Promise<{ message: string }> {
-    return request(`/api/uploads/${id}`, { method: "DELETE" });
+    return request(`/api/uploads/${encodeURIComponent(id)}`, { method: "DELETE" });
   },
   revokeShare(id: string): Promise<{ message: string }> {
-    return request(`/api/uploads/${id}/share/revoke`, { method: "POST" });
+    return request(`/api/uploads/${encodeURIComponent(id)}/share/revoke`, { method: "POST" });
   },
   listUploads(limit = 20): Promise<{ uploads: UploadSummary[] }> {
     return request(`/api/uploads?limit=${limit}`);
@@ -233,17 +261,22 @@ export const api = {
     return request("/api/user/me", { method: "PATCH", json: body });
   },
   emailUpload(uploadId: string, email: string): Promise<{ message: string }> {
-    return request(`/api/uploads/${uploadId}/email`, { method: "POST", json: { email } });
+    return request(`/api/uploads/${encodeURIComponent(uploadId)}/email`, {
+      method: "POST",
+      json: { email },
+    });
   },
   smsUpload(uploadId: string, phone: string): Promise<{ message: string }> {
-    return request(`/api/uploads/${uploadId}/sms`, { method: "POST", json: { phone } });
+    return request(`/api/uploads/${encodeURIComponent(uploadId)}/sms`, {
+      method: "POST",
+      json: { phone },
+    });
   },
   manualEvent(body: {
     title: string;
     date: string;
     time?: string;
     description?: string;
-    timezone?: string;
   }): Promise<{ eventId: string; icsContent: string; fileName: string }> {
     return request("/api/manual-event", { method: "POST", json: body });
   },
@@ -257,7 +290,7 @@ export const api = {
     return request("/api/keys", { method: "POST", json: body });
   },
   deleteKey(id: string): Promise<{ message: string }> {
-    return request(`/api/keys/${id}`, { method: "DELETE" });
+    return request(`/api/keys/${encodeURIComponent(id)}`, { method: "DELETE" });
   },
   share(token: string): Promise<{
     fileName: string;
@@ -273,7 +306,7 @@ export const api = {
       isAllDay: boolean;
     }>;
   }> {
-    return request(`/api/share/${token}`);
+    return request(`/api/share/${encodeURIComponent(token)}`);
   },
   serverUrl(): string {
     return BASE;

@@ -9,26 +9,26 @@ const StyledIonicons = withUniwind(Ionicons);
 
 export function ThemeToggle() {
   const { toggleTheme, isLight } = useAppTheme();
+  const iconName = isLight ? "moon" : "sunny";
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={isLight ? "Switch to dark theme" : "Switch to light theme"}
+      hitSlop={12}
       onPress={() => {
         if (Platform.OS === "ios") {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          // Haptics are best-effort; an unsupported device must not break
+          // the toggle or surface an unhandled rejection.
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
         }
         toggleTheme();
       }}
-      className="px-2.5"
+      className="px-2.5 py-2.5"
     >
-      {isLight ? (
-        <Animated.View key="moon" entering={ZoomIn} exiting={FadeOut}>
-          <StyledIonicons name="moon" size={20} className="text-foreground" />
-        </Animated.View>
-      ) : (
-        <Animated.View key="sun" entering={ZoomIn} exiting={FadeOut}>
-          <StyledIonicons name="sunny" size={20} className="text-foreground" />
-        </Animated.View>
-      )}
+      <Animated.View key={iconName} entering={ZoomIn} exiting={FadeOut}>
+        <StyledIonicons name={iconName} size={20} className="text-foreground" />
+      </Animated.View>
     </Pressable>
   );
 }

@@ -17,6 +17,7 @@ export type AuthConfig = {
   BETTER_AUTH_URL: string;
   BETTER_AUTH_SECRET: string;
   CORS_ORIGIN: string;
+  NODE_ENV?: string;
   STRIPE_SECRET_KEY?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   STRIPE_PREMIUM_PRICE_ID?: string;
@@ -40,7 +41,12 @@ function webOriginFrom(env: AuthConfig): string {
  */
 export function authIssuerFor(baseURL: string): string {
   const trimmed = baseURL.replace(/\/+$/, "");
-  const url = new URL(trimmed);
+  let url: URL;
+  try {
+    url = new URL(trimmed);
+  } catch {
+    throw new Error(`BETTER_AUTH_URL is not a valid absolute URL: ${baseURL}`);
+  }
   return url.pathname && url.pathname !== "/" ? trimmed : `${trimmed}/api/auth`;
 }
 
@@ -81,6 +87,14 @@ export function createAuth(
     typeof stripeKey === "string" &&
     (stripeKey.startsWith("sk_test_") || stripeKey.startsWith("sk_live_"));
 
+  if (stripeKey && !hasLiveStripeKey) {
+    console.warn(
+      "[auth] STRIPE_SECRET_KEY is set but is not an sk_test_/sk_live_ key — billing disabled",
+    );
+  } else if (hasLiveStripeKey && !env.STRIPE_WEBHOOK_SECRET) {
+    console.warn("[auth] STRIPE_WEBHOOK_SECRET is missing — billing disabled");
+  }
+
   if (hasLiveStripeKey && env.STRIPE_WEBHOOK_SECRET) {
     const stripeClient = new Stripe(stripeKey);
 
@@ -113,18 +127,28 @@ export function createAuth(
                 .orderBy(desc(billingSchema.plan.createdAt));
 
               if (rows.length > 0) {
-                return rows.map((row) => ({
-                  name: row.name,
-                  priceId: row.priceId,
-                  ...(row.annualDiscountPriceId
-                    ? { annualDiscountPriceId: row.annualDiscountPriceId }
-                    : {}),
-                  limits: row.limits
-                    ? (JSON.parse(row.limits) as Record<string, number>)
-                    : undefined,
-                }));
+                return rows.map((row) => {
+                  let limits: Record<string, number> | undefined;
+                  if (row.limits) {
+                    try {
+                      limits = JSON.parse(row.limits) as Record<string, number>;
+                    } catch (error) {
+                      // One malformed row must not discard every DB plan.
+                      console.warn(`[auth] invalid plan limits for ${row.name}`, error);
+                    }
+                  }
+                  return {
+                    name: row.name,
+                    priceId: row.priceId,
+                    ...(row.annualDiscountPriceId
+                      ? { annualDiscountPriceId: row.annualDiscountPriceId }
+                      : {}),
+                    ...(limits ? { limits } : {}),
+                  };
+                });
               }
-            } catch {
+            } catch (error) {
+              console.warn("[auth] could not load DB-managed plans — using fallback", error);
               // fall through to static fallback
             }
 
@@ -168,8 +192,9 @@ export function createAuth(
         .filter(Boolean),
       ...desktopOrigins,
       "quickcal-cf://",
-      "exp://",
-      "http://localhost:8081",
+      // Dev-client origins are broad (`exp://` can be claimed by any Expo
+      // client) — never trust them in production.
+      ...(env.NODE_ENV === "production" ? [] : ["exp://", "http://localhost:8081"]),
     ],
     emailAndPassword: {
       enabled: true,
@@ -203,20 +228,25 @@ export function createAuth(
       expiresIn: 60 * 60 * 24, // 24 hours
       sendVerificationEmail: async ({ user, token }) => {
         const url = `${webOrigin}/verify-email?token=${encodeURIComponent(token)}&email=${encodeURIComponent(user.email)}`;
-        const sent = await sendAuthEmail(emailConfig, {
-          to: user.email,
-          subject: "Verify your QuickCalAI email",
-          heading: "Confirm your email address",
-          bodyHtml:
-            "Welcome to QuickCalAI! Confirm your email address to finish setting up your account.",
-          actionUrl: url,
-          actionLabel: "Verify my email",
-          fallbackNote: "Didn't sign up for QuickCalAI? You can ignore this email.",
-        });
-        // Degrade gracefully when email isn't configured — sign-up should
-        // still succeed; the app surfaces a "resend" option later.
-        if (!sent) {
-          console.warn("[auth] RESEND_API_KEY not configured — skipping verification email");
+        try {
+          const sent = await sendAuthEmail(emailConfig, {
+            to: user.email,
+            subject: "Verify your QuickCalAI email",
+            heading: "Confirm your email address",
+            bodyHtml:
+              "Welcome to QuickCalAI! Confirm your email address to finish setting up your account.",
+            actionUrl: url,
+            actionLabel: "Verify my email",
+            fallbackNote: "Didn't sign up for QuickCalAI? You can ignore this email.",
+          });
+          // Degrade gracefully when email isn't configured — sign-up should
+          // still succeed; the app surfaces a "resend" option later.
+          if (!sent) {
+            console.warn("[auth] RESEND_API_KEY not configured — skipping verification email");
+          }
+        } catch (error) {
+          // A provider failure must not abort sign-up.
+          console.warn("[auth] verification email failed", error);
         }
       },
     },
@@ -243,6 +273,9 @@ export function createAuth(
       accountLinking: {
         enabled: true,
         trustedProviders: ["google"],
+        // Only link a Google identity to a local account whose email has
+        // been verified — prevents pre-hijacking of an unverified signup.
+        requireLocalEmailVerified: true,
       },
     },
     socialProviders: hasGoogleOAuth

@@ -1,12 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  api,
-  ApiError,
-  type DirectEvent,
-  type RnFilePart,
-  type ReviewEvent,
-  type UploadStatus,
-} from "./api";
+import { api, ApiError, type DirectEvent, type RnFilePart, type UploadStatus } from "./api";
 
 export const queryKeys = {
   me: ["me"] as const,
@@ -57,6 +50,9 @@ export function useUploadStatus(runId: string | null) {
       return failureCount < 1;
     },
     refetchInterval: (query) => {
+      // Stop polling once the request has failed for good (e.g. a permanent
+      // 404 for a run id that will never exist) or reached a terminal status.
+      if (query.state.status === "error") return false;
       const data = query.state.data;
       if (data && TERMINAL.has(data.status)) return false;
       return 2000;
@@ -82,6 +78,8 @@ export function useCreateUrlUpload() {
   return useMutation({
     mutationFn: (url: string) => api.createUploadFromUrl(url),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.uploads });
+      void qc.invalidateQueries({ queryKey: queryKeys.stats });
       void qc.invalidateQueries({ queryKey: queryKeys.me });
     },
   });
@@ -93,6 +91,8 @@ export function useCreateTextUpload() {
     mutationFn: (input: { content: string; title?: string }) =>
       api.createUploadFromText(input.content, input.title),
     onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.uploads });
+      void qc.invalidateQueries({ queryKey: queryKeys.stats });
       void qc.invalidateQueries({ queryKey: queryKeys.me });
     },
   });
@@ -164,9 +164,11 @@ export function useDeleteUpload() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.deleteUpload(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       void qc.invalidateQueries({ queryKey: queryKeys.uploads });
       void qc.invalidateQueries({ queryKey: queryKeys.stats });
+      // Drop per-upload data so a mounted review panel can't keep serving it.
+      qc.removeQueries({ queryKey: queryKeys.uploadEvents(id) });
     },
   });
 }
@@ -182,8 +184,13 @@ export function useRevokeShare() {
 }
 
 export function useManualEvent() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: api.manualEvent,
+    onSuccess: () => {
+      // Manual events are stored in the events table and appear in stats.
+      void qc.invalidateQueries({ queryKey: queryKeys.stats });
+    },
   });
 }
 

@@ -265,7 +265,6 @@ export const api = {
     date: string;
     time?: string;
     description?: string;
-    timezone?: string;
   }): Promise<{ eventId: string; icsContent: string; fileName: string }> {
     return request("/api/manual-event", { method: "POST", json: body });
   },
